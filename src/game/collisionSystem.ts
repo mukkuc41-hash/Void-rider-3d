@@ -455,6 +455,16 @@ export class CollisionEffectsPool {
   }
 }
 
+// Preallocated scratch vectors for zero-allocation GC-free collision mathematics
+const _deltaVec = new THREE.Vector3();
+const _normVec = new THREE.Vector3();
+const _pushAVec = new THREE.Vector3();
+const _pushBVec = new THREE.Vector3();
+const _relVelVec = new THREE.Vector3();
+const _contactPoint = new THREE.Vector3();
+const _upAxis = new THREE.Vector3(0, 1, 0);
+const _crossVec = new THREE.Vector3();
+
 /**
  * Dedicated Player-to-Player & AI Spacecraft Collision Manager
  * Uses broad-phase spline spatial binning and optimized 3D narrow-phase resolution.
@@ -547,30 +557,30 @@ export class PlayerCollisionSystem {
       this.spatialBins[binIdx].push(p.id);
     }
 
-    // Narrow-phase: Check pairs only within same or adjacent bins (wrapping around track)
-    const testedPairs = new Set<string>();
-
+    // Narrow-phase: Check pairs cleanly without allocating Sets or spreading arrays
     for (let b = 0; b < this.NUM_BINS; b++) {
       const currentBin = this.spatialBins[b];
-      const nextBin = this.spatialBins[(b + 1) % this.NUM_BINS];
+      const count = currentBin.length;
+      if (count === 0) continue;
 
-      const candidates = [...currentBin, ...nextBin];
-      const count = candidates.length;
-
+      // 1. Pairs within same bin
       for (let i = 0; i < count; i++) {
         for (let j = i + 1; j < count; j++) {
-          const idA = candidates[i];
-          const idB = candidates[j];
-          if (idA === idB) continue;
-
-          const pairKey = idA < idB ? `${idA}_${idB}` : `${idB}_${idA}`;
-          if (testedPairs.has(pairKey)) continue;
-          testedPairs.add(pairKey);
-
-          const shipA = this.participants.get(idA);
-          const shipB = this.participants.get(idB);
+          const shipA = this.participants.get(currentBin[i]);
+          const shipB = this.participants.get(currentBin[j]);
           if (!shipA || !shipB || shipA.isDestroyed || shipB.isDestroyed) continue;
+          this.resolveShipPair(shipA, shipB, dt);
+        }
+      }
 
+      // 2. Pairs between current bin and adjacent bin
+      const nextBin = this.spatialBins[(b + 1) % this.NUM_BINS];
+      const nextCount = nextBin.length;
+      for (let i = 0; i < count; i++) {
+        for (let j = 0; j < nextCount; j++) {
+          const shipA = this.participants.get(currentBin[i]);
+          const shipB = this.participants.get(nextBin[j]);
+          if (!shipA || !shipB || shipA.isDestroyed || shipB.isDestroyed) continue;
           this.resolveShipPair(shipA, shipB, dt);
         }
       }
@@ -586,14 +596,18 @@ export class PlayerCollisionSystem {
     const isBInvulnerable = shipB.invulnerableTimer > 0;
 
     const minRadius = shipA.radius + shipB.radius;
-    const delta = shipA.position.clone().sub(shipB.position);
-    const dist = delta.length();
+    _deltaVec.subVectors(shipA.position, shipB.position);
+    const dist = _deltaVec.length();
 
     // No intersection
     if (dist >= minRadius) return;
 
     // Normal separation direction
-    const normal = dist > 0.0001 ? delta.clone().normalize() : new THREE.Vector3(1, 0, 0);
+    if (dist > 0.0001) {
+      _normVec.copy(_deltaVec).divideScalar(dist);
+    } else {
+      _normVec.set(1, 0, 0);
+    }
     const penetration = minRadius - dist;
 
     // 1. Ship Physical Separation (Anti-Stuck Failsafe)
@@ -602,14 +616,15 @@ export class PlayerCollisionSystem {
     const invMassB = 1.0 / Math.max(0.2, shipB.mass);
     const totalInvMass = invMassA + invMassB;
 
-    const pushA = normal.clone().multiplyScalar(penetration * (invMassA / totalInvMass));
-    const pushB = normal.clone().multiplyScalar(-penetration * (invMassB / totalInvMass));
+    _pushAVec.copy(_normVec).multiplyScalar(penetration * (invMassA / totalInvMass));
+    _pushBVec.copy(_normVec).multiplyScalar(-penetration * (invMassB / totalInvMass));
 
-    shipA.position.add(pushA);
-    shipB.position.add(pushB);
+    shipA.position.add(_pushAVec);
+    shipB.position.add(_pushBVec);
 
     // Also adjust lateral offsets to maintain track-bound physics
-    const lateralNormalA = normal.dot(shipA.direction.clone().cross(new THREE.Vector3(0, 1, 0)));
+    _crossVec.crossVectors(shipA.direction, _upAxis);
+    const lateralNormalA = _normVec.dot(_crossVec);
     const lateralPush = Math.sign(lateralNormalA) || (Math.random() > 0.5 ? 1 : -1);
     shipA.lateralOffset += lateralPush * penetration * 0.45;
     shipB.lateralOffset -= lateralPush * penetration * 0.45;
@@ -624,8 +639,8 @@ export class PlayerCollisionSystem {
     shipB.collisionCooldown = this.config.collisionCooldown;
 
     // 2. Relative Velocity & Impact Force Calculation
-    const relVel = shipA.velocity.clone().sub(shipB.velocity);
-    const closingSpeed = Math.max(0, -relVel.dot(normal));
+    _relVelVec.subVectors(shipA.velocity, shipB.velocity);
+    const closingSpeed = Math.max(0, -_relVelVec.dot(_normVec));
 
     // Collision angle classification
     const headingDot = shipA.direction.dot(shipB.direction);
@@ -656,12 +671,10 @@ export class PlayerCollisionSystem {
     const isCritical = impactForce >= this.config.crashThreshold;
 
     // Contact Midpoint for effects
-    const contactPoint = shipA.position.clone().add(shipB.position).multiplyScalar(0.5);
+    _contactPoint.addVectors(shipA.position, shipB.position).multiplyScalar(0.5);
 
     // 3. Arcade Spin / Rotational Impulse & Knockback
     const knockbackMag = Math.min(this.config.maxKnockback, impactForce * this.config.knockbackMultiplier * 2.8);
-    const knockbackA = normal.clone().multiplyScalar(knockbackMag * (invMassA / totalInvMass));
-    const knockbackB = normal.clone().multiplyScalar(-knockbackMag * (invMassB / totalInvMass));
 
     // Apply knockback to speeds
     if (isSideCollision) {
@@ -728,16 +741,22 @@ export class PlayerCollisionSystem {
       shipB.applyDamage?.(shieldDmgB, hullDmgB, impactForce);
     }
 
-    // 5. Crash Threshold Check
+    // 5. Crash Threshold Check:
+    // With shields intact, ships absorb and deflect impacts with spin and knockback!
+    // A crash is only sustained if hull is reduced to 0 OR if the impact is an overwhelming catastrophic smash (e.g. 1.6x crashThreshold AND shields are depleted).
     let shipACrashed = false;
     let shipBCrashed = false;
 
-    if (!isAInvulnerable && (isCritical || shipA.hull <= 0)) {
+    const catastrophicThreshold = this.config.crashThreshold * 1.6;
+    const canACrash = !isAInvulnerable && (shipA.hull <= 0 || (isCritical && shipA.shield <= 0) || impactForce >= catastrophicThreshold);
+    const canBCrash = !isBInvulnerable && (shipB.hull <= 0 || (isCritical && shipB.shield <= 0) || impactForce >= catastrophicThreshold);
+
+    if (canACrash) {
       shipACrashed = true;
       shipA.isDestroyed = true;
       shipA.onCrash?.('CRITICAL COLLISION IMPACT');
     }
-    if (!isBInvulnerable && (isCritical || shipB.hull <= 0)) {
+    if (canBCrash) {
       shipBCrashed = true;
       shipB.isDestroyed = true;
       shipB.onCrash?.('CRITICAL COLLISION IMPACT');
@@ -764,7 +783,7 @@ export class PlayerCollisionSystem {
         ? 0x00f0ff
         : 0xffffff;
 
-    this.effectsPool.triggerImpactEffect(effectType, contactPoint, normal, impactForce, effectColor);
+    this.effectsPool.triggerImpactEffect(effectType, _contactPoint, _normVec, impactForce, effectColor);
 
     // 7. Audio & Camera Reactions
     const involvesLocalPlayer = shipA.category === 'PLAYER' || shipB.category === 'PLAYER';

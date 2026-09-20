@@ -869,16 +869,34 @@ export class CosmicTrack {
     return null;
   }
 
-  public getSampleAt(t: number) {
-    const wrappedT = ((t % 1) + 1) % 1;
-    const index = Math.min(
-      Math.floor(wrappedT * (this.samples.length - 1)),
-      this.samples.length - 1
-    );
-    return this.samples[index];
+  public getSampleAt(t: number): SamplePoint {
+    if (!this.samples || this.samples.length === 0) {
+      return {
+        t: 0,
+        point: new THREE.Vector3(0, 0, 0),
+        tangent: new THREE.Vector3(0, 0, -1),
+        normal: new THREE.Vector3(0, 1, 0),
+        binormal: new THREE.Vector3(1, 0, 0),
+      };
+    }
+    const safeT = isNaN(t) || !isFinite(t) ? 0 : t;
+    const wrappedT = ((safeT % 1) + 1) % 1;
+    const maxIdx = this.samples.length - 1;
+    const rawIndex = Math.floor(wrappedT * maxIdx);
+    const index = isNaN(rawIndex) ? 0 : Math.max(0, Math.min(maxIdx, rawIndex));
+    return this.samples[index] || this.samples[0];
   }
 
   public findClosestProgress(position: THREE.Vector3): { t: number; distance: number; point: THREE.Vector3; lateralOffset: number } {
+    if (!this.samples || this.samples.length === 0) {
+      return {
+        t: 0,
+        distance: 0,
+        point: new THREE.Vector3(0, 0, 0),
+        lateralOffset: 0,
+      };
+    }
+    const safePos = position && isFinite(position.x) ? position : new THREE.Vector3(0, 0, 0);
     let bestDistSq = Infinity;
     let bestT = 0;
     let bestPoint = this.samples[0].point;
@@ -887,7 +905,7 @@ export class CosmicTrack {
     let bestIdx = 0;
 
     for (let i = 0; i < this.samples.length; i += step) {
-      const dSq = position.distanceToSquared(this.samples[i].point);
+      const dSq = safePos.distanceToSquared(this.samples[i].point);
       if (dSq < bestDistSq) {
         bestDistSq = dSq;
         bestIdx = i;
@@ -899,7 +917,7 @@ export class CosmicTrack {
     const end = Math.min(this.samples.length - 1, bestIdx + searchRadius);
 
     for (let i = start; i <= end; i++) {
-      const dSq = position.distanceToSquared(this.samples[i].point);
+      const dSq = safePos.distanceToSquared(this.samples[i].point);
       if (dSq < bestDistSq) {
         bestDistSq = dSq;
         bestT = this.samples[i].t;
@@ -908,14 +926,14 @@ export class CosmicTrack {
       }
     }
 
-    const toPos = new THREE.Vector3().subVectors(position, bestPoint);
+    const toPos = new THREE.Vector3().subVectors(safePos, bestPoint);
     const lateralOffset = toPos.dot(bestBinormal);
 
     return {
       t: bestT,
-      distance: Math.sqrt(bestDistSq),
+      distance: Math.sqrt(isFinite(bestDistSq) ? bestDistSq : 0),
       point: bestPoint,
-      lateralOffset,
+      lateralOffset: isFinite(lateralOffset) ? lateralOffset : 0,
     };
   }
 }

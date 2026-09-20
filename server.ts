@@ -702,23 +702,33 @@ setInterval(() => {
 
 // Setup Vite middleware / static files
 async function start() {
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
+  try {
+    if (process.env.NODE_ENV !== 'production') {
+      const isHmrDisabled = process.env.DISABLE_HMR === 'true';
+      const vite = await createViteServer({
+        server: {
+          middlewareMode: true,
+          hmr: isHmrDisabled ? false : { server },
+        },
+        appType: 'spa',
+        clearScreen: false,
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
 
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Void-Rider 3D Server running on http://0.0.0.0:${PORT}`);
-  });
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`Void-Rider 3D Server running on http://0.0.0.0:${PORT}`);
+    });
+  } catch (error) {
+    console.error('[Void-Rider 3D Server] Fatal error during startup:', error);
+    process.exit(1);
+  }
 }
 
 start();

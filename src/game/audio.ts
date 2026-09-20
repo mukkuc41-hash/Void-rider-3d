@@ -53,15 +53,17 @@ class SoundSystem {
   }
 
   private initContext() {
-    if (!this.ctx) {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioContextClass) {
-        this.ctx = new AudioContextClass();
+    try {
+      if (!this.ctx) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          this.ctx = new AudioContextClass();
+        }
       }
-    }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+    } catch (_) {}
   }
 
   public startEngine() {
@@ -105,25 +107,28 @@ class SoundSystem {
 
   public updateEngine(speedNorm: number, isBoosting: boolean) {
     if (!this.ctx || !this.engineOsc || !this.engineFilter || !this.engineGain) return;
-    const now = this.ctx.currentTime;
-    
-    // Pitch scales with normalized speed (0.0 to 1.5+)
-    const targetFreq = 70 + speedNorm * 180 + (isBoosting ? 90 : 0);
-    this.engineOsc.frequency.setTargetAtTime(targetFreq, now, 0.05);
+    try {
+      const now = this.ctx.currentTime;
+      const safeNorm = isNaN(speedNorm) || !isFinite(speedNorm) ? 0 : Math.max(0, Math.min(3, speedNorm));
+      
+      // Pitch scales with normalized speed (0.0 to 1.5+)
+      const targetFreq = 70 + safeNorm * 180 + (isBoosting ? 90 : 0);
+      this.engineOsc.frequency.setTargetAtTime(targetFreq, now, 0.05);
 
-    const filterFreq = 300 + speedNorm * 800 + (isBoosting ? 600 : 0);
-    this.engineFilter.frequency.setTargetAtTime(filterFreq, now, 0.05);
+      const filterFreq = 300 + safeNorm * 800 + (isBoosting ? 600 : 0);
+      this.engineFilter.frequency.setTargetAtTime(filterFreq, now, 0.05);
 
-    const targetGain = this.sfxEnabled ? (0.05 + speedNorm * 0.12) * this.volume : 0;
-    this.engineGain.gain.setTargetAtTime(targetGain, now, 0.05);
+      const targetGain = this.sfxEnabled ? (0.05 + safeNorm * 0.12) * this.volume : 0;
+      this.engineGain.gain.setTargetAtTime(targetGain, now, 0.05);
 
-    if (this.boostGain && this.boostOsc) {
-      const boostTarget = (this.sfxEnabled && isBoosting) ? 0.18 * this.volume : 0;
-      this.boostGain.gain.setTargetAtTime(boostTarget, now, 0.05);
-      if (isBoosting) {
-        this.boostOsc.frequency.setTargetAtTime(360 + Math.sin(now * 25) * 40, now, 0.03);
+      if (this.boostGain && this.boostOsc) {
+        const boostTarget = (this.sfxEnabled && isBoosting) ? 0.18 * this.volume : 0;
+        this.boostGain.gain.setTargetAtTime(boostTarget, now, 0.05);
+        if (isBoosting) {
+          this.boostOsc.frequency.setTargetAtTime(360 + Math.sin(now * 25) * 40, now, 0.03);
+        }
       }
-    }
+    } catch (_) {}
   }
 
   public stopEngine() {
@@ -189,6 +194,34 @@ class SoundSystem {
       osc.stop(now + 0.06);
     } catch {
       // fallback
+    }
+  }
+
+  public playRouteSelected() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      // Futuristic resonant tri-tone ascending sweep (F5 -> A5 -> C6)
+      const freqs = [698.46, 880.0, 1046.5];
+      freqs.forEach((freq, idx) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.035);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.08, now + idx * 0.035 + 0.12);
+
+        gain.gain.setValueAtTime(0.14 * this.volume, now + idx * 0.035);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.035 + 0.22);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now + idx * 0.035);
+        osc.stop(now + idx * 0.035 + 0.25);
+      });
+    } catch {
+      // Audio fallback
     }
   }
 

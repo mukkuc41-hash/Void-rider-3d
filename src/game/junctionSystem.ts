@@ -22,6 +22,15 @@ export interface BranchRouteConfig {
   lateralDivergence: number; // Max peak lateral offset from main track
   elevationOffset?: number; // Optional 3D flyover or dive
   requiredCheckpointIndices: number[]; // Checkpoints satisfied along this branch
+  // Tactical telemetry and route-aware progress metadata
+  entryJunctionId?: string;
+  exitSegmentId?: string;
+  requiredCheckpoints?: string[];
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | 'EXTREME';
+  hasShortcut?: boolean;
+  description?: string;
+  boostPadCount?: number;
+  obstacleCount?: number;
 }
 
 export interface JunctionZoneConfig {
@@ -47,6 +56,14 @@ export interface ActiveJunctionTelemetry {
   isInJunction: boolean;
   progressInRoute: number;
   bannerText: string;
+  // Enhanced attributes for HUD & Mobile Controls
+  isApproaching: boolean;
+  distanceToJunction: number;
+  name: string;
+  timeRemainingSec: number;
+  playerInBranch: boolean;
+  branchProgress: number;
+  status: 'APPROACHING' | 'ACTIVE' | 'PASSED';
 }
 
 export interface PlayerRouteProgress {
@@ -57,6 +74,7 @@ export interface PlayerRouteProgress {
   transitionBlend: number; // 0 to 1 smooth entry blend
   branchRouteInstance: BranchRouteInstance | null;
   entrySpeed: number;
+  validatedCheckpointIndices: Set<number>;
 }
 
 export class BranchRouteInstance {
@@ -143,12 +161,21 @@ export class BranchRouteInstance {
   }
 
   public getSampleAt(t: number): SamplePoint {
-    const clamped = Math.max(0, Math.min(1, t));
-    const index = Math.min(
-      Math.floor(clamped * (this.samples.length - 1)),
-      this.samples.length - 1
-    );
-    return this.samples[index];
+    if (!this.samples || this.samples.length === 0) {
+      return {
+        t: 0,
+        point: new THREE.Vector3(0, 0, 0),
+        tangent: new THREE.Vector3(0, 0, -1),
+        normal: new THREE.Vector3(0, 1, 0),
+        binormal: new THREE.Vector3(1, 0, 0),
+      };
+    }
+    const safeT = isNaN(t) || !isFinite(t) ? 0 : t;
+    const clamped = Math.max(0, Math.min(1, safeT));
+    const maxIdx = this.samples.length - 1;
+    const rawIdx = Math.floor(clamped * maxIdx);
+    const index = isNaN(rawIdx) ? 0 : Math.max(0, Math.min(maxIdx, rawIdx));
+    return this.samples[index] || this.samples[0];
   }
 
   private buildGeometry() {
@@ -1009,6 +1036,7 @@ export class JunctionManager {
     transitionBlend: 0,
     branchRouteInstance: null,
     entrySpeed: 0,
+    validatedCheckpointIndices: new Set<number>(),
   };
 
   // Feedback notification timer
@@ -1102,20 +1130,38 @@ export class JunctionManager {
   }
 
   /**
-   * 3. Route Selection
+   * 3. Route Selection (supports either (routeId) or (junctionId, routeId))
    */
-  public selectRoute(junctionId: string, routeId: string): boolean {
-    const junction = this.junctions.get(junctionId);
+  public selectRoute(routeIdOrJunctionId: string, maybeRouteId?: string): boolean {
+    let jId = this.activeJunctionTelemetry?.junctionId;
+    let rId = routeIdOrJunctionId;
+    if (maybeRouteId) {
+      jId = routeIdOrJunctionId;
+      rId = maybeRouteId;
+    }
+
+    if (!jId) {
+      // Find which junction has this routeId
+      for (const [id, j] of this.junctions.entries()) {
+        if (j.config.routes.some(r => r.id === rId)) {
+          jId = id;
+          break;
+        }
+      }
+    }
+
+    if (!jId) return false;
+    const junction = this.junctions.get(jId);
     if (!junction) return false;
 
-    const route = junction.config.routes.find(r => r.id === routeId);
+    const route = junction.config.routes.find(r => r.id === rId);
     if (!route) return false;
 
-    junction.selectedRouteId = routeId;
-    this.playerRouteProgress.activeRouteId = routeId;
-    this.playerRouteProgress.activeJunctionId = junctionId;
+    junction.selectedRouteId = rId;
+    this.playerRouteProgress.activeRouteId = rId;
+    this.playerRouteProgress.activeJunctionId = jId;
 
-    const dirLabel = route.direction === 'SHORTCUT' ? 'SHORTCUT' : route.direction;
+    const dirLabel = route.direction === 'SHORTCUT' ? 'SHORTCUT (RIGHT)' : route.direction;
     this.feedbackMessage = `ROUTE SELECTED: ${dirLabel} — ${route.name}`;
     this.feedbackTimer = 3.0;
 
@@ -1149,24 +1195,85 @@ export class JunctionManager {
   /**
    * 4. Route Validation
    */
-  public validateRoute(routeId: string, junctionId: string): boolean {
-    const junction = this.junctions.get(junctionId);
-    if (!junction) return false;
-    return junction.config.routes.some(r => r.id === routeId);
+  public validateRoute(routeId: string, junctionId?: string): boolean {
+    if (junctionId) {
+      const junction = this.junctions.get(junctionId);
+      return !!junction?.config.routes.some(r => r.id === routeId);
+    }
+    for (const j of this.junctions.values()) {
+      if (j.config.routes.some(r => r.id === routeId)) return true;
+    }
+    return false;
   }
 
   /**
    * 5. Default Route retrieval
    */
-  public getDefaultRoute(junction: JunctionZoneInstance): BranchRouteConfig {
-    const def = junction.config.routes.find(r => r.id === junction.config.defaultRouteId);
+  public getDefaultRoute(junctionOrId?: JunctionZoneInstance | string): BranchRouteConfig {
+    let junction: JunctionZoneInstance | undefined;
+    if (typeof junctionOrId === 'string') {
+      junction = this.junctions.get(junctionOrId);
+    } else if (junctionOrId) {
+      junction = junctionOrId;
+    } else if (this.activeJunctionTelemetry) {
+      junction = this.junctions.get(this.activeJunctionTelemetry.junctionId);
+    }
+
+    if (!junction) {
+      const firstJunction = Array.from(this.junctions.values())[0];
+      if (firstJunction) return firstJunction.config.routes[0];
+      return {
+        id: 'default_route',
+        name: 'MAIN HYPER-HIGHWAY',
+        direction: 'CENTER',
+        subtitle: 'Primary Cosmic Vector',
+        detail: 'Standard regulation vector corridor.',
+        themeColor: '#00f0ff',
+        isShortcut: false,
+        riskLevel: 'LOW',
+        hasBoostPads: false,
+        hasObstacles: false,
+        lengthMultiplier: 1.0,
+        width: 24,
+        lateralDivergence: 0,
+        requiredCheckpointIndices: [],
+      };
+    }
+
+    const def = junction.config.routes.find(r => r.id === junction!.config.defaultRouteId);
     return def || junction.config.routes[0];
   }
 
   /**
-   * 6. Smooth Transition to Route
+   * 6. Smooth Transition to Route (supports (routeId, speed) or (junction, routeId, speed))
    */
-  public transitionToRoute(junction: JunctionZoneInstance, routeId: string, currentSpeed: number) {
+  public transitionToRoute(
+    junctionOrRouteId: JunctionZoneInstance | string,
+    maybeRouteId?: string | number,
+    maybeSpeed?: number
+  ) {
+    let junction: JunctionZoneInstance | undefined;
+    let routeId: string = '';
+    let currentSpeed: number = 30;
+
+    if (typeof junctionOrRouteId === 'string') {
+      routeId = junctionOrRouteId;
+      if (typeof maybeRouteId === 'number') {
+        currentSpeed = maybeRouteId;
+      }
+      for (const j of this.junctions.values()) {
+        if (j.config.routes.some(r => r.id === routeId)) {
+          junction = j;
+          break;
+        }
+      }
+    } else {
+      junction = junctionOrRouteId;
+      routeId = typeof maybeRouteId === 'string' ? maybeRouteId : '';
+      currentSpeed = typeof maybeSpeed === 'number' ? maybeSpeed : 30;
+    }
+
+    if (!junction) return;
     const routeInst = junction.routeInstances.get(routeId);
     if (!routeInst) return;
 
@@ -1177,6 +1284,7 @@ export class JunctionManager {
     this.playerRouteProgress.progress = 0;
     this.playerRouteProgress.transitionBlend = 0;
     this.playerRouteProgress.entrySpeed = currentSpeed;
+    this.playerRouteProgress.validatedCheckpointIndices = new Set<number>();
   }
 
   /**
@@ -1205,14 +1313,33 @@ export class JunctionManager {
     prp.progress += advance;
     prp.transitionBlend = Math.min(1.0, prp.transitionBlend + dt * 2.5);
 
+    // Incremental real-time checkpoint validation during branch travel
+    if (routeInst.config.requiredCheckpointIndices && onCheckpointValidated) {
+      const cps = routeInst.config.requiredCheckpointIndices;
+      const count = cps.length;
+      cps.forEach((cpIdx, idx) => {
+        const threshold = (idx + 1) / (count + 1);
+        if (prp.progress >= threshold && !prp.validatedCheckpointIndices.has(cpIdx)) {
+          prp.validatedCheckpointIndices.add(cpIdx);
+          onCheckpointValidated([cpIdx]);
+        }
+      });
+    }
+
     // If reached end of branch
     if (prp.progress >= 1.0) {
       prp.isInBranch = false;
       const rejoinT = junction ? junction.config.junctionEndT : 0.5;
 
-      // Validate all required checkpoints for this branch route
+      // Validate any remaining checkpoints for this branch route
       if (routeInst.config.requiredCheckpointIndices && onCheckpointValidated) {
-        onCheckpointValidated(routeInst.config.requiredCheckpointIndices);
+        const remaining = routeInst.config.requiredCheckpointIndices.filter(
+          idx => !prp.validatedCheckpointIndices.has(idx)
+        );
+        if (remaining.length > 0) {
+          remaining.forEach(idx => prp.validatedCheckpointIndices.add(idx));
+          onCheckpointValidated(remaining);
+        }
       }
 
       this.feedbackMessage = `ROUTE COMPLETED: ${routeInst.config.name}`;
@@ -1222,6 +1349,7 @@ export class JunctionManager {
       prp.activeRouteId = null;
       prp.branchRouteInstance = null;
       prp.progress = 0;
+      prp.validatedCheckpointIndices.clear();
 
       return { finishedBranch: true, sample: null, lateralOffset: 0, rejoinSplineT: rejoinT };
     }
@@ -1260,10 +1388,15 @@ export class JunctionManager {
 
       junction.updateAnimation(totalTimeSec, selectedId);
 
+      const decisionSpeed = Math.max(20, currentSpeed);
+      const timeRemainingSec = Math.max(0.1, distanceM / decisionSpeed);
+
       this.activeJunctionTelemetry = {
         junctionId: junction.config.id,
         junctionName: junction.config.name,
+        name: junction.config.name,
         distanceToJunctionMeters: distanceM,
+        distanceToJunction: distanceM,
         availableRoutes: junction.config.routes,
         selectedRouteId: selectedId,
         selectedRouteDirection: selectedRoute ? selectedRoute.direction : null,
@@ -1271,6 +1404,11 @@ export class JunctionManager {
         isInJunction: isInJunction || this.playerRouteProgress.isInBranch,
         progressInRoute: this.playerRouteProgress.progress,
         bannerText: junction.config.bannerText,
+        isApproaching,
+        timeRemainingSec,
+        playerInBranch: this.playerRouteProgress.isInBranch,
+        branchProgress: this.playerRouteProgress.progress,
+        status: this.playerRouteProgress.isInBranch ? 'ACTIVE' : (isApproaching ? 'APPROACHING' : 'ACTIVE'),
       };
     } else {
       this.activeJunctionTelemetry = null;
@@ -1316,5 +1454,48 @@ export class JunctionManager {
       return safeRoute.id;
     }
     return Math.random() < 0.55 ? (shortcut ? shortcut.id : techRoute.id) : safeRoute.id;
+  }
+}
+
+// Reusable Architecture Utilities for RouteManager, CheckpointManager, and LapManager
+export const RouteManager = {
+  detectNearbyJunction: (manager: JunctionManager, splineT: number) => manager.detectNearbyJunction(splineT),
+  getAvailableRoutes: (manager: JunctionManager, junctionId: string) => manager.getAvailableRoutes(junctionId),
+  selectRoute: (manager: JunctionManager, routeId: string, junctionId?: string) => manager.selectRoute(routeId, junctionId),
+  validateRoute: (manager: JunctionManager, routeId: string, junctionId?: string) => manager.validateRoute(routeId, junctionId),
+  getDefaultRoute: (manager: JunctionManager, junction?: JunctionZoneInstance | string) => manager.getDefaultRoute(junction),
+  transitionToRoute: (manager: JunctionManager, routeId: string, speed?: number) => manager.transitionToRoute(routeId, speed),
+  updateRouteProgress: (manager: JunctionManager, dt: number, speed: number, onCp?: (cp: number[]) => void) =>
+    manager.updateRouteProgress(dt, speed, onCp),
+};
+
+export class CheckpointManager {
+  public static validateBranchCheckpoints(
+    requiredIndices: number[],
+    currentPassedSet: Set<number>,
+    nextCheckpointIdx: number,
+    totalCheckpoints: number
+  ): { validated: number[]; nextIdx: number } {
+    const validated: number[] = [];
+    let updatedNext = nextCheckpointIdx;
+    for (const cpIdx of requiredIndices) {
+      currentPassedSet.add(cpIdx);
+      validated.push(cpIdx);
+      if (updatedNext === cpIdx) {
+        updatedNext = (updatedNext + 1) % totalCheckpoints;
+      }
+    }
+    return { validated, nextIdx: updatedNext };
+  }
+}
+
+export class LapManager {
+  public static validateLapCompletion(
+    passedCheckpoints: Set<number>,
+    totalCheckpoints: number,
+    minCoverageFraction: number = 0.75
+  ): boolean {
+    if (totalCheckpoints <= 0) return true;
+    return (passedCheckpoints.size / totalCheckpoints) >= minCoverageFraction;
   }
 }

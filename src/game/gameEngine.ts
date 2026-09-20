@@ -118,7 +118,20 @@ export interface GameEngineCallbacks {
   onJunctionTelemetry?: (telemetry: ActiveJunctionTelemetry | null) => void;
   onRouteSelected?: (routeName: string, direction: BranchRouteDirection) => void;
   onCollisionFeedback?: (feedback: CollisionEventFeedback) => void;
+  onEngineReady?: () => void;
 }
+
+// Preallocated math objects for zero-allocation GC-free render loop
+const _shipRotMatrix = new THREE.Matrix4();
+const _shipNegTangent = new THREE.Vector3();
+const _shipPos = new THREE.Vector3();
+const _shipOffsetBinormal = new THREE.Vector3();
+const _shipOffsetNormal = new THREE.Vector3();
+const _botRotMatrix = new THREE.Matrix4();
+const _botNegTangent = new THREE.Vector3();
+const _botPos = new THREE.Vector3();
+const _botOffsetBinormal = new THREE.Vector3();
+const _botOffsetNormal = new THREE.Vector3();
 
 export class GameEngine {
   private container: HTMLElement;
@@ -126,6 +139,8 @@ export class GameEngine {
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
   private animFrameId: number = 0;
+  private isContextLost: boolean = false;
+  private resizeObserver: ResizeObserver | null = null;
 
   // Dedicated Player-to-Player & AI Spacecraft Collision System
   public collisionSystem: PlayerCollisionSystem;
@@ -143,7 +158,7 @@ export class GameEngine {
   public localBeamUpgrades: BeamUpgrades = { ...DEFAULT_BEAM_UPGRADES };
 
   public trackId: TrackId = 'circuit_alpha';
-  public track: CosmicTrack = defaultTrack;
+  public track: CosmicTrack = new CosmicTrack('circuit_alpha');
 
   // Visual Assets
   private trackMeshGroup: THREE.Group = new THREE.Group();
@@ -316,12 +331,16 @@ export class GameEngine {
     this.container = container;
     this.callbacks = callbacks;
 
+    // Safe initial dimensions
+    const initialWidth = Math.max(1, this.container.clientWidth || window.innerWidth || 1280);
+    const initialHeight = Math.max(1, this.container.clientHeight || window.innerHeight || 720);
+
     // Scene & Camera
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.FogExp2(0x050510, 0.0012);
     this.camera = new THREE.PerspectiveCamera(
       65,
-      this.container.clientWidth / this.container.clientHeight,
+      initialWidth / initialHeight,
       0.5,
       4000
     );
@@ -332,11 +351,31 @@ export class GameEngine {
       antialias: true,
       powerPreference: 'high-performance',
     });
-    this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(initialWidth, initialHeight, false);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.3;
+
+    // Fluid canvas styling ensuring full viewport coverage
+    this.renderer.domElement.style.width = '100%';
+    this.renderer.domElement.style.height = '100%';
+    this.renderer.domElement.style.display = 'block';
+    this.renderer.domElement.style.position = 'absolute';
+    this.renderer.domElement.style.top = '0';
+    this.renderer.domElement.style.left = '0';
     this.container.appendChild(this.renderer.domElement);
+
+    // WebGL Context Safety Handlers
+    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this.isContextLost = true;
+      console.warn('[VOID-RIDER Engine] WebGL Context Lost. Pausing render loop safely.');
+    }, false);
+
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => {
+      this.isContextLost = false;
+      console.log('[VOID-RIDER Engine] WebGL Context Restored. Resuming render loop.');
+    }, false);
 
     // Build World
     this.initLighting();
@@ -391,12 +430,28 @@ export class GameEngine {
       }
     };
 
-    // Resize Handler
+    // Prewarm Shaders & Compile Scene Ahead of Time for Stutter-Free Start
+    try {
+      this.renderer.compile(this.scene, this.camera);
+    } catch (_) {}
+
+    // Resize Handlers (Window & ResizeObserver)
     window.addEventListener('resize', this.onResize);
+    if (typeof ResizeObserver !== 'undefined' && this.container) {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.onResize();
+      });
+      this.resizeObserver.observe(this.container);
+    }
 
     // Start Render Loop
     this.clock = new THREE.Clock();
     this.loop();
+
+    // Notify ready
+    requestAnimationFrame(() => {
+      this.callbacks.onEngineReady?.();
+    });
   }
 
   private initLighting() {
@@ -1442,6 +1497,23 @@ export class GameEngine {
       this.playerShipGroup.visible = true;
     }
     this.updateShipTransform(0);
+    this.snapCameraToShip();
+  }
+
+  public snapCameraToShip() {
+    if (!this.playerShipGroup || !this.track) return;
+    const sample = this.track.getSampleAt(this.splineT);
+    const behindDistance = 14;
+    const heightOffset = 5.2;
+    const targetCamPos = this.playerShipGroup.position
+      .clone()
+      .add(sample.tangent.clone().multiplyScalar(-behindDistance))
+      .add(sample.normal.clone().multiplyScalar(heightOffset));
+    const lookTarget = this.playerShipGroup.position
+      .clone()
+      .add(sample.tangent.clone().multiplyScalar(25));
+    this.camera.position.copy(targetCamPos);
+    this.camera.lookAt(lookTarget);
   }
 
   public startRace() {
@@ -1628,12 +1700,73 @@ export class GameEngine {
       this.lateralOffset = THREE.MathUtils.lerp(this.lateralOffset, 0, 4.0 * dt);
     }
 
-    const maxHalfW = this.track.width / 2 - 1.8;
+    // Lane Guidance: smoothly bias ship lateral position toward chosen route as junction approaches
+    const juncTelem = this.junctionManager.activeJunctionTelemetry;
+    if (
+      juncTelem &&
+      juncTelem.isApproaching &&
+      juncTelem.selectedRouteDirection &&
+      !this.junctionManager.playerRouteProgress.isInBranch
+    ) {
+      let targetLane = 0;
+      if (juncTelem.selectedRouteDirection === 'LEFT') {
+        targetLane = -this.track.width * 0.28;
+      } else if (
+        juncTelem.selectedRouteDirection === 'RIGHT' ||
+        juncTelem.selectedRouteDirection === 'SHORTCUT'
+      ) {
+        targetLane = this.track.width * 0.28;
+      }
+      // If player is not actively steering hard in opposite direction, smoothly assist lane placement
+      if (Math.abs(effectiveSteer) < 0.3) {
+        this.lateralOffset = THREE.MathUtils.lerp(this.lateralOffset, targetLane, dt * 2.2);
+      }
+    }
+
+    const prpState = this.junctionManager.playerRouteProgress;
+    const currentTrackWidth =
+      prpState.isInBranch && prpState.branchRouteInstance
+        ? prpState.branchRouteInstance.config.width
+        : this.track.width;
+    const maxHalfW = currentTrackWidth / 2 - 1.8;
+
     if (Math.abs(this.lateralOffset) > maxHalfW) {
       this.lateralOffset = Math.sign(this.lateralOffset) * maxHalfW;
       this.currentSpeed = Math.max(10, this.currentSpeed * 0.75);
       if (this.cameraShakeEnabled) this.cameraShake = 0.5;
       sound.playCollision();
+    }
+
+    // Branch Obstacle Collision Check
+    if (this.collisionCooldown <= 0 && this.isRacing && prpState.isInBranch && prpState.branchRouteInstance) {
+      const shipPos = this.playerShipGroup.position;
+      for (const obsPos of prpState.branchRouteInstance.obstaclePositions) {
+        if (shipPos.distanceTo(obsPos) < 4.2) {
+          if (this.phaseShieldTimer > 0) {
+            sound.playShieldDeflect();
+            if (this.cameraShakeEnabled) this.cameraShake = 0.35;
+            this.triggerCollisionBurst(shipPos, 0x00f0ff, 28);
+            this.collisionCooldown = 0.5;
+            this.callbacks.onHazardHit?.('PHASE SHIELD DEFLECTED ASTEROID!');
+          } else {
+            sound.playAsteroidHit();
+            if (this.cameraShakeEnabled) this.cameraShake = 0.85;
+            this.currentSpeed = Math.max(12, this.currentSpeed * 0.5);
+            this.lateralOffset += this.lateralOffset >= 0 ? 3 : -3;
+            this.collisionCooldown = 1.2;
+            this.hullHealth = Math.max(0, this.hullHealth - 20);
+            this.hitCount++;
+            this.triggerCollisionBurst(shipPos, 0xff0055, 32);
+            this.callbacks.onHullUpdate?.(this.hullHealth);
+            this.callbacks.onHazardHit?.('BRANCH ASTEROID IMPACT');
+            if (this.hullHealth <= 0) {
+              this.destroyPlayerShip('HULL CRITICALLY BREACHED');
+              return;
+            }
+          }
+          break;
+        }
+      }
     }
 
     if (this.collisionCooldown <= 0 && this.isRacing) {
@@ -1888,7 +2021,7 @@ export class GameEngine {
     if (this.input.selectRouteDirection) {
       const success = this.junctionManager.selectRouteByDirection(this.input.selectRouteDirection);
       if (success) {
-        sound.playMenuClick();
+        sound.playRouteSelected();
         const selRoute = this.junctionManager.activeJunctionTelemetry?.availableRoutes.find(
           r => r.id === this.junctionManager.playerRouteProgress.activeRouteId
         );
@@ -1912,6 +2045,7 @@ export class GameEngine {
           if (this.nextCheckpointIdx === cpIdx) {
             this.nextCheckpointIdx = (this.nextCheckpointIdx + 1) % this.track.checkpoints.length;
             this.callbacks.onCheckpointUpdate(this.nextCheckpointIdx, this.track.checkpoints.length);
+            sound.playCheckpoint();
           }
         });
       });
@@ -2039,19 +2173,23 @@ export class GameEngine {
       sample = this.track.getSampleAt(this.splineT);
     }
 
-    const shipPos = sample.point
-      .clone()
-      .add(sample.binormal.clone().multiplyScalar(this.lateralOffset))
-      .add(sample.normal.clone().multiplyScalar(hoverHeight));
+    _shipOffsetBinormal.copy(sample.binormal).multiplyScalar(this.lateralOffset);
+    _shipOffsetNormal.copy(sample.normal).multiplyScalar(hoverHeight);
+    _shipPos.copy(sample.point).add(_shipOffsetBinormal).add(_shipOffsetNormal);
 
-    this.playerShipGroup.position.copy(shipPos);
+    if (isFinite(_shipPos.x) && isFinite(_shipPos.y) && isFinite(_shipPos.z)) {
+      this.playerShipGroup.position.copy(_shipPos);
+    }
 
     const targetRoll = -this.input.steer * (this.isDrifting ? 0.75 : 0.45);
     this.shipRoll = THREE.MathUtils.lerp(this.shipRoll, targetRoll, 0.12);
 
-    const rotMatrix = new THREE.Matrix4();
-    rotMatrix.makeBasis(sample.binormal, sample.normal, sample.tangent.clone().negate());
-    this.playerShipGroup.quaternion.setFromRotationMatrix(rotMatrix);
+    _shipNegTangent.copy(sample.tangent).negate();
+    if (sample.binormal.lengthSq() > 0.001 && sample.normal.lengthSq() > 0.001 && _shipNegTangent.lengthSq() > 0.001) {
+      _shipRotMatrix.makeBasis(sample.binormal, sample.normal, _shipNegTangent);
+      this.playerShipGroup.quaternion.setFromRotationMatrix(_shipRotMatrix);
+    }
+
     this.playerShipGroup.rotateZ(this.shipRoll);
     if (Math.abs(this.playerCollisionAngularDisplacement) > 0.001) {
       this.playerShipGroup.rotateY(this.playerCollisionAngularDisplacement);
@@ -2182,9 +2320,23 @@ export class GameEngine {
       if (player.raceState) {
         const isFirstPlacement = remote.targetPos.lengthSq() === 0;
         if (player.isBot) {
-          const trackLen = this.track.totalLength || 4600;
-          const botT = ((player.raceState.progressDistance % trackLen) / trackLen);
-          const sample = this.track.getSampleAt(botT);
+          let sample: SamplePoint;
+          if (player.raceState.currentRouteId && player.raceState.junctionId) {
+            const junc = this.junctionManager.junctions.get(player.raceState.junctionId);
+            const routeInst = junc?.routeInstances.get(player.raceState.currentRouteId);
+            if (routeInst) {
+              const bProg = Math.min(1.0, (player.raceState.progressDistance % routeInst.totalLength) / routeInst.totalLength);
+              sample = routeInst.getSampleAt(bProg);
+            } else {
+              const trackLen = this.track.totalLength || 4600;
+              const botT = ((player.raceState.progressDistance % trackLen) / trackLen);
+              sample = this.track.getSampleAt(botT);
+            }
+          } else {
+            const trackLen = this.track.totalLength || 4600;
+            const botT = ((player.raceState.progressDistance % trackLen) / trackLen);
+            sample = this.track.getSampleAt(botT);
+          }
 
           let hash = 0;
           for (let i = 0; i < pid.length; i++) hash = (hash << 5) - hash + pid.charCodeAt(i);
@@ -2897,6 +3049,9 @@ export class GameEngine {
     this.isBoosting = false;
     this.isDrifting = false;
     this.driftChargeTime = 0;
+    this.playerCollisionAngularVelocity = 0;
+    this.playerCollisionAngularDisplacement = 0;
+    this.playerCollisionRecoveryTimer = 0;
     sound.playExplosion();
 
     const shipPos = this.playerShipGroup?.position || new THREE.Vector3();
@@ -2922,6 +3077,13 @@ export class GameEngine {
     this.currentSpeed = 16;
     this.hullHealth = 100;
     this.invulnerableTimer = 2.5;
+    this.shipRoll = 0;
+    this.playerCollisionAngularVelocity = 0;
+    this.playerCollisionAngularDisplacement = 0;
+    this.playerCollisionRecoveryTimer = 0;
+    this.collisionCooldown = 1.5;
+    this.cameraShake = 0;
+    this.collisionFovPunch = 0;
 
     if (this.playerShipGroup) {
       this.playerShipGroup.visible = true;
@@ -2933,6 +3095,8 @@ export class GameEngine {
 
     this.callbacks.onShipRespawned?.();
     this.callbacks.onHullUpdate?.(100);
+    this.damageZones.shieldCore = 100;
+    this.callbacks.onDamageZonesUpdate?.({ ...this.damageZones });
     this.callbacks.onWrongWayUpdate?.(false);
     this.isWrongWay = false;
     this.wrongWayTimer = 0;
@@ -3040,6 +3204,9 @@ export class GameEngine {
 
   public clearAIRacers() {
     this.localAIRacers.forEach(ai => {
+      if (this.collisionSystem) {
+        this.collisionSystem.unregisterParticipant(ai.id);
+      }
       this.scene.remove(ai.group);
       ai.group.traverse(child => {
         if (child instanceof THREE.Mesh) {
@@ -3048,6 +3215,12 @@ export class GameEngine {
             child.material.forEach(m => m.dispose());
           } else {
             child.material?.dispose();
+          }
+        } else if (child instanceof THREE.Sprite) {
+          child.geometry?.dispose();
+          if (child.material) {
+            child.material.map?.dispose();
+            child.material.dispose();
           }
         }
       });
@@ -3407,15 +3580,19 @@ export class GameEngine {
       }
 
       const hoverH = 1.5 + Math.sin(time + i) * 0.12;
-      const botPos = sample.point
-        .clone()
-        .add(sample.binormal.clone().multiplyScalar(ai.currentLateral))
-        .add(sample.normal.clone().multiplyScalar(hoverH));
+      _botOffsetBinormal.copy(sample.binormal).multiplyScalar(ai.currentLateral);
+      _botOffsetNormal.copy(sample.normal).multiplyScalar(hoverH);
+      _botPos.copy(sample.point).add(_botOffsetBinormal).add(_botOffsetNormal);
 
-      ai.group.position.copy(botPos);
-      const rotMatrix = new THREE.Matrix4();
-      rotMatrix.makeBasis(sample.binormal, sample.normal, sample.tangent.clone().negate());
-      ai.group.quaternion.setFromRotationMatrix(rotMatrix);
+      if (isFinite(_botPos.x) && isFinite(_botPos.y) && isFinite(_botPos.z)) {
+        ai.group.position.copy(_botPos);
+      }
+
+      _botNegTangent.copy(sample.tangent).negate();
+      if (sample.binormal.lengthSq() > 0.001 && sample.normal.lengthSq() > 0.001 && _botNegTangent.lengthSq() > 0.001) {
+        _botRotMatrix.makeBasis(sample.binormal, sample.normal, _botNegTangent);
+        ai.group.quaternion.setFromRotationMatrix(_botRotMatrix);
+      }
 
       const lateralVel = (ai.targetLateral - ai.currentLateral);
       const bankRoll = -Math.sign(lateralVel) * Math.min(0.45, Math.abs(lateralVel) * 0.1);
@@ -3469,27 +3646,47 @@ export class GameEngine {
 
   private loop = () => {
     this.animFrameId = requestAnimationFrame(this.loop);
-    const dt = Math.min(this.clock.getDelta(), 0.1);
+    if (this.isContextLost) return;
 
-    if (!this.isPaused) {
-      this.updatePhysics(dt);
-      this.updateAIRacers(dt);
-      this.updatePowerUps(dt);
-      this.updateCredits(dt);
-      this.updatePowerUpPods(dt);
-      this.updateEnergyBarriers(dt);
-      this.updateCelestialBodies(dt);
-      this.updateThrusterParticles(dt);
-      this.updateCollisionSparks(dt);
-      this.updateRemotePlayersInterpolation(dt);
-      this.updateCamera(dt);
-      this.updateSpeedParticles();
-      this.updateAsteroids(dt);
-      this.updateBeamSystem(dt);
-      this.updateJunctions(dt);
+    try {
+      const rawDt = this.clock.getDelta();
+      const dt = isNaN(rawDt) || !isFinite(rawDt) ? 0.016 : Math.min(Math.max(0, rawDt), 0.1);
+
+      if (!this.isPaused) {
+        this.updatePhysics(dt);
+        this.updateAIRacers(dt);
+        this.updatePowerUps(dt);
+        this.updateCredits(dt);
+        this.updatePowerUpPods(dt);
+        this.updateEnergyBarriers(dt);
+        this.updateCelestialBodies(dt);
+        this.updateThrusterParticles(dt);
+        this.updateCollisionSparks(dt);
+        this.updateRemotePlayersInterpolation(dt);
+        this.updateCamera(dt);
+        this.updateSpeedParticles();
+        this.updateAsteroids(dt);
+        this.updateBeamSystem(dt);
+        this.updateJunctions(dt);
+      }
+
+      if (this.container) {
+        const cw = this.container.clientWidth;
+        const ch = this.container.clientHeight;
+        if (cw > 0 && ch > 0) {
+          const currentAspect = cw / ch;
+          if (!isFinite(this.camera.aspect) || this.camera.aspect <= 0 || Math.abs(this.camera.aspect - currentAspect) > 0.005) {
+            this.camera.aspect = currentAspect;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(cw, ch, false);
+          }
+        }
+      }
+
+      this.renderer.render(this.scene, this.camera);
+    } catch (frameErr) {
+      console.warn('[VOID-RIDER Engine] Transient frame anomaly caught and safely recovered:', frameErr);
     }
-
-    this.renderer.render(this.scene, this.camera);
   };
 
   private updateJunctions(dt: number) {
@@ -3567,21 +3764,29 @@ export class GameEngine {
   }
 
   private onResize = () => {
-    if (!this.container) return;
-    const w = this.container.clientWidth;
-    const h = this.container.clientHeight;
+    if (!this.container || !this.renderer || !this.camera) return;
+    const w = this.container.clientWidth || window.innerWidth || 1280;
+    const h = this.container.clientHeight || window.innerHeight || 720;
+    if (w <= 0 || h <= 0) return;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(w, h);
+    this.renderer.setSize(w, h, false);
   };
 
   public destroy() {
     cancelAnimationFrame(this.animFrameId);
     window.removeEventListener('resize', this.onResize);
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
     this.stopRace();
     if (this.beamSystem) {
       this.beamSystem.dispose();
       this.scene.remove(this.beamSystem.containerGroup);
+    }
+    if (this.collisionSystem) {
+      this.collisionSystem.dispose();
     }
     if (this.asteroidInstancedMesh) {
       this.scene.remove(this.asteroidInstancedMesh);
@@ -3592,5 +3797,15 @@ export class GameEngine {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
     }
     this.renderer.dispose();
+  }
+
+  public setCollisionConfig(config: Partial<PlayerCollisionConfig>) {
+    if (this.collisionSystem) {
+      this.collisionSystem.config = { ...this.collisionSystem.config, ...config };
+    }
+  }
+
+  public getCollisionConfig(): PlayerCollisionConfig {
+    return this.collisionSystem ? { ...this.collisionSystem.config } : { ...PLAYER_COLLISION_CONFIG };
   }
 }

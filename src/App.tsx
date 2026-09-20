@@ -51,6 +51,8 @@ import { AIRaceModal } from './components/AIRaceModal';
 import { SpaceHubModal } from './components/SpaceHubModal';
 import { StoryUniverseModal } from './components/StoryUniverseModal';
 import { MultiplayerModal } from './components/MultiplayerModal';
+import { CollisionHUD } from './components/CollisionHUD';
+import { CollisionEventFeedback, PlayerCollisionConfig } from './types';
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -136,6 +138,11 @@ export default function App() {
   // Branching Path & Junction Switching Telemetry
   const [junctionTelemetry, setJunctionTelemetry] = useState<ActiveJunctionTelemetry | null>(null);
 
+  // Dedicated Player-to-Player Collision Feedback & Config
+  const [collisionFeedback, setCollisionFeedback] = useState<CollisionEventFeedback | null>(null);
+  const [collisionConfig, setCollisionConfig] = useState<PlayerCollisionConfig | undefined>(undefined);
+  const respawnIntervalRef = useRef<any>(null);
+
   // Keyboard & Mouse input tracking
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const isRightMouseDown = useRef<boolean>(false);
@@ -198,10 +205,16 @@ export default function App() {
       onShipDestroyed: (reason, sec) => {
         setDestroyedMessage(reason);
         setRespawnTimeRemaining(sec);
-        const interval = setInterval(() => {
+        if (respawnIntervalRef.current) {
+          clearInterval(respawnIntervalRef.current);
+        }
+        respawnIntervalRef.current = setInterval(() => {
           setRespawnTimeRemaining(prev => {
             if (prev <= 0.1) {
-              clearInterval(interval);
+              if (respawnIntervalRef.current) {
+                clearInterval(respawnIntervalRef.current);
+                respawnIntervalRef.current = null;
+              }
               return 0;
             }
             return prev - 0.1;
@@ -209,6 +222,10 @@ export default function App() {
         }, 100);
       },
       onShipRespawned: () => {
+        if (respawnIntervalRef.current) {
+          clearInterval(respawnIntervalRef.current);
+          respawnIntervalRef.current = null;
+        }
         setDestroyedMessage(null);
         setRespawnTimeRemaining(0);
       },
@@ -221,7 +238,10 @@ export default function App() {
       onSpectatorTargetChange: name => setSpectatorTargetName(name),
       onBeamTelemetry: telemetry => setBeamTelemetry(telemetry),
       onJunctionTelemetry: telemetry => setJunctionTelemetry(telemetry),
+      onCollisionFeedback: feedback => setCollisionFeedback(feedback),
     });
+
+    setCollisionConfig(engine.getCollisionConfig());
 
     engine.setPlayerShip(
       currentShipId,
@@ -243,6 +263,10 @@ export default function App() {
     engineRef.current = engine;
 
     return () => {
+      if (respawnIntervalRef.current) {
+        clearInterval(respawnIntervalRef.current);
+        respawnIntervalRef.current = null;
+      }
       engine.destroy();
       engineRef.current = null;
     };
@@ -962,6 +986,9 @@ export default function App() {
         />
       )}
 
+      {/* Arcade Collision Feedback HUD */}
+      {appState === 'RACING' && <CollisionHUD feedback={collisionFeedback} />}
+
       {/* Post-Race Results Modal */}
       {isResultsOpen && (
         <ResultsModal
@@ -1012,6 +1039,11 @@ export default function App() {
           onSelectGraphicsQuality={q => {
             setGraphicsQuality(q);
             engineRef.current?.setGraphicsQuality(q);
+          }}
+          collisionConfig={collisionConfig}
+          onUpdateCollisionConfig={cfg => {
+            setCollisionConfig(prev => (prev ? { ...prev, ...cfg } : prev));
+            engineRef.current?.setCollisionConfig(cfg);
           }}
         />
       )}
