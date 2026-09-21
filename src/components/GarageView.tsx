@@ -17,6 +17,9 @@ import {
   BeamCustomization,
   BeamUpgrades,
   BeamType,
+  BeamCoreShape,
+  BeamImpactPreset,
+  BeamSoundPreset,
 } from '../types';
 import { DEFAULT_BEAM_CUSTOMIZATION, DEFAULT_BEAM_UPGRADES } from '../game/beamSystem';
 import { sound } from '../game/audio';
@@ -34,6 +37,11 @@ import {
   Crosshair,
   Flame,
   Radio,
+  Sliders,
+  Volume2,
+  Save,
+  Layers,
+  Activity,
 } from 'lucide-react';
 
 interface GarageViewProps {
@@ -201,10 +209,40 @@ const BEAM_EMITTER_TYPES: { id: BeamType; name: string; desc: string; stats: str
     stats: '100% DMG | 100% Heat | Balanced Range',
   },
   {
+    id: 'PLASMA',
+    name: 'Plasma Arc Emitter',
+    desc: 'Superheated ionized gas channel delivering extreme continuous thermal destruction.',
+    stats: '140% DMG | +15% Heat | High Disruption',
+  },
+  {
+    id: 'LASER',
+    name: 'Precision Laser Lance',
+    desc: 'Thin, ultra-coherent photon ray with extreme pinpoint cutting accuracy down track.',
+    stats: '115% DMG | -15% Heat | Long Range',
+  },
+  {
+    id: 'VOID',
+    name: 'Void Graviton Singularity',
+    desc: 'Dark central singularity surrounded by violet gravitational corona.',
+    stats: '150% DMG | +25% Heat | Heavy Shock',
+  },
+  {
     id: 'PULSE',
     name: 'High-Frequency Burst',
     desc: 'Rapid cyclic burst beam with accelerated cooling and high fire rate for dense asteroid swarms.',
     stats: '85% DMG | -25% Heat | +35% Cycle Rate',
+  },
+  {
+    id: 'ARC',
+    name: 'Arc Lightning Discharge',
+    desc: 'Crackling electrical discharge that arcs directly through asteroid fissures.',
+    stats: '120% DMG | 100% Heat | Erratic Corona',
+  },
+  {
+    id: 'PHOTON',
+    name: 'Photon Cascade Emitter',
+    desc: 'Blinding white-hot core with radiant outer solar sheath for maximum luminance.',
+    stats: '130% DMG | +10% Heat | Max Luminance',
   },
   {
     id: 'QUANTUM',
@@ -212,27 +250,53 @@ const BEAM_EMITTER_TYPES: { id: BeamType; name: string; desc: string; stats: str
     desc: 'Massive focused antimatter beam that disintegrates dense planetary mantle rock in seconds.',
     stats: '175% DMG | +40% Heat | Heavy Recoil',
   },
-  {
-    id: 'PLASMA',
-    name: 'Plasma Arc Emitter',
-    desc: 'Superheated ionized gas channel delivering extreme continuous thermal destruction.',
-    stats: '140% DMG | +15% Heat | High Disruption',
-  },
+];
+
+const BEAM_CORE_SHAPES: { id: BeamCoreShape; name: string; desc: string }[] = [
+  { id: 'THIN', name: 'Thin Pencil', desc: 'Ultra-narrow focused beam' },
+  { id: 'STANDARD', name: 'Standard Column', desc: 'Balanced cylindrical energy beam' },
+  { id: 'WIDE', name: 'Wide Cannon', desc: 'Broad heavy tactical beam' },
+  { id: 'DOUBLE', name: 'Twin Beams', desc: 'Dual parallel energy streams' },
+  { id: 'TRIPLE', name: 'Triple Array', desc: 'Three converging energy conduits' },
+  { id: 'SPIRAL', name: 'Helical Spiral', desc: 'Entwined rotating energy helix' },
+  { id: 'SEGMENTED', name: 'Segmented Pulse', desc: 'Intermittent segmented laser path' },
+  { id: 'PULSING', name: 'Pulsing Core', desc: 'Sinusoidally expanding energy column' },
 ];
 
 const BEAM_COLOR_OPTIONS = [
-  { name: 'Neon Cyan', hex: '#00f0ff' },
-  { name: 'Crimson Surge', hex: '#ff0055' },
-  { name: 'Plasma Violet', hex: '#d000ff' },
-  { name: 'Solar Gold', hex: '#ffaa00' },
-  { name: 'Emerald Hyper', hex: '#00ff66' },
-  { name: 'Quantum Pink', hex: '#ff00a0' },
+  { name: 'Cyan', hex: '#00f0ff' },
+  { name: 'Blue', hex: '#0066ff' },
+  { name: 'Violet', hex: '#8b00ff' },
+  { name: 'Magenta', hex: '#ff00aa' },
+  { name: 'White', hex: '#ffffff' },
+  { name: 'Red', hex: '#ff1133' },
+  { name: 'Green', hex: '#00ff66' },
+  { name: 'Gold', hex: '#ffaa00' },
+];
+
+const BEAM_IMPACT_PRESETS: { id: BeamImpactPreset; name: string; desc: string }[] = [
+  { id: 'ENERGY_BURST', name: 'Energy Burst', desc: 'Radiant particle flash & cyan shockwave' },
+  { id: 'PLASMA_EXPLOSION', name: 'Plasma Explosion', desc: 'Superheated flare with fire shockwave' },
+  { id: 'CRYSTAL_SHATTER', name: 'Crystal Shatter', desc: 'Brilliant diamond shards and frost ring' },
+  { id: 'VOID_IMPLOSION', name: 'Void Implosion', desc: 'Gravitational collapse with violet rupture' },
+  { id: 'ELECTRIC_BURST', name: 'Electric Burst', desc: 'Crackling lightning arcs & electric rings' },
+  { id: 'FIREBALL', name: 'Fireball Flare', desc: 'Expanding fireball explosion and embers' },
+  { id: 'QUANTUM_FRACTURE', name: 'Quantum Fracture', desc: 'Multi-color prism fracture and sparks' },
+  { id: 'SHOCKWAVE', name: 'Mega Shockwave', desc: 'High-amplitude kinetic blast wave ring' },
+];
+
+const BEAM_SOUND_PRESETS: { id: BeamSoundPreset; name: string; desc: string }[] = [
+  { id: 'HIGH_ENERGY_PULSE', name: 'High Energy Pulse', desc: 'Crisp futuristic military synthesizer' },
+  { id: 'HEAVY_PLASMA', name: 'Heavy Plasma', desc: 'Deep bass thrum and roaring heat' },
+  { id: 'RESONANT_LASER', name: 'Resonant Laser', desc: 'High-frequency harmonic sci-fi hum' },
+  { id: 'VOID_SURGE', name: 'Void Surge', desc: 'Dark sub-bass warp and cosmic crackle' },
+  { id: 'ARC_DISCHARGE', name: 'Arc Discharge', desc: 'Sharp electrical arc snap and zaps' },
 ];
 
 const BEAM_UPGRADE_ITEMS = [
   {
     key: 'power' as keyof BeamUpgrades,
-    name: 'Core Laser Output',
+    name: 'Beam Power',
     category: '(Damage & DPS)',
     desc: 'Amplifies coherent photon flux to melt large asteroids significantly faster.',
     boostText: '+20% Damage/Tier',
@@ -240,43 +304,59 @@ const BEAM_UPGRADE_ITEMS = [
   },
   {
     key: 'range' as keyof BeamUpgrades,
-    name: 'Optic Focus Lenses',
+    name: 'Beam Range',
     category: '(Range & Reach)',
-    desc: 'Precision dielectric lenses extend beam effective reach down track.',
-    boostText: '+25m Max Range/Tier',
+    desc: 'Precision dielectric lenses extend beam reach further down the racing line.',
+    boostText: '+25m Reach/Tier',
+    cost: 550,
+  },
+  {
+    key: 'energyCapacity' as keyof BeamUpgrades,
+    name: 'Beam Energy',
+    category: '(Capacitor Capacity)',
+    desc: 'High-density ultracapacitor banks extend continuous fire duration.',
+    boostText: '+20% Energy/Tier',
+    cost: 500,
+  },
+  {
+    key: 'rechargeRate' as keyof BeamUpgrades,
+    name: 'Recharge Rate',
+    category: '(Capacitor Recovery)',
+    desc: 'Rapid magnetic flux rechargers restore beam energy reservoir swiftly.',
+    boostText: '+25% Recharge/Tier',
+    cost: 500,
+  },
+  {
+    key: 'fireRate' as keyof BeamUpgrades,
+    name: 'Fire Rate',
+    category: '(Tick Frequency)',
+    desc: 'Accelerates damage tick frequency for rapid target vaporizing.',
+    boostText: '+20% Frequency/Tier',
     cost: 550,
   },
   {
     key: 'cooling' as keyof BeamUpgrades,
-    name: 'Cryogenic Heat Sinks',
-    category: '(Cooling & Dissipation)',
-    desc: 'Liquid nitrogen heat pipes dissipate thermal buildup rapidly after firing.',
-    boostText: '+25% Cooldown Rate/Tier',
+    name: 'Cooling Efficiency',
+    category: '(Thermal Dissipation)',
+    desc: 'Liquid nitrogen heat pipes dissipate core thermal buildup quickly.',
+    boostText: '+25% Cooling/Tier',
     cost: 600,
   },
   {
-    key: 'energyCapacity' as keyof BeamUpgrades,
-    name: 'Capacitor Banks',
-    category: '(Energy & Duration)',
-    desc: 'High-density ultracapacitors allow sustained beam projection before depletion.',
-    boostText: '+20% Beam Energy/Tier',
-    cost: 500,
+    key: 'impactForce' as keyof BeamUpgrades,
+    name: 'Impact Force',
+    category: '(Kinetic Dispersal)',
+    desc: 'Boosts kinetic shatter force, clearing fragmented debris clear of ship path.',
+    boostText: '+30% Force/Tier',
+    cost: 450,
   },
   {
     key: 'targeting' as keyof BeamUpgrades,
-    name: 'Assisted Target Lock',
+    name: 'Targeting Lock',
     category: '(Auto-Aim & Cone)',
     desc: 'AI target tracking sensors widen auto-lock acquisition angle and reticle tracking.',
     boostText: '+25% Target Cone/Tier',
-    cost: 700,
-  },
-  {
-    key: 'impactForce' as keyof BeamUpgrades,
-    name: 'Kinetic Shockwave Shifter',
-    category: '(Shatter Radius)',
-    desc: 'Emits a destructive explosive shockwave upon asteroid shatter, damaging adjacent debris.',
-    boostText: '+30% Shockwave Blast/Tier',
-    cost: 750,
+    cost: 550,
   },
 ];
 
@@ -308,6 +388,17 @@ export const GarageView: React.FC<GarageViewProps> = ({
   const [activeTab, setActiveTab] = useState<
     'HULL_PAINT' | 'DECALS' | 'UPGRADES' | 'BEAM_LAB'
   >('HULL_PAINT');
+  const [beamLabSubTab, setBeamLabSubTab] = useState<
+    'EMITTER' | 'COLORS' | 'IMPACT_SOUND' | 'DYNAMICS' | 'OVERCLOCK'
+  >('EMITTER');
+  const [isTestFiring, setIsTestFiring] = useState(false);
+  const isTestFiringRef = useRef(false);
+  const [saveFeedback, setSaveFeedback] = useState(false);
+  const testFireTimeoutRef = useRef<number | null>(null);
+
+  const previewBeamGroupRef = useRef<THREE.Group | null>(null);
+  const dummyAsteroidRef = useRef<THREE.Mesh | null>(null);
+
   const [appliedFeedback, setAppliedFeedback] = useState(false);
   const [callsign, setCallsign] = useState(pilotName);
 
@@ -409,6 +500,46 @@ export const GarageView: React.FC<GarageViewProps> = ({
     emitterLight.position.set(0, 0.15, -2.6);
     ship.add(emitterLight);
 
+    // Forward beam test fire visual group & holographic dummy asteroid
+    const asteroidGeo = new THREE.DodecahedronGeometry(0.75, 1);
+    const asteroidMat = new THREE.MeshStandardMaterial({
+      color: 0x64748b,
+      roughness: 0.85,
+      metalness: 0.2,
+      wireframe: false,
+    });
+    const dummyAsteroid = new THREE.Mesh(asteroidGeo, asteroidMat);
+    dummyAsteroid.position.set(0, -0.2, -5.8);
+    scene.add(dummyAsteroid);
+    dummyAsteroidRef.current = dummyAsteroid;
+
+    const beamGroup = new THREE.Group();
+    const coreGeo = new THREE.CylinderGeometry(0.04, 0.04, 3.4, 8);
+    coreGeo.rotateX(Math.PI / 2);
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    coreMesh.position.set(0, 0, -1.7);
+    beamGroup.add(coreMesh);
+
+    const glowGeo = new THREE.CylinderGeometry(0.18, 0.18, 3.4, 8);
+    glowGeo.rotateX(Math.PI / 2);
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.5 });
+    const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+    glowMesh.position.set(0, 0, -1.7);
+    beamGroup.add(glowMesh);
+
+    const impactMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.35, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
+    );
+    impactMesh.position.set(0, 0, -3.4);
+    beamGroup.add(impactMesh);
+
+    beamGroup.position.set(0, -0.45, -2.4);
+    beamGroup.visible = false;
+    scene.add(beamGroup);
+    previewBeamGroupRef.current = beamGroup;
+
     scene.add(ship);
     shipGroupRef.current = ship;
 
@@ -416,6 +547,14 @@ export const GarageView: React.FC<GarageViewProps> = ({
     const animate = () => {
       if (shipGroupRef.current && !isDraggingRef.current) {
         shipGroupRef.current.rotation.y += 0.005;
+      }
+      if (dummyAsteroidRef.current) {
+        dummyAsteroidRef.current.rotation.y += 0.012;
+        dummyAsteroidRef.current.rotation.x += 0.008;
+        if (isTestFiringRef.current) {
+          dummyAsteroidRef.current.position.x = (Math.random() - 0.5) * 0.14;
+          dummyAsteroidRef.current.position.y = -0.2 + (Math.random() - 0.5) * 0.14;
+        }
       }
       renderer.render(scene, camera);
       animationFrameId = requestAnimationFrame(animate);
@@ -503,6 +642,48 @@ export const GarageView: React.FC<GarageViewProps> = ({
     currentCockpitSkin,
     currentBeamCustomization?.outerColor,
   ]);
+
+  const triggerTestFire = () => {
+    if (isTestFiring) return;
+    setIsTestFiring(true);
+    isTestFiringRef.current = true;
+
+    if (previewBeamGroupRef.current) {
+      previewBeamGroupRef.current.visible = true;
+      const coreColor = new THREE.Color(currentBeamCustomization?.coreColor || '#ffffff');
+      const glowColor = new THREE.Color(currentBeamCustomization?.outerColor || '#00f0ff');
+      const coreChild = previewBeamGroupRef.current.children[0] as THREE.Mesh;
+      const glowChild = previewBeamGroupRef.current.children[1] as THREE.Mesh;
+      const impactChild = previewBeamGroupRef.current.children[2] as THREE.Mesh;
+      if (coreChild?.material instanceof THREE.MeshBasicMaterial) coreChild.material.color = coreColor;
+      if (glowChild?.material instanceof THREE.MeshBasicMaterial) glowChild.material.color = glowColor;
+      if (impactChild?.material instanceof THREE.MeshBasicMaterial) impactChild.material.color = glowColor;
+    }
+
+    sound.playBeamFire(
+      currentBeamCustomization?.type || 'STANDARD',
+      currentBeamCustomization?.soundPreset || 'HIGH_ENERGY_PULSE'
+    );
+
+    if (testFireTimeoutRef.current) clearTimeout(testFireTimeoutRef.current);
+    testFireTimeoutRef.current = window.setTimeout(() => {
+      setIsTestFiring(false);
+      isTestFiringRef.current = false;
+      if (previewBeamGroupRef.current) {
+        previewBeamGroupRef.current.visible = false;
+      }
+      if (dummyAsteroidRef.current) {
+        dummyAsteroidRef.current.position.set(0, -0.2, -5.8);
+      }
+      sound.playAsteroidDestroy('ENERGY');
+    }, 1100);
+  };
+
+  const handleSaveLoadout = () => {
+    sound.playMenuClick();
+    setSaveFeedback(true);
+    setTimeout(() => setSaveFeedback(false), 2200);
+  };
 
   const handleApplyChanges = () => {
     sound.playMenuClick();
@@ -896,171 +1077,815 @@ export const GarageView: React.FC<GarageViewProps> = ({
         {/* TAB 4: BEAM LAB & WEAPONS OVERCLOCK */}
         {activeTab === 'BEAM_LAB' && (
           <div className="space-y-4 text-left">
-            {/* Emitter Core Architecture */}
-            <div>
-              <div className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                <span>ASTEROID BEAM EMITTER CORE</span>
-                <span className="text-slate-400">
-                  ACTIVE: {currentBeamCustomization.type.toUpperCase()}
-                </span>
+            {/* Top Action & System Readout Strip */}
+            <div className="p-3.5 rounded-2xl bg-[#070e1b] border border-amber-500/40 shadow-[0_0_20px_rgba(255,170,0,0.15)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <Crosshair className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <span className="font-ui font-black text-sm uppercase tracking-wider text-white">
+                    ASTEROID BEAM LAB // LIVE FIRING RANGE
+                  </span>
+                </div>
+                <div className="text-[10px] font-mono text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                  <span>
+                    TYPE: <strong className="text-amber-400">{currentBeamCustomization.type}</strong>
+                  </span>
+                  <span>•</span>
+                  <span>
+                    SHAPE: <strong className="text-cyan-400">{currentBeamCustomization.coreShape || 'STANDARD'}</strong>
+                  </span>
+                  <span>•</span>
+                  <span>
+                    IMPACT: <strong className="text-rose-400">{currentBeamCustomization.impactPreset || 'ENERGY_BURST'}</strong>
+                  </span>
+                  <span>•</span>
+                  <span>
+                    AUDIO: <strong className="text-emerald-400">{currentBeamCustomization.soundPreset || 'HIGH_ENERGY_PULSE'}</strong>
+                  </span>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {BEAM_EMITTER_TYPES.map(emitter => {
-                  const isSelected = currentBeamCustomization.type === emitter.id;
-                  return (
-                    <button
-                      key={emitter.id}
-                      onClick={() => {
-                        sound.playMenuClick();
-                        onUpdateBeamCustomization?.({
-                          ...currentBeamCustomization,
-                          type: emitter.id,
-                        });
-                      }}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        isSelected
-                          ? 'bg-[#181104] border-amber-400 shadow-[0_0_12px_rgba(255,170,0,0.3)]'
-                          : 'bg-[#070e1b] border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span
-                          className={`font-ui font-black text-xs uppercase tracking-wider ${
-                            isSelected ? 'text-amber-300' : 'text-white'
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isTestFiring}
+                  onClick={triggerTestFire}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-xl font-ui font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95 ${
+                    isTestFiring
+                      ? 'bg-amber-500 text-slate-950 animate-pulse ring-2 ring-white shadow-[0_0_20px_#ffaa00]'
+                      : 'bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 shadow-[0_0_15px_rgba(255,170,0,0.4)]'
+                  }`}
+                >
+                  <Zap className="w-3.5 h-3.5 fill-slate-950" />
+                  <span>{isTestFiring ? 'FIRING BEAM...' : 'TEST FIRE'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveLoadout}
+                  className="px-3.5 py-2 rounded-xl font-ui font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 bg-[#081729] border border-cyan-500/50 hover:border-cyan-400 text-cyan-300 hover:text-white transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  <Save className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>{saveFeedback ? 'SAVED!' : 'SAVE'}</span>
+                </button>
+              </div>
+            </div>
+
+            {saveFeedback && (
+              <div className="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono font-bold flex items-center justify-center gap-2 animate-bounce">
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>LOADOUT ARMED &amp; SAVED // READY FOR FLIGHT</span>
+              </div>
+            )}
+
+            {/* 5 Beam Lab Subtabs */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 p-1 rounded-xl bg-[#040812] border border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playMenuClick();
+                  setBeamLabSubTab('EMITTER');
+                }}
+                className={`py-2 px-1 rounded-lg text-[10px] font-ui font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  beamLabSubTab === 'EMITTER'
+                    ? 'bg-amber-400 text-slate-950 shadow-md'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Zap className="w-3 h-3" />
+                <span>EMITTER &amp; SHAPE</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playMenuClick();
+                  setBeamLabSubTab('COLORS');
+                }}
+                className={`py-2 px-1 rounded-lg text-[10px] font-ui font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  beamLabSubTab === 'COLORS'
+                    ? 'bg-cyan-400 text-slate-950 shadow-md'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Palette className="w-3 h-3" />
+                <span>COLOR FREQ</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playMenuClick();
+                  setBeamLabSubTab('IMPACT_SOUND');
+                }}
+                className={`py-2 px-1 rounded-lg text-[10px] font-ui font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  beamLabSubTab === 'IMPACT_SOUND'
+                    ? 'bg-rose-500 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Flame className="w-3 h-3" />
+                <span>IMPACT &amp; AUDIO</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playMenuClick();
+                  setBeamLabSubTab('DYNAMICS');
+                }}
+                className={`py-2 px-1 rounded-lg text-[10px] font-ui font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  beamLabSubTab === 'DYNAMICS'
+                    ? 'bg-fuchsia-500 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Sliders className="w-3 h-3" />
+                <span>DYNAMICS</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playMenuClick();
+                  setBeamLabSubTab('OVERCLOCK');
+                }}
+                className={`col-span-2 sm:col-span-1 py-2 px-1 rounded-lg text-[10px] font-ui font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  beamLabSubTab === 'OVERCLOCK'
+                    ? 'bg-emerald-500 text-slate-950 shadow-md'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Activity className="w-3 h-3" />
+                <span>OVERCLOCK</span>
+              </button>
+            </div>
+
+            {/* SUBTAB 1: EMITTER & CORE SHAPE */}
+            {beamLabSubTab === 'EMITTER' && (
+              <div className="space-y-4">
+                {/* 8 Emitter Types */}
+                <div>
+                  <div className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>BEAM EMITTER ARCHITECTURE (8 TYPES)</span>
+                    <span className="text-slate-400">ACTIVE: {currentBeamCustomization.type}</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {BEAM_EMITTER_TYPES.map(emitter => {
+                      const isSelected = currentBeamCustomization.type === emitter.id;
+                      return (
+                        <button
+                          key={emitter.id}
+                          type="button"
+                          onClick={() => {
+                            sound.playMenuClick();
+                            onUpdateBeamCustomization?.({
+                              ...currentBeamCustomization,
+                              type: emitter.id,
+                            });
+                          }}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#181104] border-amber-400 shadow-[0_0_12px_rgba(255,170,0,0.3)]'
+                              : 'bg-[#070e1b] border-slate-800 hover:border-slate-700'
                           }`}
                         >
-                          {emitter.name}
-                        </span>
-                        {isSelected && (
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                            EQUIPPED
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] font-mono text-slate-400 line-clamp-2 mb-1.5">
-                        {emitter.desc}
-                      </p>
-                      <div className="text-[9px] font-mono font-bold text-amber-400/90">
-                        {emitter.stats}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span
+                              className={`font-ui font-black text-xs uppercase tracking-wider ${
+                                isSelected ? 'text-amber-300' : 'text-white'
+                              }`}
+                            >
+                              {emitter.name}
+                            </span>
+                            {isSelected && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                EQUIPPED
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] font-mono text-slate-400 line-clamp-2 mb-1.5">
+                            {emitter.desc}
+                          </p>
+                          <div className="text-[9px] font-mono font-bold text-amber-400/90">
+                            {emitter.stats}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-            {/* Beam Energy Color */}
-            <div>
-              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2">
-                PLASMA CORE COLOR FREQUENCY
+                {/* 8 Core Shapes */}
+                <div>
+                  <div className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>CORE GEOMETRIC SHAPES (8 SHAPES)</span>
+                    <span className="text-slate-400">
+                      ACTIVE: {currentBeamCustomization.coreShape || 'STANDARD'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {BEAM_CORE_SHAPES.map(shape => {
+                      const isSelected =
+                        (currentBeamCustomization.coreShape || 'STANDARD') === shape.id;
+                      return (
+                        <button
+                          key={shape.id}
+                          type="button"
+                          onClick={() => {
+                            sound.playMenuClick();
+                            onUpdateBeamCustomization?.({
+                              ...currentBeamCustomization,
+                              coreShape: shape.id,
+                            });
+                          }}
+                          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#061426] border-cyan-400 shadow-[0_0_12px_rgba(0,240,255,0.35)]'
+                              : 'bg-[#070e1b] border-slate-800 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span
+                              className={`font-ui font-black text-[11px] uppercase tracking-wider ${
+                                isSelected ? 'text-cyan-300' : 'text-white'
+                              }`}
+                            >
+                              {shape.name}
+                            </span>
+                            {isSelected && <Check className="w-3 h-3 text-cyan-400 stroke-[3]" />}
+                          </div>
+                          <p className="text-[9px] font-mono text-slate-400 leading-tight">
+                            {shape.desc}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                {BEAM_COLOR_OPTIONS.map(c => {
-                  const isChecked =
-                    currentBeamCustomization.outerColor.toLowerCase() === c.hex.toLowerCase();
-                  return (
-                    <button
-                      key={c.hex}
-                      onClick={() => {
-                        sound.playMenuClick();
+            )}
+
+            {/* SUBTAB 2: COLOR FREQUENCIES */}
+            {beamLabSubTab === 'COLORS' && (
+              <div className="space-y-4">
+                {/* 8 Preset Swatches */}
+                <div>
+                  <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    QUICK COLOR PALETTE PRESETS (8 FREQUENCIES)
+                  </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                    {BEAM_COLOR_OPTIONS.map(c => {
+                      const isChecked =
+                        (currentBeamCustomization.outerColor || '').toLowerCase() ===
+                        c.hex.toLowerCase();
+                      return (
+                        <button
+                          key={c.hex}
+                          type="button"
+                          onClick={() => {
+                            sound.playMenuClick();
+                            onUpdateBeamCustomization?.({
+                              ...currentBeamCustomization,
+                              outerColor: c.hex,
+                              particleColor: c.hex,
+                            });
+                          }}
+                          className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all cursor-pointer ${
+                            isChecked
+                              ? 'border-cyan-400 bg-[#061426] shadow-[0_0_12px_rgba(0,240,255,0.4)]'
+                              : 'border-slate-800 bg-[#070e1b] hover:border-slate-700'
+                          }`}
+                        >
+                          <span
+                            className="w-5 h-5 rounded-full border border-black/40 shadow-sm"
+                            style={{ backgroundColor: c.hex }}
+                          />
+                          <span className="text-[9px] font-mono font-bold text-slate-300 truncate">
+                            {c.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom Color Pickers */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* Core Color */}
+                  <div className="p-3 rounded-xl bg-[#070e1b] border border-slate-800">
+                    <div className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>INNER CORE COLOR</span>
+                      <span className="text-cyan-400">{currentBeamCustomization.coreColor || '#ffffff'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={currentBeamCustomization.coreColor || '#ffffff'}
+                        onChange={e => {
+                          onUpdateBeamCustomization?.({
+                            ...currentBeamCustomization,
+                            coreColor: e.target.value,
+                          });
+                        }}
+                        className="w-8 h-8 rounded border border-slate-700 bg-transparent cursor-pointer"
+                      />
+                      <span className="text-xs font-mono text-slate-400">High-intensity center ray</span>
+                    </div>
+                  </div>
+
+                  {/* Outer Glow Color */}
+                  <div className="p-3 rounded-xl bg-[#070e1b] border border-slate-800">
+                    <div className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>OUTER GLOW SHEATH</span>
+                      <span className="text-amber-400">{currentBeamCustomization.outerColor || '#00f0ff'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={currentBeamCustomization.outerColor || '#00f0ff'}
+                        onChange={e => {
+                          onUpdateBeamCustomization?.({
+                            ...currentBeamCustomization,
+                            outerColor: e.target.value,
+                          });
+                        }}
+                        className="w-8 h-8 rounded border border-slate-700 bg-transparent cursor-pointer"
+                      />
+                      <span className="text-xs font-mono text-slate-400">Volumetric plasma aura</span>
+                    </div>
+                  </div>
+
+                  {/* Particle Color */}
+                  <div className="p-3 rounded-xl bg-[#070e1b] border border-slate-800">
+                    <div className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>PARTICLE SPARK COLOR</span>
+                      <span className="text-fuchsia-400">{currentBeamCustomization.particleColor || '#00f0ff'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={currentBeamCustomization.particleColor || '#00f0ff'}
+                        onChange={e => {
+                          onUpdateBeamCustomization?.({
+                            ...currentBeamCustomization,
+                            particleColor: e.target.value,
+                          });
+                        }}
+                        className="w-8 h-8 rounded border border-slate-700 bg-transparent cursor-pointer"
+                      />
+                      <span className="text-xs font-mono text-slate-400">Muzzle &amp; impact sparks</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SUBTAB 3: IMPACT & AUDIO */}
+            {beamLabSubTab === 'IMPACT_SOUND' && (
+              <div className="space-y-4">
+                {/* 8 Impact Presets */}
+                <div>
+                  <div className="text-[10px] font-mono font-bold text-rose-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>ASTEROID SHATTER IMPACT EFFECTS (8 PRESETS)</span>
+                    <span className="text-slate-400">
+                      ACTIVE: {currentBeamCustomization.impactPreset || 'ENERGY_BURST'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {BEAM_IMPACT_PRESETS.map(impact => {
+                      const isSelected =
+                        (currentBeamCustomization.impactPreset || 'ENERGY_BURST') === impact.id;
+                      return (
+                        <button
+                          key={impact.id}
+                          type="button"
+                          onClick={() => {
+                            sound.playMenuClick();
+                            onUpdateBeamCustomization?.({
+                              ...currentBeamCustomization,
+                              impactPreset: impact.id,
+                            });
+                          }}
+                          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#1e0810] border-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.35)]'
+                              : 'bg-[#070e1b] border-slate-800 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span
+                              className={`font-ui font-black text-[11px] uppercase tracking-wider ${
+                                isSelected ? 'text-rose-300' : 'text-white'
+                              }`}
+                            >
+                              {impact.name}
+                            </span>
+                            {isSelected && <Check className="w-3 h-3 text-rose-400 stroke-[3]" />}
+                          </div>
+                          <p className="text-[9px] font-mono text-slate-400 leading-tight">
+                            {impact.desc}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 5 Sound Presets */}
+                <div>
+                  <div className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>ACOUSTIC SYNTHESIZER AUDIO PRESETS (5 PRESETS)</span>
+                    <span className="text-slate-400">
+                      ACTIVE: {currentBeamCustomization.soundPreset || 'HIGH_ENERGY_PULSE'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {BEAM_SOUND_PRESETS.map(snd => {
+                      const isSelected =
+                        (currentBeamCustomization.soundPreset || 'HIGH_ENERGY_PULSE') === snd.id;
+                      return (
+                        <div
+                          key={snd.id}
+                          className={`p-3 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+                            isSelected
+                              ? 'bg-[#051710] border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)]'
+                              : 'bg-[#070e1b] border-slate-800'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sound.playMenuClick();
+                              onUpdateBeamCustomization?.({
+                                ...currentBeamCustomization,
+                                soundPreset: snd.id,
+                              });
+                            }}
+                            className="flex-1 text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span
+                                className={`font-ui font-black text-xs uppercase tracking-wider ${
+                                  isSelected ? 'text-emerald-300' : 'text-white'
+                                }`}
+                              >
+                                {snd.name}
+                              </span>
+                              {isSelected && (
+                                <span className="text-[8px] font-mono px-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                  ACTIVE
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[9px] font-mono text-slate-400">{snd.desc}</p>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sound.playBeamFire(currentBeamCustomization.type, snd.id);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-[10px] font-mono font-bold text-emerald-300 uppercase flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                          >
+                            <Volume2 className="w-3 h-3" />
+                            <span>PLAY</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SUBTAB 4: TRAIL DYNAMICS & SLIDERS */}
+            {beamLabSubTab === 'DYNAMICS' && (
+              <div className="space-y-4">
+                <div className="text-[10px] font-mono font-bold text-fuchsia-400 uppercase tracking-wider">
+                  BEAM DYNAMICS, TRAIL GEOMETRY &amp; FX TOGGLES
+                </div>
+
+                {/* Range Sliders Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Trail Length */}
+                  <div className="p-3 rounded-xl bg-[#070e1b] border border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-slate-300">Beam Range / Length</span>
+                      <strong className="text-amber-400">
+                        {Math.round(currentBeamCustomization.trailLength || 65)}m
+                      </strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="20"
+                      max="120"
+                      step="5"
+                      value={currentBeamCustomization.trailLength || 65}
+                      onChange={e => {
                         onUpdateBeamCustomization?.({
                           ...currentBeamCustomization,
-                          outerColor: c.hex,
-                          particleColor: c.hex,
+                          trailLength: Number(e.target.value),
                         });
                       }}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono transition-all ${
-                        isChecked
-                          ? 'border-amber-400 bg-[#161208] text-white shadow-[0_0_10px_rgba(255,170,0,0.3)]'
-                          : 'border-slate-800 bg-[#070e1b] text-slate-400 hover:text-slate-200'
+                      className="w-full accent-amber-400 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Trail Width */}
+                  <div className="p-3 rounded-xl bg-[#070e1b] border border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-slate-300">Beam Width / Caliber</span>
+                      <strong className="text-cyan-400">
+                        {(currentBeamCustomization.trailWidth || 1.0).toFixed(1)}x
+                      </strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="3.0"
+                      step="0.1"
+                      value={currentBeamCustomization.trailWidth || 1.0}
+                      onChange={e => {
+                        onUpdateBeamCustomization?.({
+                          ...currentBeamCustomization,
+                          trailWidth: Number(e.target.value),
+                        });
+                      }}
+                      className="w-full accent-cyan-400 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Particle Density */}
+                  <div className="p-3 rounded-xl bg-[#070e1b] border border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-slate-300">Particle Density</span>
+                      <strong className="text-fuchsia-400">
+                        {currentBeamCustomization.particleDensity || 32} sparks
+                      </strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="60"
+                      step="2"
+                      value={currentBeamCustomization.particleDensity || 32}
+                      onChange={e => {
+                        onUpdateBeamCustomization?.({
+                          ...currentBeamCustomization,
+                          particleDensity: Number(e.target.value),
+                        });
+                      }}
+                      className="w-full accent-fuchsia-400 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Outer Glow */}
+                  <div className="p-3 rounded-xl bg-[#070e1b] border border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-slate-300">Outer Glow Intensity</span>
+                      <strong className="text-emerald-400">
+                        {(currentBeamCustomization.outerGlow || 1.2).toFixed(1)}x
+                      </strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2.5"
+                      step="0.1"
+                      value={currentBeamCustomization.outerGlow || 1.2}
+                      onChange={e => {
+                        onUpdateBeamCustomization?.({
+                          ...currentBeamCustomization,
+                          outerGlow: Number(e.target.value),
+                        });
+                      }}
+                      className="w-full accent-emerald-400 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Core Brightness */}
+                  <div className="p-3 rounded-xl bg-[#070e1b] border border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-slate-300">Core Brightness</span>
+                      <strong className="text-white">
+                        {(currentBeamCustomization.coreBrightness || 1.0).toFixed(1)}x
+                      </strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2.0"
+                      step="0.1"
+                      value={currentBeamCustomization.coreBrightness || 1.0}
+                      onChange={e => {
+                        onUpdateBeamCustomization?.({
+                          ...currentBeamCustomization,
+                          coreBrightness: Number(e.target.value),
+                        });
+                      }}
+                      className="w-full accent-white cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Pulse Speed */}
+                  <div className="p-3 rounded-xl bg-[#070e1b] border border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-slate-300">Pulse / Wave Speed</span>
+                      <strong className="text-rose-400">
+                        {(currentBeamCustomization.pulseSpeed || 1.0).toFixed(1)}x
+                      </strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="3.0"
+                      step="0.1"
+                      value={currentBeamCustomization.pulseSpeed || 1.0}
+                      onChange={e => {
+                        onUpdateBeamCustomization?.({
+                          ...currentBeamCustomization,
+                          pulseSpeed: Number(e.target.value),
+                        });
+                      }}
+                      className="w-full accent-rose-400 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* Toggles Strip */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {/* Energy Streaks Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playMenuClick();
+                      onUpdateBeamCustomization?.({
+                        ...currentBeamCustomization,
+                        energyStreaks: !currentBeamCustomization.energyStreaks,
+                      });
+                    }}
+                    className={`p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                      currentBeamCustomization.energyStreaks !== false
+                        ? 'bg-[#061426] border-cyan-400 shadow-sm'
+                        : 'bg-[#070e1b] border-slate-800'
+                    }`}
+                  >
+                    <span className="text-xs font-ui font-black uppercase text-white">
+                      ENERGY STREAKS
+                    </span>
+                    <span
+                      className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded ${
+                        currentBeamCustomization.energyStreaks !== false
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                          : 'bg-slate-800 text-slate-500'
                       }`}
                     >
-                      <span
-                        className="w-3 h-3 rounded-full border border-black/40 shadow-sm"
-                        style={{ backgroundColor: c.hex }}
-                      />
-                      <span>{c.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                      {currentBeamCustomization.energyStreaks !== false ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
 
-            {/* Beam Overclock Upgrades */}
-            <div>
-              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2">
-                WEAPON LAB OVERCLOCKING &amp; ENHANCEMENTS
-              </div>
-
-              <div className="space-y-2.5">
-                {BEAM_UPGRADE_ITEMS.map(up => {
-                  const currentLvl = currentBeamUpgrades[up.key] || 0;
-                  const isMax = currentLvl >= 5;
-                  const cost = up.cost * (currentLvl + 1);
-                  const canAfford = credits >= cost && !isMax;
-
-                  return (
-                    <div
-                      key={up.key}
-                      className="p-3.5 rounded-2xl bg-[#070e1b] border border-slate-800/90 text-left"
+                  {/* Shockwave Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playMenuClick();
+                      onUpdateBeamCustomization?.({
+                        ...currentBeamCustomization,
+                        shockwaveEnabled: !currentBeamCustomization.shockwaveEnabled,
+                      });
+                    }}
+                    className={`p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                      currentBeamCustomization.shockwaveEnabled !== false
+                        ? 'bg-[#181104] border-amber-400 shadow-sm'
+                        : 'bg-[#070e1b] border-slate-800'
+                    }`}
+                  >
+                    <span className="text-xs font-ui font-black uppercase text-white">
+                      KINETIC SHOCKWAVE
+                    </span>
+                    <span
+                      className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded ${
+                        currentBeamCustomization.shockwaveEnabled !== false
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : 'bg-slate-800 text-slate-500'
+                      }`}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-amber-400 font-mono text-xs">&gt;</span>
-                          <span className="font-ui font-black text-sm uppercase tracking-wider text-white">
-                            {up.name}
-                          </span>
-                          <span className="text-[11px] font-mono text-slate-400">{up.category}</span>
-                        </div>
+                      {currentBeamCustomization.shockwaveEnabled !== false ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
 
-                        {/* 5 Pips */}
-                        <div className="flex items-center gap-1.5">
-                          {[1, 2, 3, 4, 5].map(pip => (
-                            <span
-                              key={pip}
-                              className={`w-2.5 h-2.5 rounded-full ${
-                                pip <= currentLvl
-                                  ? 'bg-amber-400 shadow-[0_0_6px_#ffaa00]'
-                                  : 'bg-slate-800 border border-slate-700'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-slate-400 leading-relaxed mb-3">{up.desc}</p>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-bold text-amber-400">
-                          {up.boostText} (TIER {currentLvl}/5)
-                        </span>
-
-                        {isMax ? (
-                          <span className="py-1 px-3 rounded-lg bg-[#161208] border border-amber-500/40 text-[10px] font-mono font-bold text-amber-300 uppercase tracking-wider shadow-sm">
-                            MAX LEVEL
-                          </span>
-                        ) : (
-                          <button
-                            disabled={!canAfford}
-                            onClick={() => {
-                              sound.playUpgradePurchase();
-                              onPurchaseBeamUpgrade?.(up.key, cost);
-                            }}
-                            className={`py-1 px-3 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider transition-all ${
-                              canAfford
-                                ? 'bg-gradient-to-r from-amber-400 to-rose-500 text-slate-950 hover:brightness-110 shadow-[0_0_10px_rgba(255,170,0,0.3)] active:scale-95'
-                                : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-                            }`}
-                          >
-                            UPGRADE ({cost.toLocaleString()} VC)
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                  {/* Noise Movement Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playMenuClick();
+                      onUpdateBeamCustomization?.({
+                        ...currentBeamCustomization,
+                        noiseMovement: !currentBeamCustomization.noiseMovement,
+                      });
+                    }}
+                    className={`p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                      currentBeamCustomization.noiseMovement !== false
+                        ? 'bg-[#1a0520] border-fuchsia-400 shadow-sm'
+                        : 'bg-[#070e1b] border-slate-800'
+                    }`}
+                  >
+                    <span className="text-xs font-ui font-black uppercase text-white">
+                      NOISE JITTER FX
+                    </span>
+                    <span
+                      className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded ${
+                        currentBeamCustomization.noiseMovement !== false
+                          ? 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40'
+                          : 'bg-slate-800 text-slate-500'
+                      }`}
+                    >
+                      {currentBeamCustomization.noiseMovement !== false ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* SUBTAB 5: WEAPONS OVERCLOCK (8 UPGRADES) */}
+            {beamLabSubTab === 'OVERCLOCK' && (
+              <div className="space-y-2.5">
+                <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  WEAPONS LAB OVERCLOCKING &amp; ENHANCEMENTS (8 CATEGORIES)
+                </div>
+
+                <div className="space-y-2.5">
+                  {BEAM_UPGRADE_ITEMS.map(up => {
+                    const currentLvl = currentBeamUpgrades[up.key] || 0;
+                    const isMax = currentLvl >= 5;
+                    const cost = up.cost * (currentLvl + 1);
+                    const canAfford = credits >= cost && !isMax;
+
+                    return (
+                      <div
+                        key={up.key}
+                        className="p-3.5 rounded-2xl bg-[#070e1b] border border-slate-800/90 text-left"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-amber-400 font-mono text-xs">&gt;</span>
+                            <span className="font-ui font-black text-sm uppercase tracking-wider text-white">
+                              {up.name}
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-400">{up.category}</span>
+                          </div>
+
+                          {/* 5 Pips */}
+                          <div className="flex items-center gap-1.5">
+                            {[1, 2, 3, 4, 5].map(pip => (
+                              <span
+                                key={pip}
+                                className={`w-2.5 h-2.5 rounded-full ${
+                                  pip <= currentLvl
+                                    ? 'bg-amber-400 shadow-[0_0_6px_#ffaa00]'
+                                    : 'bg-slate-800 border border-slate-700'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-400 leading-relaxed mb-3">{up.desc}</p>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono font-bold text-amber-400">
+                            {up.boostText} (TIER {currentLvl}/5)
+                          </span>
+
+                          {isMax ? (
+                            <span className="py-1 px-3 rounded-lg bg-[#161208] border border-amber-500/40 text-[10px] font-mono font-bold text-amber-300 uppercase tracking-wider shadow-sm">
+                              MAX LEVEL
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={!canAfford}
+                              onClick={() => {
+                                sound.playUpgradePurchase();
+                                onPurchaseBeamUpgrade?.(up.key, cost);
+                              }}
+                              className={`py-1 px-3 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-gradient-to-r from-amber-400 to-rose-500 text-slate-950 hover:brightness-110 shadow-[0_0_10px_rgba(255,170,0,0.3)] active:scale-95'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                              }`}
+                            >
+                              UPGRADE ({cost.toLocaleString()} VC)
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1071,6 +1896,30 @@ export const GarageView: React.FC<GarageViewProps> = ({
             <RotateCcw className="w-3 h-3 text-cyan-400" />
             <span>DRAG TO INSPECT 3D</span>
           </div>
+
+          {/* Beam Lab Holographic Target HUD */}
+          {activeTab === 'BEAM_LAB' && (
+            <>
+              <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#180902]/90 border border-amber-500/50 text-[9px] font-mono font-bold text-amber-300 tracking-wider">
+                <Crosshair className="w-3 h-3 text-amber-400 animate-spin" />
+                <span>ASTEROID TARGET DUMMY // 25M</span>
+              </div>
+
+              <button
+                type="button"
+                disabled={isTestFiring}
+                onClick={triggerTestFire}
+                className={`absolute bottom-3 right-3 z-10 flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-ui font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95 ${
+                  isTestFiring
+                    ? 'bg-amber-400 text-slate-950 animate-pulse ring-2 ring-white shadow-[0_0_20px_#ffaa00]'
+                    : 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 hover:brightness-110 shadow-[0_0_15px_rgba(255,170,0,0.4)]'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 fill-slate-950" />
+                <span>{isTestFiring ? 'FIRING...' : '⚡ TEST FIRE'}</span>
+              </button>
+            </>
+          )}
 
           {/* Three.js Canvas */}
           <canvas ref={canvasRef} className="w-full h-full cursor-grab active:cursor-grabbing" />

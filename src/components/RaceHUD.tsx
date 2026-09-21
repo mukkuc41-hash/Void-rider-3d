@@ -61,6 +61,7 @@ interface RaceHUDProps {
   beamTelemetry?: BeamTelemetry | null;
   junctionTelemetry?: ActiveJunctionTelemetry | null;
   onSelectRoute?: (direction: BranchRouteDirection) => void;
+  onCommitRoute?: () => void;
 }
 
 const SECTOR_NAMES: Record<string, string> = {
@@ -109,6 +110,7 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
   beamTelemetry,
   junctionTelemetry,
   onSelectRoute,
+  onCommitRoute,
 }) => {
   // Joystick State
   const [stickPos, setStickPos] = useState({ x: 0, y: 0 });
@@ -469,65 +471,78 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
         )}
 
         {/* Asteroid Destruction Beam Target Reticle & HUD Lock */}
-        {beamTelemetry?.hasTargetLock && (
-          <div className="flex flex-col items-center animate-fadeIn pointer-events-none select-none">
-            <div className="relative flex items-center justify-center">
-              {/* Animated Locking Brackets */}
-              <div
-                className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full border-2 transition-all duration-100 flex items-center justify-center ${
-                  beamTelemetry.isFiring
-                    ? 'border-rose-500 scale-90 shadow-[0_0_25px_#ff0055]'
-                    : 'border-cyan-400/80 scale-100 shadow-[0_0_15px_#00f0ff]'
-                }`}
-              >
-                {/* Crosshair ticks */}
-                <div className="absolute -top-1 w-0.5 h-3 bg-cyan-300" />
-                <div className="absolute -bottom-1 w-0.5 h-3 bg-cyan-300" />
-                <div className="absolute -left-1 w-3 h-0.5 bg-cyan-300" />
-                <div className="absolute -right-1 w-3 h-0.5 bg-cyan-300" />
-                <div
-                  className={`w-4 h-4 rounded-full border border-dashed transition-all ${
-                    beamTelemetry.isFiring ? 'border-rose-300 animate-spin' : 'border-cyan-200'
-                  }`}
-                />
-              </div>
-            </div>
-
-            {/* Target telemetry badge */}
-            <div className="mt-1.5 px-3 py-1 rounded-xl bg-slate-950/90 border border-cyan-400/70 text-cyan-300 text-[10px] font-mono font-bold tracking-wider flex items-center gap-2 shadow-[0_0_12px_rgba(0,240,255,0.3)]">
-              <Crosshair
-                className={`w-3.5 h-3.5 ${
-                  beamTelemetry.isFiring
-                    ? 'text-rose-400 animate-spin'
-                    : 'text-cyan-400 animate-pulse'
-                }`}
-              />
-              <span>ASTEROID LOCK</span>
-              <span className="text-white">{Math.round(beamTelemetry.targetDistance)}M</span>
-              {beamTelemetry.targetMaxHealth > 0 && (
-                <div className="flex items-center gap-1">
-                  <div className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+        {beamTelemetry && (
+          <div className="flex flex-col items-center pointer-events-none select-none transition-all duration-150">
+            {beamTelemetry.hasTargetLock ? (
+              <div className="flex flex-col items-center animate-fadeIn">
+                <div className="relative flex items-center justify-center">
+                  {/* Animated Locking Brackets */}
+                  <div
+                    className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full border-2 transition-all duration-100 flex items-center justify-center ${
+                      beamTelemetry.isFiring
+                        ? 'border-rose-500 scale-90 shadow-[0_0_25px_#ff0055]'
+                        : 'border-cyan-400/80 scale-100 shadow-[0_0_15px_#00f0ff]'
+                    }`}
+                  >
+                    {/* Crosshair ticks */}
+                    <div className="absolute -top-1 w-0.5 h-3 bg-cyan-300" />
+                    <div className="absolute -bottom-1 w-0.5 h-3 bg-cyan-300" />
+                    <div className="absolute -left-1 w-3 h-0.5 bg-cyan-300" />
+                    <div className="absolute -right-1 w-3 h-0.5 bg-cyan-300" />
                     <div
-                      className={`h-full transition-all duration-75 ${
-                        beamTelemetry.targetHealth < 35 ? 'bg-rose-500' : 'bg-emerald-400'
+                      className={`w-4 h-4 rounded-full border border-dashed transition-all ${
+                        beamTelemetry.isFiring ? 'border-rose-300 animate-spin' : 'border-cyan-200'
                       }`}
-                      style={{
-                        width: `${Math.max(
-                          0,
-                          Math.min(
-                            100,
-                            (beamTelemetry.targetHealth / beamTelemetry.targetMaxHealth) * 100
-                          )
-                        )}%`,
-                      }}
                     />
                   </div>
-                  <span className="text-[9px] text-slate-300">
-                    {Math.round(beamTelemetry.targetHealth)}/{beamTelemetry.targetMaxHealth}
-                  </span>
                 </div>
-              )}
-            </div>
+
+                {/* Target telemetry badge */}
+                <div className="mt-1.5 px-3 py-1 rounded-xl bg-slate-950/90 border border-cyan-400/70 text-cyan-300 text-[10px] font-mono font-bold tracking-wider flex items-center gap-2 shadow-[0_0_12px_rgba(0,240,255,0.3)]">
+                  <Crosshair
+                    className={`w-3.5 h-3.5 ${
+                      beamTelemetry.isFiring
+                        ? 'text-rose-400 animate-spin'
+                        : 'text-cyan-400 animate-pulse'
+                    }`}
+                  />
+                  <span>TARGET LOCK [{beamTelemetry.targetType || 'ASTEROID'}]</span>
+                  <span className="text-white">{Math.round(beamTelemetry.targetDistance)}M</span>
+                  {beamTelemetry.targetMaxHealth > 0 && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                        <div
+                          className={`h-full transition-all duration-75 ${
+                            beamTelemetry.targetHealth < 35 ? 'bg-rose-500' : 'bg-emerald-400'
+                          }`}
+                          style={{
+                            width: `${Math.max(
+                              0,
+                              Math.min(
+                                100,
+                                (beamTelemetry.targetHealth / beamTelemetry.targetMaxHealth) * 100
+                              )
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-[9px] text-slate-300">
+                        {Math.round(beamTelemetry.targetHealth)}/{beamTelemetry.targetMaxHealth}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center opacity-40 hover:opacity-70 transition-opacity">
+                <div className="text-[13px] font-mono font-bold text-cyan-300/80 leading-none mb-0.5">
+                  +
+                </div>
+                <div className="text-[7.5px] font-mono tracking-widest text-cyan-400/70 uppercase">
+                  TARGET
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -855,18 +870,50 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
               onPointerLeave={() => {
                 onInputChange?.({ fireBeam: false });
               }}
+              onPointerCancel={() => {
+                onInputChange?.({ fireBeam: false });
+              }}
+              onTouchEnd={() => {
+                onInputChange?.({ fireBeam: false });
+              }}
               disabled={beamTelemetry?.isOverheated || (beamTelemetry?.energy ?? 100) <= 3}
-              className={`relative w-15 h-15 sm:w-16 sm:h-16 rounded-full border-2 flex flex-col items-center justify-center shadow-[0_0_25px_rgba(255,0,85,0.4)] active:scale-95 transition-all cursor-pointer overflow-hidden ${
+              className={`relative w-15 h-15 sm:w-16 sm:h-16 rounded-full border-2 flex flex-col items-center justify-center shadow-[0_0_25px_rgba(255,0,85,0.4)] active:scale-95 transition-all cursor-pointer overflow-hidden select-none touch-none ${
                 beamTelemetry?.isFiring
-                  ? 'bg-rose-500 text-white border-white shadow-[0_0_35px_#ff0055] scale-95 ring-4 ring-rose-400/50'
+                  ? 'bg-rose-500 text-white border-white shadow-[0_0_35px_#ff0055] scale-95 ring-4 ring-rose-400/60'
                   : beamTelemetry?.isOverheated
                   ? 'bg-rose-950/40 border-rose-900 text-rose-700/60 opacity-60 cursor-not-allowed'
                   : (beamTelemetry?.energy ?? 100) <= 3
                   ? 'bg-slate-950/60 border-slate-800 text-slate-600 cursor-not-allowed'
-                  : 'bg-rose-950/90 border-rose-400 text-rose-300 active:bg-rose-500 active:text-slate-950'
+                  : 'bg-rose-950/90 border-rose-400 text-rose-300 hover:border-rose-300 active:bg-rose-500 active:text-slate-950'
               }`}
               title="Fire Front Asteroid Destruction Beam [E / RMB]"
             >
+              {/* Radial Energy Progress Ring */}
+              <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="29"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  className="text-rose-950/60"
+                />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="29"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeDasharray={182}
+                  strokeDashoffset={182 - (182 * Math.max(0, Math.min(100, beamTelemetry?.energy ?? 100))) / 100}
+                  className={`transition-all duration-75 ${
+                    (beamTelemetry?.energy ?? 100) < 25 ? 'text-amber-400' : 'text-rose-400'
+                  }`}
+                />
+              </svg>
+
               {/* Cooldown overlay when overheated */}
               {beamTelemetry?.isOverheated && (
                 <div className="absolute inset-0 bg-rose-950/95 flex flex-col items-center justify-center p-0.5 z-10">
@@ -933,7 +980,11 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
       </div>
 
       {/* Futuristic Holographic Branching Path & Junction Switching HUD */}
-      <JunctionHUD telemetry={junctionTelemetry} onSelectRoute={onSelectRoute} />
+      <JunctionHUD
+        telemetry={junctionTelemetry}
+        onSelectRoute={onSelectRoute}
+        onCommitRoute={onCommitRoute}
+      />
     </div>
   );
 };

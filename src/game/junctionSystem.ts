@@ -1,6 +1,30 @@
 import * as THREE from 'three';
 import { TrackId, AIDifficulty, AIPersonality } from '../types';
 import { CosmicTrack, SamplePoint } from './trackData';
+import {
+  TrackGraph,
+  TrackSegment,
+  RouteAwareCheckpoint,
+  TrackGraphValidationResult,
+  validateTrackGraph as validateGraphUtil,
+  TrackManager,
+  TrackGenerator,
+  RespawnManager,
+} from './trackGraph';
+
+export type {
+  TrackSegment,
+  RouteAwareCheckpoint,
+  TrackGraphValidationResult,
+};
+
+export {
+  TrackGraph,
+  validateGraphUtil as validateTrackGraph,
+  TrackManager,
+  TrackGenerator,
+  RespawnManager,
+};
 
 export type BranchRouteDirection = 'LEFT' | 'RIGHT' | 'CENTER' | 'SHORTCUT';
 
@@ -63,7 +87,8 @@ export interface ActiveJunctionTelemetry {
   timeRemainingSec: number;
   playerInBranch: boolean;
   branchProgress: number;
-  status: 'APPROACHING' | 'ACTIVE' | 'PASSED';
+  status: 'APPROACHING' | 'COMMITMENT_ZONE' | 'ACTIVE' | 'PASSED';
+  isLocked?: boolean;
 }
 
 export interface PlayerRouteProgress {
@@ -474,13 +499,13 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
       junctionStartT: 0.30,
       junctionEndT: 0.48,
       bannerText: 'ORBITAL CANYON DIVERGENCE',
-      defaultRouteId: 'alpha_canyon_left',
+      defaultRouteId: 'alpha_canyon_center',
       routes: [
         {
           id: 'alpha_canyon_left',
           name: 'CYAN BOOST FREEWAY',
           direction: 'LEFT',
-          subtitle: 'Triple Boost Pad Slipstream',
+          subtitle: 'Banked Ridge Slipstream',
           detail: 'Wide banked outer curve with continuous energy refill & safe cornering clearance.',
           themeColor: '#00f0ff',
           isShortcut: false,
@@ -492,6 +517,24 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           width: 15,
           lateralDivergence: -28,
           elevationOffset: 12,
+          requiredCheckpointIndices: [3, 4],
+        },
+        {
+          id: 'alpha_canyon_center',
+          name: 'SOLAR EXPRESS HIGHWAY',
+          direction: 'CENTER',
+          subtitle: 'Direct Mainline (Max Speed)',
+          detail: 'Direct mainline through canyon center with twin boost pads and zero divergence penalty.',
+          themeColor: '#38bdf8',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.30, 0.65],
+          hasObstacles: false,
+          lengthMultiplier: 1.00,
+          width: 14,
+          lateralDivergence: 0,
+          elevationOffset: 4,
           requiredCheckpointIndices: [3, 4],
         },
         {
@@ -523,7 +566,7 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
       junctionStartT: 0.68,
       junctionEndT: 0.84,
       bannerText: 'WARP PLAZA JUNCTION',
-      defaultRouteId: 'alpha_spire_left',
+      defaultRouteId: 'alpha_spire_center',
       routes: [
         {
           id: 'alpha_spire_left',
@@ -541,6 +584,24 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           width: 14,
           lateralDivergence: -25,
           elevationOffset: 16,
+          requiredCheckpointIndices: [8, 9],
+        },
+        {
+          id: 'alpha_spire_center',
+          name: 'WARP PLAZA DIRECT',
+          direction: 'CENTER',
+          subtitle: 'Central Elevated Artery',
+          detail: 'Direct central elevated route crossing the plaza with balanced acceleration pads.',
+          themeColor: '#00f0ff',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.25, 0.60],
+          hasObstacles: false,
+          lengthMultiplier: 1.00,
+          width: 14,
+          lateralDivergence: 0,
+          elevationOffset: 6,
           requiredCheckpointIndices: [8, 9],
         },
         {
@@ -574,7 +635,7 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
       junctionStartT: 0.30,
       junctionEndT: 0.48,
       bannerText: 'ORBITAL CANYON DIVERGENCE',
-      defaultRouteId: 'neon_canyon_left',
+      defaultRouteId: 'neon_canyon_center',
       routes: [
         {
           id: 'neon_canyon_left',
@@ -592,6 +653,24 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           width: 15,
           lateralDivergence: -28,
           elevationOffset: 12,
+          requiredCheckpointIndices: [3, 4],
+        },
+        {
+          id: 'neon_canyon_center',
+          name: 'NEON EXPRESSWAY SPINE',
+          direction: 'CENTER',
+          subtitle: 'High-Speed Center Lane',
+          detail: 'Direct mainline through neon canyon with dual speed pads and maximum top velocity.',
+          themeColor: '#38bdf8',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.30, 0.65],
+          hasObstacles: false,
+          lengthMultiplier: 1.00,
+          width: 14,
+          lateralDivergence: 0,
+          elevationOffset: 4,
           requiredCheckpointIndices: [3, 4],
         },
         {
@@ -623,7 +702,7 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
       junctionStartT: 0.68,
       junctionEndT: 0.84,
       bannerText: 'WARP PLAZA JUNCTION',
-      defaultRouteId: 'neon_spire_left',
+      defaultRouteId: 'neon_spire_center',
       routes: [
         {
           id: 'neon_spire_left',
@@ -641,6 +720,24 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           width: 14,
           lateralDivergence: -25,
           elevationOffset: 16,
+          requiredCheckpointIndices: [8, 9],
+        },
+        {
+          id: 'neon_spire_center',
+          name: 'PLAZA MERIDIAN CORE',
+          direction: 'CENTER',
+          subtitle: 'Direct Center Speed Conduit',
+          detail: 'Central plaza bypass with magnetic acceleration strips and zero-drag clearance.',
+          themeColor: '#00f0ff',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.25, 0.60],
+          hasObstacles: false,
+          lengthMultiplier: 1.00,
+          width: 14,
+          lateralDivergence: 0,
+          elevationOffset: 6,
           requiredCheckpointIndices: [8, 9],
         },
         {
@@ -674,12 +771,12 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
       junctionStartT: 0.26,
       junctionEndT: 0.44,
       bannerText: 'MINING ZONE SEPARATION',
-      defaultRouteId: 'asteroid_ore_right',
+      defaultRouteId: 'asteroid_ore_center',
       routes: [
         {
           id: 'asteroid_ore_left',
           name: 'BOULDER CHUTE SHORTCUT',
-          direction: 'SHORTCUT',
+          direction: 'LEFT',
           subtitle: 'Extreme Kinetic Hazard Alley (-18% Time)',
           detail: 'Cuts straight through drilling core. Dense tumbling boulders require active beam fire!',
           themeColor: '#ff3300',
@@ -693,6 +790,24 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           width: 11,
           lateralDivergence: -26,
           elevationOffset: -14,
+          requiredCheckpointIndices: [3, 4],
+        },
+        {
+          id: 'asteroid_ore_center',
+          name: 'CORE EXCAVATION HIGHWAY',
+          direction: 'CENTER',
+          subtitle: 'Shielded Industrial Central Conduit',
+          detail: 'Reinforced central bridge bypassing mining machinery with continuous kinetic shields.',
+          themeColor: '#00e5ff',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.30, 0.65],
+          hasObstacles: false,
+          lengthMultiplier: 1.00,
+          width: 15,
+          lateralDivergence: 0,
+          elevationOffset: 4,
           requiredCheckpointIndices: [3, 4],
         },
         {
@@ -723,7 +838,7 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
       junctionStartT: 0.66,
       junctionEndT: 0.82,
       bannerText: 'DEBRIS BELT FORK',
-      defaultRouteId: 'asteroid_belt_left',
+      defaultRouteId: 'asteroid_belt_center',
       routes: [
         {
           id: 'asteroid_belt_left',
@@ -741,6 +856,24 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           width: 14,
           lateralDivergence: -24,
           elevationOffset: 8,
+          requiredCheckpointIndices: [8, 9],
+        },
+        {
+          id: 'asteroid_belt_center',
+          name: 'DEBRIS VECTOR ARTERY',
+          direction: 'CENTER',
+          subtitle: 'Stabilized Center Flight Corridor',
+          detail: 'Central magnetic lane through the asteroid ring with balanced boost pads and zero divergence.',
+          themeColor: '#38bdf8',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.30, 0.65],
+          hasObstacles: false,
+          lengthMultiplier: 1.00,
+          width: 14,
+          lateralDivergence: 0,
+          elevationOffset: 4,
           requiredCheckpointIndices: [8, 9],
         },
         {
@@ -774,7 +907,7 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
       junctionStartT: 0.28,
       junctionEndT: 0.46,
       bannerText: 'SINGULARITY SPLIT MATRIX',
-      defaultRouteId: 'void_singularity_left',
+      defaultRouteId: 'void_singularity_center',
       routes: [
         {
           id: 'void_singularity_left',
@@ -792,6 +925,24 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           width: 14,
           lateralDivergence: -28,
           elevationOffset: 20,
+          requiredCheckpointIndices: [3, 4],
+        },
+        {
+          id: 'void_singularity_center',
+          name: 'GRAVITON BEAM MERIDIAN',
+          direction: 'CENTER',
+          subtitle: 'High-Velocity Central Axis',
+          detail: 'Central anti-grav beam through singularity rift offering straight-line speed stability.',
+          themeColor: '#38bdf8',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.30, 0.65],
+          hasObstacles: false,
+          lengthMultiplier: 1.00,
+          width: 14,
+          lateralDivergence: 0,
+          elevationOffset: 4,
           requiredCheckpointIndices: [3, 4],
         },
         {
@@ -823,7 +974,7 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
       junctionStartT: 0.70,
       junctionEndT: 0.86,
       bannerText: 'ABYSS ELEVATION FORK',
-      defaultRouteId: 'void_abyss_right',
+      defaultRouteId: 'void_abyss_center',
       routes: [
         {
           id: 'void_abyss_left',
@@ -842,6 +993,24 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           width: 12,
           lateralDivergence: -24,
           elevationOffset: 24,
+          requiredCheckpointIndices: [8, 9],
+        },
+        {
+          id: 'void_abyss_center',
+          name: 'VOID RUNNER ARTERY',
+          direction: 'CENTER',
+          subtitle: 'Direct Chasm Skyway',
+          detail: 'Direct highway straight over the abyss with balanced boost recharge stations.',
+          themeColor: '#00f0ff',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.30, 0.65],
+          hasObstacles: false,
+          lengthMultiplier: 1.00,
+          width: 14,
+          lateralDivergence: 0,
+          elevationOffset: 6,
           requiredCheckpointIndices: [8, 9],
         },
         {
@@ -874,7 +1043,7 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
       junctionStartT: 0.30,
       junctionEndT: 0.48,
       bannerText: 'NEBULA STREAM FORK',
-      defaultRouteId: 'nebula_warp_left',
+      defaultRouteId: 'nebula_warp_center',
       routes: [
         {
           id: 'nebula_warp_left',
@@ -892,6 +1061,24 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           width: 15,
           lateralDivergence: -26,
           elevationOffset: 12,
+          requiredCheckpointIndices: [3, 4],
+        },
+        {
+          id: 'nebula_warp_center',
+          name: 'PLASMA HIGHWAY SPINE',
+          direction: 'CENTER',
+          subtitle: 'Direct Ion Center Expressway',
+          detail: 'Center ionization corridor through glowing nebula with twin plasma boost rings.',
+          themeColor: '#38bdf8',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.30, 0.65],
+          hasObstacles: false,
+          lengthMultiplier: 1.00,
+          width: 14,
+          lateralDivergence: 0,
+          elevationOffset: 4,
           requiredCheckpointIndices: [3, 4],
         },
         {
@@ -925,7 +1112,7 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
       junctionStartT: 0.34,
       junctionEndT: 0.52,
       bannerText: 'SOLAR ACCELERATOR FORK',
-      defaultRouteId: 'ring_solar_left',
+      defaultRouteId: 'ring_solar_center',
       routes: [
         {
           id: 'ring_solar_left',
@@ -934,7 +1121,7 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           subtitle: 'Supercharged Boost Corridor',
           detail: 'Short radius orbital cut with 4 successive hypersonic boost rings.',
           themeColor: '#ffaa00',
-          isShortcut: true,
+          isShortcut: false,
           riskLevel: 'MEDIUM',
           hasBoostPads: true,
           boostPadFractions: [0.15, 0.38, 0.62, 0.85],
@@ -943,6 +1130,24 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           width: 13,
           lateralDivergence: -28,
           elevationOffset: 8,
+          requiredCheckpointIndices: [4, 5],
+        },
+        {
+          id: 'ring_solar_center',
+          name: 'SOLAR EQUATOR LINE',
+          direction: 'CENTER',
+          subtitle: 'Direct Central Orbital Path',
+          detail: 'Equatorial orbital track offering maximum speed retention and balanced clearance.',
+          themeColor: '#38bdf8',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.25, 0.60],
+          hasObstacles: false,
+          lengthMultiplier: 1.00,
+          width: 14,
+          lateralDivergence: 0,
+          elevationOffset: 4,
           requiredCheckpointIndices: [4, 5],
         },
         {
@@ -975,7 +1180,7 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
       junctionStartT: 0.32,
       junctionEndT: 0.50,
       bannerText: 'QUANTUM MATRIX DIVERGENCE',
-      defaultRouteId: 'quantum_matrix_left',
+      defaultRouteId: 'quantum_matrix_center',
       routes: [
         {
           id: 'quantum_matrix_left',
@@ -993,6 +1198,24 @@ export const TRACK_JUNCTIONS_CONFIG: Record<TrackId, JunctionZoneConfig[]> = {
           width: 15,
           lateralDivergence: -26,
           elevationOffset: 10,
+          requiredCheckpointIndices: [3, 4],
+        },
+        {
+          id: 'quantum_matrix_center',
+          name: 'QUANTUM SPINE EXPRESS',
+          direction: 'CENTER',
+          subtitle: 'Zero-Dispersion Central Highway',
+          detail: 'High-speed straightaway down the center of the quantum grid with dual warp pads.',
+          themeColor: '#38bdf8',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.30, 0.65],
+          hasObstacles: false,
+          lengthMultiplier: 1.00,
+          width: 14,
+          lateralDivergence: 0,
+          elevationOffset: 4,
           requiredCheckpointIndices: [3, 4],
         },
         {
@@ -1043,6 +1266,19 @@ export class JunctionManager {
   public feedbackMessage: string | null = null;
   public feedbackTimer: number = 0;
 
+  // Route commitment and locking state
+  public isSelectionLocked: boolean = false;
+  public commitmentDistanceMeters: number = 110;
+
+  // Loop prevention: tracks junctions completed on this lap and active cooldowns
+  public completedJunctionsThisLap: Set<string> = new Set<string>();
+  public junctionCooldowns: Map<string, number> = new Map<string, number>();
+
+  public clearLapJunctions(): void {
+    this.completedJunctionsThisLap.clear();
+    this.junctionCooldowns.clear();
+  }
+
   constructor(trackId: TrackId, mainTrack: CosmicTrack) {
     this.currentTrackId = trackId;
     this.mainTrack = mainTrack;
@@ -1081,17 +1317,26 @@ export class JunctionManager {
     const trackLen = this.mainTrack.totalLength || 4800;
 
     for (const [id, junction] of this.junctions.entries()) {
+      // Loop Prevention: Skip this junction if already cleared on the current lap or on cooldown
+      if (this.completedJunctionsThisLap.has(id)) {
+        continue;
+      }
+      const cd = this.junctionCooldowns.get(id) || 0;
+      if (cd > 0) {
+        continue;
+      }
+
       const cfg = junction.config;
       const startT = cfg.junctionStartT;
       const endT = cfg.junctionEndT;
       const approachT = cfg.approachT;
 
-      // In-Junction Check
+      // In-Junction Check: strict inequality < endT so reaching junctionEndT doesn't re-trigger
       let isInJunction = false;
       if (startT <= endT) {
-        isInJunction = wrappedT >= startT && wrappedT <= endT;
+        isInJunction = wrappedT >= startT && wrappedT < endT;
       } else {
-        isInJunction = wrappedT >= startT || wrappedT <= endT;
+        isInJunction = wrappedT >= startT || wrappedT < endT;
       }
 
       // Approach Check
@@ -1133,6 +1378,14 @@ export class JunctionManager {
    * 3. Route Selection (supports either (routeId) or (junctionId, routeId))
    */
   public selectRoute(routeIdOrJunctionId: string, maybeRouteId?: string): boolean {
+    // Only lock selection if already actively navigating a physical branch curve
+    if (this.playerRouteProgress.isInBranch) {
+      console.warn(`[JunctionManager] Route selection rejected: player already navigating branch.`);
+      this.feedbackMessage = `ROUTE LOCKED: CURRENTLY NAVIGATING BRANCH`;
+      this.feedbackTimer = 2.0;
+      return false;
+    }
+
     let jId = this.activeJunctionTelemetry?.junctionId;
     let rId = routeIdOrJunctionId;
     if (maybeRouteId) {
@@ -1163,19 +1416,71 @@ export class JunctionManager {
 
     const dirLabel = route.direction === 'SHORTCUT' ? 'SHORTCUT (RIGHT)' : route.direction;
     this.feedbackMessage = `ROUTE SELECTED: ${dirLabel} — ${route.name}`;
-    this.feedbackTimer = 3.0;
+    this.feedbackTimer = 2.5;
+
+    if (this.activeJunctionTelemetry) {
+      this.activeJunctionTelemetry.selectedRouteId = rId;
+      this.activeJunctionTelemetry.selectedRouteDirection = route.direction;
+    }
 
     return true;
+  }
+
+  /**
+   * Commits the selected route when entering the commitment zone
+   */
+  public commitRoute(routeId?: string): boolean {
+    const junction = this.junctions.get(this.playerRouteProgress.activeJunctionId || this.activeJunctionTelemetry?.junctionId || '');
+    let targetRouteId = routeId;
+    if (!targetRouteId) {
+      targetRouteId = junction?.selectedRouteId || this.playerRouteProgress.activeRouteId || this.getDefaultRoute(junction).id;
+    }
+
+    this.isSelectionLocked = true;
+    this.playerRouteProgress.activeRouteId = targetRouteId;
+    if (junction) {
+      junction.selectedRouteId = targetRouteId;
+    }
+    if (this.activeJunctionTelemetry) {
+      this.activeJunctionTelemetry.isLocked = true;
+      this.activeJunctionTelemetry.selectedRouteId = targetRouteId;
+      this.activeJunctionTelemetry.status = 'COMMITMENT_ZONE';
+    }
+    return true;
+  }
+
+  public lockRouteSelection(): void {
+    this.isSelectionLocked = true;
+    if (this.activeJunctionTelemetry) {
+      this.activeJunctionTelemetry.isLocked = true;
+    }
+  }
+
+  public unlockRouteSelection(): void {
+    this.isSelectionLocked = false;
+    if (this.activeJunctionTelemetry) {
+      this.activeJunctionTelemetry.isLocked = false;
+    }
   }
 
   /**
    * Select route by direction: 'LEFT', 'RIGHT', 'CENTER', 'SHORTCUT'
    */
   public selectRouteByDirection(direction: BranchRouteDirection): boolean {
-    if (!this.activeJunctionTelemetry) return false;
-    const jId = this.activeJunctionTelemetry.junctionId;
-    const junction = this.junctions.get(jId);
-    if (!junction) return false;
+    let jId = this.activeJunctionTelemetry?.junctionId;
+    let junction = jId ? this.junctions.get(jId) : null;
+    
+    // If not detected via telemetry, find first approaching or active junction
+    if (!junction) {
+      for (const [id, j] of this.junctions.entries()) {
+        if (!this.completedJunctionsThisLap.has(id)) {
+          jId = id;
+          junction = j;
+          break;
+        }
+      }
+    }
+    if (!junction || !jId) return false;
 
     // Find route matching direction or fallback
     let target = junction.config.routes.find(r => r.direction === direction);
@@ -1184,6 +1489,12 @@ export class JunctionManager {
     }
     if (!target && direction === 'SHORTCUT') {
       target = junction.config.routes.find(r => r.direction === 'RIGHT');
+    }
+    if (!target && direction === 'CENTER') {
+      target = junction.config.routes.find(r => r.id.includes('center')) || junction.config.routes[1] || junction.config.routes[0];
+    }
+    if (!target && direction === 'LEFT') {
+      target = junction.config.routes.find(r => r.id.includes('left')) || junction.config.routes[0];
     }
 
     if (target) {
@@ -1329,7 +1640,18 @@ export class JunctionManager {
     // If reached end of branch
     if (prp.progress >= 1.0) {
       prp.isInBranch = false;
-      const rejoinT = junction ? junction.config.junctionEndT : 0.5;
+      const jId = prp.activeJunctionId;
+      const routeName = routeInst.config.name;
+
+      // Safe advance past the junction exit to prevent looping
+      const exitAdvance = 0.015;
+      const rejoinT = junction ? ((junction.config.junctionEndT + exitAdvance) % 1.0) : 0.5;
+
+      // Mark this junction as completed for the current lap to prevent infinite loops
+      if (jId) {
+        this.completedJunctionsThisLap.add(jId);
+        this.junctionCooldowns.set(jId, 15.0);
+      }
 
       // Validate any remaining checkpoints for this branch route
       if (routeInst.config.requiredCheckpointIndices && onCheckpointValidated) {
@@ -1342,14 +1664,16 @@ export class JunctionManager {
         }
       }
 
-      this.feedbackMessage = `ROUTE COMPLETED: ${routeInst.config.name}`;
-      this.feedbackTimer = 2.5;
+      this.feedbackMessage = `ROUTE COMPLETED: ${routeName} // MERGED TO MAIN LANE`;
+      this.feedbackTimer = 3.0;
 
       prp.activeJunctionId = null;
       prp.activeRouteId = null;
       prp.branchRouteInstance = null;
       prp.progress = 0;
       prp.validatedCheckpointIndices.clear();
+      this.isSelectionLocked = false;
+      this.activeJunctionTelemetry = null;
 
       return { finishedBranch: true, sample: null, lateralOffset: 0, rejoinSplineT: rejoinT };
     }
@@ -1372,11 +1696,36 @@ export class JunctionManager {
       if (this.feedbackTimer === 0) this.feedbackMessage = null;
     }
 
+    // Decrement junction cooldowns
+    for (const [jId, cd] of this.junctionCooldowns.entries()) {
+      if (cd > 0) {
+        const nextCd = Math.max(0, cd - dt);
+        if (nextCd === 0) {
+          this.junctionCooldowns.delete(jId);
+        } else {
+          this.junctionCooldowns.set(jId, nextCd);
+        }
+      }
+    }
+
     // Detect nearby junction
     const detected = this.detectNearbyJunction(splineT);
 
     if (detected) {
       const { junction, distanceM, isApproaching, isInJunction } = detected;
+      const isCommitmentZone = isApproaching && distanceM <= this.commitmentDistanceMeters;
+
+      // Auto-commit default route if player reached commitment zone without selecting
+      if (isCommitmentZone || isInJunction) {
+        if (!this.isSelectionLocked) {
+          const autoRouteId = junction.selectedRouteId || this.playerRouteProgress.activeRouteId || this.getDefaultRoute(junction).id;
+          this.commitRoute(autoRouteId);
+        }
+      } else if (isApproaching && distanceM > this.commitmentDistanceMeters) {
+        // Still approaching before commitment zone: player can freely switch routes
+        this.isSelectionLocked = false;
+      }
+
       const selectedId = junction.selectedRouteId || this.playerRouteProgress.activeRouteId;
       const selectedRoute = junction.config.routes.find(r => r.id === selectedId);
 
@@ -1390,6 +1739,12 @@ export class JunctionManager {
 
       const decisionSpeed = Math.max(20, currentSpeed);
       const timeRemainingSec = Math.max(0.1, distanceM / decisionSpeed);
+
+      const status: 'APPROACHING' | 'COMMITMENT_ZONE' | 'ACTIVE' | 'PASSED' = 
+        this.playerRouteProgress.isInBranch ? 'ACTIVE' :
+        (isInJunction ? 'ACTIVE' :
+        (isCommitmentZone ? 'COMMITMENT_ZONE' :
+        (isApproaching ? 'APPROACHING' : 'PASSED')));
 
       this.activeJunctionTelemetry = {
         junctionId: junction.config.id,
@@ -1408,10 +1763,12 @@ export class JunctionManager {
         timeRemainingSec,
         playerInBranch: this.playerRouteProgress.isInBranch,
         branchProgress: this.playerRouteProgress.progress,
-        status: this.playerRouteProgress.isInBranch ? 'ACTIVE' : (isApproaching ? 'APPROACHING' : 'ACTIVE'),
+        status,
+        isLocked: this.isSelectionLocked || this.playerRouteProgress.isInBranch,
       };
     } else {
       this.activeJunctionTelemetry = null;
+      this.isSelectionLocked = false;
     }
 
     return this.activeJunctionTelemetry;
@@ -1454,6 +1811,57 @@ export class JunctionManager {
       return safeRoute.id;
     }
     return Math.random() < 0.55 ? (shortcut ? shortcut.id : techRoute.id) : safeRoute.id;
+  }
+
+  /**
+   * Track Graph & Segment Helper Queries
+   */
+  public getCurrentSegment(): TrackSegment | null {
+    if (this.mainTrack?.trackManager) {
+      return this.mainTrack.trackManager.getCurrentSegment();
+    }
+    return null;
+  }
+
+  public getCurrentRoute(): string {
+    if (this.mainTrack?.trackManager) {
+      return this.mainTrack.trackManager.getCurrentRoute();
+    }
+    return this.playerRouteProgress.activeRouteId || 'main_route';
+  }
+
+  public getNextSegment(): TrackSegment | null {
+    if (this.mainTrack?.trackManager) {
+      return this.mainTrack.trackManager.getNextSegment();
+    }
+    return null;
+  }
+
+  public getTrackProgress(): number {
+    if (this.mainTrack?.trackManager) {
+      return this.mainTrack.trackManager.getTrackProgress();
+    }
+    return this.mainTrack ? (this.playerRouteProgress.progress || 0) : 0;
+  }
+
+  public validateTrackGraph(): TrackGraphValidationResult {
+    if (this.mainTrack?.trackGraph) {
+      return validateGraphUtil(this.mainTrack.trackGraph);
+    }
+    return { isValid: true, errors: [], warnings: [] };
+  }
+
+  public validateCheckpointOrder(checkpoints: RouteAwareCheckpoint[]): boolean {
+    for (let i = 0; i < checkpoints.length - 1; i++) {
+      if (checkpoints[i].sequenceIndex >= checkpoints[i + 1].sequenceIndex) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  public isValidFinishCrossing(hasPassedRequiredCheckpoints: boolean, isForward: boolean, isCooldowned: boolean): boolean {
+    return hasPassedRequiredCheckpoints && isForward && !isCooldowned;
   }
 }
 

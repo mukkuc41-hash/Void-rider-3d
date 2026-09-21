@@ -156,6 +156,10 @@ export class BeamSystem {
   private spiralMesh!: THREE.Mesh;
   private muzzleFlashMesh!: THREE.Mesh;
   private impactPointMesh!: THREE.Mesh;
+  private secondaryCoreMeshLeft!: THREE.Mesh;
+  private secondaryCoreMeshRight!: THREE.Mesh;
+  private secondaryGlowMeshLeft!: THREE.Mesh;
+  private secondaryGlowMeshRight!: THREE.Mesh;
 
   // Material References
   private innerCoreMaterial!: THREE.MeshBasicMaterial;
@@ -180,6 +184,11 @@ export class BeamSystem {
   public currentTargetLock: TargetLockInfo | null = null;
   public lockedObstacle: Obstacle | null = null;
   private lastLockedId: number | null = null;
+
+  // Combo & Streak Tracker
+  public comboCount: number = 0;
+  public comboMultiplier: number = 1.0;
+  public comboTimer: number = 0;
 
   // Recoil offset applied to ship
   public recoilOffset: THREE.Vector3 = new THREE.Vector3();
@@ -258,6 +267,15 @@ export class BeamSystem {
     this.innerCoreMesh.visible = false;
     this.containerGroup.add(this.innerCoreMesh);
 
+    // Secondary cores for DOUBLE and TRIPLE beam shapes
+    this.secondaryCoreMeshLeft = new THREE.Mesh(coreGeo.clone(), this.innerCoreMaterial);
+    this.secondaryCoreMeshLeft.visible = false;
+    this.containerGroup.add(this.secondaryCoreMeshLeft);
+
+    this.secondaryCoreMeshRight = new THREE.Mesh(coreGeo.clone(), this.innerCoreMaterial);
+    this.secondaryCoreMeshRight.visible = false;
+    this.containerGroup.add(this.secondaryCoreMeshRight);
+
     // 2. Outer Glow Cylinder
     const outerGeo = new THREE.CylinderGeometry(0.38, 0.48, 1, 12, 1, false).rotateX(Math.PI / 2);
     outerGeo.translate(0, 0, -0.5);
@@ -273,6 +291,14 @@ export class BeamSystem {
     this.outerGlowMesh = new THREE.Mesh(outerGeo, this.outerGlowMaterial);
     this.outerGlowMesh.visible = false;
     this.containerGroup.add(this.outerGlowMesh);
+
+    this.secondaryGlowMeshLeft = new THREE.Mesh(outerGeo.clone(), this.outerGlowMaterial);
+    this.secondaryGlowMeshLeft.visible = false;
+    this.containerGroup.add(this.secondaryGlowMeshLeft);
+
+    this.secondaryGlowMeshRight = new THREE.Mesh(outerGeo.clone(), this.outerGlowMaterial);
+    this.secondaryGlowMeshRight.visible = false;
+    this.containerGroup.add(this.secondaryGlowMeshRight);
 
     // 3. Spiral / Energy Helix Strands
     const spiralGeo = new THREE.CylinderGeometry(0.52, 0.65, 1, 8, 1, true).rotateX(Math.PI / 2);
@@ -399,9 +425,30 @@ export class BeamSystem {
 
   // Apply colors and shape styles from user's customization
   public applyCustomization() {
-    const coreColor = new THREE.Color(this.customization.coreColor);
-    const outerColor = new THREE.Color(this.customization.outerColor);
+    let coreColor = new THREE.Color(this.customization.coreColor);
+    let outerColor = new THREE.Color(this.customization.outerColor);
     const partColor = new THREE.Color(this.customization.particleColor);
+
+    // Style adjustments based on Beam Type
+    switch (this.customization.type) {
+      case 'VOID':
+        // Dark central core surrounded by intense violet glow
+        coreColor = new THREE.Color('#0a0214');
+        break;
+      case 'PHOTON':
+        // Blinding white core
+        coreColor = new THREE.Color('#ffffff');
+        break;
+      case 'LASER':
+        // Concentrated laser
+        break;
+      case 'ARC':
+        // Electric arc
+        break;
+      case 'PLASMA':
+        // Superheated plasma
+        break;
+    }
 
     this.innerCoreMaterial.color = coreColor;
     this.outerGlowMaterial.color = outerColor;
@@ -419,27 +466,35 @@ export class BeamSystem {
 
     switch (this.customization.coreShape) {
       case 'THIN':
-        coreRadius *= 0.6;
-        outerRadius *= 0.7;
+        coreRadius *= 0.55;
+        outerRadius *= 0.65;
         break;
       case 'WIDE':
-        coreRadius *= 1.6;
-        outerRadius *= 1.4;
+        coreRadius *= 1.7;
+        outerRadius *= 1.5;
         break;
       case 'DOUBLE':
       case 'TRIPLE':
-        coreRadius *= 1.2;
-        outerRadius *= 1.3;
+        coreRadius *= 0.9;
+        outerRadius *= 1.0;
         break;
       case 'PULSING':
       case 'SPIRAL':
-        outerRadius *= 1.5;
+      case 'SEGMENTED':
+        outerRadius *= 1.4;
         break;
     }
 
     this.innerCoreMesh.scale.set(coreRadius, coreRadius, 1);
     this.outerGlowMesh.scale.set(outerRadius, outerRadius, 1);
     this.spiralMesh.scale.set(outerRadius * 1.3, outerRadius * 1.3, 1);
+
+    if (this.secondaryCoreMeshLeft) {
+      this.secondaryCoreMeshLeft.scale.set(coreRadius * 0.85, coreRadius * 0.85, 1);
+      this.secondaryCoreMeshRight.scale.set(coreRadius * 0.85, coreRadius * 0.85, 1);
+      this.secondaryGlowMeshLeft.scale.set(outerRadius * 0.85, outerRadius * 0.85, 1);
+      this.secondaryGlowMeshRight.scale.set(outerRadius * 0.85, outerRadius * 0.85, 1);
+    }
   }
 
   // Detect and update target lock within forward ray/cone
@@ -607,6 +662,12 @@ export class BeamSystem {
     this.spiralMesh.visible = false;
     this.muzzleFlashMesh.visible = false;
     this.impactPointMesh.visible = false;
+    if (this.secondaryCoreMeshLeft) {
+      this.secondaryCoreMeshLeft.visible = false;
+      this.secondaryCoreMeshRight.visible = false;
+      this.secondaryGlowMeshLeft.visible = false;
+      this.secondaryGlowMeshRight.visible = false;
+    }
   }
 
   private stopHum() {
@@ -641,17 +702,26 @@ export class BeamSystem {
       this.energy = Math.min(this.maxEnergy, this.energy + rechargeRate * dt);
     }
 
-    // 4. Dampen Recoil & Screen Shake
+    // 4. Combo Timer
+    if (this.comboTimer > 0) {
+      this.comboTimer -= dt;
+      if (this.comboTimer <= 0) {
+        this.comboCount = 0;
+        this.comboMultiplier = 1.0;
+      }
+    }
+
+    // 5. Dampen Recoil & Screen Shake
     this.recoilOffset.multiplyScalar(Math.pow(0.1, dt * 5));
     this.screenShakeIntensity = Math.max(0, this.screenShakeIntensity - dt * 1.8);
 
-    // 5. Update Sparks
+    // 6. Update Sparks
     this.updateSparks(dt);
 
-    // 6. Update Shattered Asteroid Fragments
+    // 7. Update Shattered Asteroid Fragments
     this.updateFragments(dt);
 
-    // 7. Update Shockwaves
+    // 8. Update Shockwaves
     this.updateShockwaves(dt);
   }
 
@@ -680,6 +750,45 @@ export class BeamSystem {
     this.spiralMesh.lookAt(hitPoint);
     this.muzzleFlashMesh.lookAt(hitPoint);
 
+    // Lateral beam offsets for DOUBLE and TRIPLE shapes
+    const isDouble = this.customization.coreShape === 'DOUBLE';
+    const isTriple = this.customization.coreShape === 'TRIPLE';
+
+    if (this.secondaryCoreMeshLeft && this.secondaryGlowMeshLeft) {
+      if (isDouble || isTriple) {
+        const rightVec = new THREE.Vector3(1, 0, 0).applyQuaternion(this.innerCoreMesh.quaternion);
+        const offsetDist = isDouble ? 0.28 : 0.38;
+
+        this.secondaryCoreMeshLeft.visible = true;
+        this.secondaryGlowMeshLeft.visible = true;
+        this.secondaryCoreMeshLeft.position.copy(emitterPos).add(rightVec.clone().multiplyScalar(-offsetDist));
+        this.secondaryGlowMeshLeft.position.copy(this.secondaryCoreMeshLeft.position);
+        this.secondaryCoreMeshLeft.quaternion.copy(this.innerCoreMesh.quaternion);
+        this.secondaryGlowMeshLeft.quaternion.copy(this.outerGlowMesh.quaternion);
+        this.secondaryCoreMeshLeft.scale.z = distance;
+        this.secondaryGlowMeshLeft.scale.z = distance;
+
+        if (isTriple) {
+          this.secondaryCoreMeshRight.visible = true;
+          this.secondaryGlowMeshRight.visible = true;
+          this.secondaryCoreMeshRight.position.copy(emitterPos).add(rightVec.clone().multiplyScalar(offsetDist));
+          this.secondaryGlowMeshRight.position.copy(this.secondaryCoreMeshRight.position);
+          this.secondaryCoreMeshRight.quaternion.copy(this.innerCoreMesh.quaternion);
+          this.secondaryGlowMeshRight.quaternion.copy(this.outerGlowMesh.quaternion);
+          this.secondaryCoreMeshRight.scale.z = distance;
+          this.secondaryGlowMeshRight.scale.z = distance;
+        } else {
+          this.secondaryCoreMeshRight.visible = false;
+          this.secondaryGlowMeshRight.visible = false;
+        }
+      } else {
+        this.secondaryCoreMeshLeft.visible = false;
+        this.secondaryCoreMeshRight.visible = false;
+        this.secondaryGlowMeshLeft.visible = false;
+        this.secondaryGlowMeshRight.visible = false;
+      }
+    }
+
     // Scale length along Z
     this.innerCoreMesh.scale.z = distance;
     this.outerGlowMesh.scale.z = distance;
@@ -687,10 +796,13 @@ export class BeamSystem {
 
     // Spiral rotation animation
     if (this.customization.noiseMovement) {
-      this.spiralMesh.rotation.z += 0.25 * this.customization.pulseSpeed;
+      const rotDelta = this.customization.type === 'ARC'
+        ? (Math.random() - 0.5) * 1.8
+        : 0.25 * this.customization.pulseSpeed;
+      this.spiralMesh.rotation.z += rotDelta;
     }
 
-    // Pulsing brightness effect
+    // Pulsing brightness / scale effect
     const pulseFactor = 1.0 + Math.sin(Date.now() * 0.02 * this.customization.pulseSpeed) * 0.15;
     this.innerCoreMaterial.opacity = 0.95 * pulseFactor;
     this.outerGlowMaterial.opacity = 0.55 * pulseFactor;
@@ -747,6 +859,13 @@ export class BeamSystem {
         break;
     }
 
+    // Update Combo Tracker
+    this.comboCount++;
+    this.comboMultiplier = Math.min(4.0, 1.0 + (this.comboCount - 1) * 0.25);
+    this.comboTimer = 3.5;
+    const finalPoints = Math.round(points * this.comboMultiplier);
+    const finalCredits = Math.round(credits * (1.0 + (this.comboCount - 1) * 0.15));
+
     // Shatter into fragments
     this.spawnFragments(obstacle.position, obstacle.radius, obstacle.type);
 
@@ -756,7 +875,7 @@ export class BeamSystem {
     }
 
     // Callback to HUD & Player stats
-    onAsteroidDestroyed?.(obstacle, points, credits);
+    onAsteroidDestroyed?.(obstacle, finalPoints, finalCredits);
   }
 
   // Spawn rock fragments from pool
@@ -941,6 +1060,16 @@ export class BeamSystem {
       status,
       targetLock: this.currentTargetLock,
       activeBeam: this.isFiring,
+      isFiring: this.isFiring,
+      cooldownRemaining: Math.max(0, this.overheatCooldownTimer),
+      hasTargetLock: this.currentTargetLock !== null,
+      targetHealth: this.currentTargetLock ? this.currentTargetLock.health : 0,
+      targetMaxHealth: this.currentTargetLock ? this.currentTargetLock.maxHealth : 100,
+      targetDistance: this.currentTargetLock ? this.currentTargetLock.distance : 0,
+      targetType: this.currentTargetLock ? this.currentTargetLock.targetType : '',
+      comboCount: this.comboCount,
+      comboMultiplier: this.comboMultiplier,
+      comboTimeRemaining: Math.max(0, this.comboTimer),
     };
   }
 
@@ -951,16 +1080,20 @@ export class BeamSystem {
   }
 
   private innerCoreGeoDispose() {
-    this.innerCoreMesh.geometry.dispose();
-    this.innerCoreMaterial.dispose();
-    this.outerGlowMesh.geometry.dispose();
-    this.outerGlowMaterial.dispose();
-    this.spiralMesh.geometry.dispose();
-    this.spiralMaterial.dispose();
-    this.muzzleFlashMesh.geometry.dispose();
-    this.muzzleFlashMaterial.dispose();
-    this.impactPointMesh.geometry.dispose();
-    this.impactPointMaterial.dispose();
-    this.sparkGeo.dispose();
+    this.innerCoreMesh?.geometry?.dispose();
+    this.innerCoreMaterial?.dispose();
+    this.secondaryCoreMeshLeft?.geometry?.dispose();
+    this.secondaryCoreMeshRight?.geometry?.dispose();
+    this.outerGlowMesh?.geometry?.dispose();
+    this.outerGlowMaterial?.dispose();
+    this.secondaryGlowMeshLeft?.geometry?.dispose();
+    this.secondaryGlowMeshRight?.geometry?.dispose();
+    this.spiralMesh?.geometry?.dispose();
+    this.spiralMaterial?.dispose();
+    this.muzzleFlashMesh?.geometry?.dispose();
+    this.muzzleFlashMaterial?.dispose();
+    this.impactPointMesh?.geometry?.dispose();
+    this.impactPointMaterial?.dispose();
+    this.sparkGeo?.dispose();
   }
 }

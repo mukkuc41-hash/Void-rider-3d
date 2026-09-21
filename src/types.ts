@@ -15,6 +15,28 @@ export type GameState =
   | 'SPACE_HUB';
 
 export type GameMode =
+  // 20 UNIQUE GAME MODES
+  | 'SINGULARITY_RUN'       // 01 — The only Black Hole mode
+  | 'NEON_CIRCUIT'          // 02 — 3-lane neon megacity racing
+  | 'ASTEROID_RUN'          // 03 — Dense asteroid field weaving
+  | 'WORMHOLE_EXPRESS'      // 04 — Unstable wormhole sequence
+  | 'SOLAR_STORM'           // 05 — Heat meter & solar flares
+  | 'GRAVITY_FREE'          // 06 — 3D stunt aerobatics & combos
+  | 'PLASMA_STORM'          // 07 — Advancing storm wall survival
+  | 'SKYLINE_RUSH'          // 08 — Orbital skyscrapers & corridors
+  | 'DEBRIS_SURVIVAL'       // 09 — Endless procedural debris stream
+  | 'QUANTUM_TIME_TRIAL'    // 10 — Pure speed, gates & ghost racer
+  | 'ENERGY_HEIST'          // 11 — Core collection, mass penalty & extraction
+  | 'DRONE_ASSAULT'         // 12 — Combat drone waves & defense
+  | 'COLLAPSING_TRACK'      // 13 — Disintegrating track sections
+  | 'RING_RUNNER'           // 14 — Rotating orbital rings
+  | 'HYPERSPACE_SPRINT'     // 15 — Warp speed & hyperspace tunnels
+  | 'RIVAL_DUEL'            // 16 — 1v1 AI ace dogfight race
+  | 'RELAY_RACE'            // 17 — Multi-ship specialty team relay
+  | 'SURVIVAL_ELIMINATION'  // 18 — Progressive knockout elimination
+  | 'COSMIC_TREASURE_HUNT'  // 19 — Radar scanner & ancient relics
+  | 'VOID_CHAMPIONSHIP'     // 20 — 6-stage premier championship
+  // Backward compatibility aliases
   | 'STANDARD'
   | 'GRAND_PRIX'
   | 'TIME_TRIAL'
@@ -289,6 +311,16 @@ export interface BeamTelemetry {
   status: BeamStatus;
   targetLock: TargetLockInfo | null;
   activeBeam: boolean;
+  isFiring?: boolean;
+  cooldownRemaining?: number;
+  hasTargetLock?: boolean;
+  targetHealth?: number;
+  targetMaxHealth?: number;
+  targetDistance?: number;
+  targetType?: string;
+  comboCount?: number;
+  comboMultiplier?: number;
+  comboTimeRemaining?: number;
 }
 
 export type AsteroidSizeCategory = 'SMALL' | 'MEDIUM' | 'LARGE' | 'ARMORED' | 'ENERGY';

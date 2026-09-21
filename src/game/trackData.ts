@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { DynamicTrackEvent, TrackId, PowerUpType } from '../types';
+import { TrackGraph, TrackManager, TrackGenerator } from './trackGraph';
 
 export interface SamplePoint {
   t: number;
@@ -373,6 +374,10 @@ export class CosmicTrack {
   public powerUpPods: PowerUpPod[] = [];
   private eventTimer: number = 0;
 
+  // Track Graph Architecture
+  public trackGraph: TrackGraph;
+  public trackManager: TrackManager;
+
   constructor(trackId: TrackId = 'neon_orbit') {
     this.id = trackId;
 
@@ -392,6 +397,10 @@ export class CosmicTrack {
     const vectors = rawPoints.map(p => new THREE.Vector3(p[0], p[1], p[2]));
     this.curve = new THREE.CatmullRomCurve3(vectors, true, 'centripetal');
     this.totalLength = this.curve.getLength();
+
+    // Generate explicit graph topology
+    this.trackGraph = TrackGenerator.generateTrackGraph(trackId, rawPoints, 'CIRCUIT', 3);
+    this.trackManager = new TrackManager(this.trackGraph);
 
     this.generatePrecomputedSamples(420);
     this.generateCheckpoints(12);

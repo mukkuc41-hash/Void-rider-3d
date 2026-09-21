@@ -398,14 +398,31 @@ export default function App() {
         }
       }
 
-      // Branch Route Switching Input (A / D / W or Arrow keys)
+      // Branch Route Switching Input (A / D / W or Arrow keys, E to confirm)
       if (engineRef.current?.junctionManager?.activeJunctionTelemetry) {
+        let dir: BranchRouteDirection | null = null;
         if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
-          engineRef.current.input.selectRouteDirection = 'LEFT';
+          dir = 'LEFT';
         } else if (e.code === 'KeyD' || e.code === 'ArrowRight') {
-          engineRef.current.input.selectRouteDirection = 'RIGHT';
+          dir = 'RIGHT';
         } else if (e.code === 'KeyW' || e.code === 'ArrowUp') {
-          engineRef.current.input.selectRouteDirection = 'CENTER';
+          dir = 'CENTER';
+        } else if (e.code === 'KeyE') {
+          engineRef.current.junctionManager.commitRoute();
+          if (engineRef.current.junctionManager.activeJunctionTelemetry) {
+            setJunctionTelemetry({ ...engineRef.current.junctionManager.activeJunctionTelemetry });
+          }
+        }
+
+        if (dir) {
+          engineRef.current.input.selectRouteDirection = dir;
+          const ok = engineRef.current.junctionManager.selectRouteByDirection(dir);
+          if (ok) {
+            sound.playRouteSelected();
+            if (engineRef.current.junctionManager.activeJunctionTelemetry) {
+              setJunctionTelemetry({ ...engineRef.current.junctionManager.activeJunctionTelemetry });
+            }
+          }
         }
       }
 
@@ -963,6 +980,22 @@ export default function App() {
           onSelectRoute={direction => {
             if (engineRef.current) {
               engineRef.current.input.selectRouteDirection = direction;
+              const ok = engineRef.current.junctionManager.selectRouteByDirection(direction);
+              if (ok) {
+                sound.playRouteSelected();
+                if (engineRef.current.junctionManager.activeJunctionTelemetry) {
+                  setJunctionTelemetry({ ...engineRef.current.junctionManager.activeJunctionTelemetry });
+                }
+              }
+            }
+          }}
+          onCommitRoute={() => {
+            if (engineRef.current) {
+              engineRef.current.junctionManager.commitRoute();
+              sound.playMenuClick();
+              if (engineRef.current.junctionManager.activeJunctionTelemetry) {
+                setJunctionTelemetry({ ...engineRef.current.junctionManager.activeJunctionTelemetry });
+              }
             }
           }}
           onNextSpectatorTarget={() => engineRef.current?.cycleSpectatorTarget()}

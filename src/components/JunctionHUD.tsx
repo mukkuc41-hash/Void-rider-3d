@@ -9,16 +9,22 @@ import {
   CheckCircle2,
   Sparkles,
   Timer,
-  Navigation,
+  Lock,
 } from 'lucide-react';
 import { ActiveJunctionTelemetry, BranchRouteDirection, BranchRouteConfig } from '../game/junctionSystem';
+import { sound } from '../game/audio';
 
 interface JunctionHUDProps {
   telemetry: ActiveJunctionTelemetry | null;
   onSelectRoute?: (direction: BranchRouteDirection) => void;
+  onCommitRoute?: () => void;
 }
 
-export const JunctionHUD: React.FC<JunctionHUDProps> = ({ telemetry, onSelectRoute }) => {
+export const JunctionHUD: React.FC<JunctionHUDProps> = ({
+  telemetry,
+  onSelectRoute,
+  onCommitRoute,
+}) => {
   if (!telemetry || telemetry.status === 'PASSED') return null;
 
   const isApproaching = telemetry.status === 'APPROACHING' || telemetry.isApproaching;
@@ -88,20 +94,6 @@ export const JunctionHUD: React.FC<JunctionHUDProps> = ({ telemetry, onSelectRou
     }
   };
 
-  const getDirectionMobileLabel = (dir: BranchRouteDirection) => {
-    switch (dir) {
-      case 'LEFT':
-        return 'LEFT ROUTE';
-      case 'RIGHT':
-        return 'RIGHT ROUTE';
-      case 'SHORTCUT':
-        return 'SHORTCUT ROUTE';
-      case 'CENTER':
-      default:
-        return 'CENTER ROUTE';
-    }
-  };
-
   const getRiskBadge = (risk: string) => {
     switch (risk) {
       case 'LOW':
@@ -146,26 +138,58 @@ export const JunctionHUD: React.FC<JunctionHUDProps> = ({ telemetry, onSelectRou
       };
     }
     return {
-      border: 'border-blue-400',
-      glow: 'shadow-[0_0_30px_rgba(96,165,250,0.5)]',
-      bg: 'bg-blue-950/85',
-      activeBg: 'bg-blue-500 text-slate-950',
-      text: 'text-blue-300',
-      neon: '#60a5fa',
+      border: 'border-sky-400',
+      glow: 'shadow-[0_0_30px_rgba(56,189,248,0.5)]',
+      bg: 'bg-sky-950/85',
+      activeBg: 'bg-sky-500 text-slate-950',
+      text: 'text-sky-300',
+      neon: '#38bdf8',
     };
+  };
+
+  const handleSelect = (dir: BranchRouteDirection, e?: React.SyntheticEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    sound.playRouteSelected();
+    onSelectRoute?.(dir);
+  };
+
+  const handleCommit = (e?: React.SyntheticEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    sound.playMenuClick();
+    onCommitRoute?.();
   };
 
   const distanceM = Math.round(telemetry.distanceToJunction ?? telemetry.distanceToJunctionMeters ?? 0);
   const decisionSec = (telemetry.timeRemainingSec ?? 3).toFixed(1);
 
+  // Check which direction is currently selected
+  const isLeftSelected =
+    telemetry.selectedRouteDirection === 'LEFT' ||
+    selectedRoute?.direction === 'LEFT';
+  const isCenterSelected =
+    telemetry.selectedRouteDirection === 'CENTER' ||
+    selectedRoute?.direction === 'CENTER' ||
+    (!telemetry.selectedRouteDirection && !selectedRoute);
+  const isRightSelected =
+    telemetry.selectedRouteDirection === 'RIGHT' ||
+    telemetry.selectedRouteDirection === 'SHORTCUT' ||
+    selectedRoute?.direction === 'RIGHT' ||
+    selectedRoute?.direction === 'SHORTCUT';
+
   return (
     <div
       id="junction-switching-hud"
-      className="fixed inset-x-0 bottom-28 sm:bottom-24 z-40 pointer-events-none flex flex-col items-center select-none px-3 sm:px-4"
+      className="fixed inset-x-0 bottom-24 sm:bottom-20 z-40 flex flex-col items-center select-none px-2 sm:px-4 pointer-events-auto"
     >
       {/* Top Banner Alert & Junction Distance Telemetry */}
       <div className="flex flex-col items-center mb-2">
-        <div className="bg-slate-950/95 backdrop-blur-md border-2 border-cyan-400/90 rounded-2xl px-4 sm:px-6 py-2 shadow-[0_0_35px_rgba(0,240,255,0.45)] flex items-center gap-3">
+        <div className="bg-slate-950/95 backdrop-blur-md border-2 border-cyan-400/90 rounded-2xl px-4 sm:px-6 py-1.5 sm:py-2 shadow-[0_0_35px_rgba(0,240,255,0.45)] flex items-center gap-3">
           <GitBranch className="w-5 h-5 text-cyan-400 animate-pulse flex-shrink-0" />
           <div className="flex flex-col items-center">
             <div className="flex items-center gap-2">
@@ -184,7 +208,7 @@ export const JunctionHUD: React.FC<JunctionHUDProps> = ({ telemetry, onSelectRou
               <span className="flex items-center gap-1">
                 <Timer className="w-3 h-3 text-amber-400" />
                 <span>
-                  DECISION WINDOW:{' '}
+                  WINDOW:{' '}
                   <strong
                     className={
                       Number(decisionSec) < 2
@@ -205,16 +229,16 @@ export const JunctionHUD: React.FC<JunctionHUDProps> = ({ telemetry, onSelectRou
       {(telemetry.selectedRouteDirection || telemetry.statusMessage) && (
         <div
           id="junction-route-feedback-banner"
-          className="mb-2.5 transition-all duration-200"
+          className="mb-2 transition-all duration-200"
         >
-          <div className="bg-slate-950/95 backdrop-blur-md border-2 border-cyan-400 rounded-xl px-4 py-1.5 shadow-[0_0_25px_rgba(0,240,255,0.6)] flex items-center gap-2">
+          <div className="bg-slate-950/95 backdrop-blur-md border-2 border-cyan-400 rounded-xl px-4 py-1 shadow-[0_0_25px_rgba(0,240,255,0.6)] flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-cyan-400 animate-bounce flex-shrink-0" />
             <span className="text-[11px] sm:text-xs font-mono font-black uppercase tracking-wider text-white">
-              ROUTE SELECTED:{' '}
+              ROUTE ACTIVE:{' '}
               <span className="text-cyan-300 font-extrabold">
                 {telemetry.selectedRouteDirection === 'SHORTCUT'
                   ? 'SHORTCUT (RIGHT)'
-                  : telemetry.selectedRouteDirection}
+                  : (telemetry.selectedRouteDirection || 'CENTER')}
               </span>
               {selectedRoute ? ` — ${selectedRoute.name}` : ''}
             </span>
@@ -222,8 +246,86 @@ export const JunctionHUD: React.FC<JunctionHUDProps> = ({ telemetry, onSelectRou
         </div>
       )}
 
-      {/* Interactive Route Selection Buttons (Responsive Mobile & Desktop) */}
-      <div className="flex items-stretch justify-center gap-2.5 sm:gap-4 max-w-2xl w-full pointer-events-auto">
+      {/* DEDICATED LEFT / CENTER / RIGHT BUTTONS STRIP */}
+      <div
+        id="dedicated-route-selection-strip"
+        className="w-full max-w-xl flex items-center justify-center gap-2 mb-2 px-1"
+      >
+        {/* Dedicated LEFT button */}
+        <button
+          id="btn-route-select-left"
+          type="button"
+          onPointerDown={(e) => handleSelect('LEFT', e)}
+          onClick={(e) => handleSelect('LEFT', e)}
+          className={`flex-1 py-2.5 sm:py-3 px-2 sm:px-4 rounded-xl border-2 font-ui font-black text-xs sm:text-sm tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer transition-all duration-150 active:scale-95 shadow-lg ${
+            isLeftSelected
+              ? 'bg-cyan-500 text-slate-950 border-cyan-300 shadow-[0_0_25px_rgba(0,240,255,0.7)] scale-[1.02] ring-2 ring-white'
+              : 'bg-slate-950/90 text-cyan-300 border-cyan-500/40 hover:border-cyan-400 hover:bg-cyan-950/50'
+          }`}
+        >
+          <ArrowLeft className="w-4 h-4 stroke-[3]" />
+          <span>LEFT</span>
+          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isLeftSelected ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-900 text-slate-400'}`}>
+            A
+          </span>
+        </button>
+
+        {/* Dedicated CENTER button */}
+        <button
+          id="btn-route-select-center"
+          type="button"
+          onPointerDown={(e) => handleSelect('CENTER', e)}
+          onClick={(e) => handleSelect('CENTER', e)}
+          className={`flex-1 py-2.5 sm:py-3 px-2 sm:px-4 rounded-xl border-2 font-ui font-black text-xs sm:text-sm tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer transition-all duration-150 active:scale-95 shadow-lg ${
+            isCenterSelected
+              ? 'bg-sky-500 text-slate-950 border-sky-300 shadow-[0_0_25px_rgba(56,189,248,0.7)] scale-[1.02] ring-2 ring-white'
+              : 'bg-slate-950/90 text-sky-300 border-sky-500/40 hover:border-sky-400 hover:bg-sky-950/50'
+          }`}
+        >
+          <ArrowUp className="w-4 h-4 stroke-[3]" />
+          <span>CENTER</span>
+          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isCenterSelected ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-900 text-slate-400'}`}>
+            W
+          </span>
+        </button>
+
+        {/* Dedicated RIGHT button */}
+        <button
+          id="btn-route-select-right"
+          type="button"
+          onPointerDown={(e) => handleSelect('RIGHT', e)}
+          onClick={(e) => handleSelect('RIGHT', e)}
+          className={`flex-1 py-2.5 sm:py-3 px-2 sm:px-4 rounded-xl border-2 font-ui font-black text-xs sm:text-sm tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer transition-all duration-150 active:scale-95 shadow-lg ${
+            isRightSelected
+              ? 'bg-fuchsia-500 text-slate-950 border-fuchsia-300 shadow-[0_0_25px_rgba(217,70,239,0.7)] scale-[1.02] ring-2 ring-white'
+              : 'bg-slate-950/90 text-fuchsia-300 border-fuchsia-500/40 hover:border-fuchsia-400 hover:bg-fuchsia-950/50'
+          }`}
+        >
+          <span>RIGHT</span>
+          <ArrowRight className="w-4 h-4 stroke-[3]" />
+          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isRightSelected ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-900 text-slate-400'}`}>
+            D
+          </span>
+        </button>
+
+        {/* Dedicated LOCK/CONFIRM button */}
+        <button
+          id="btn-route-confirm-lock"
+          type="button"
+          onPointerDown={handleCommit}
+          onClick={handleCommit}
+          className="py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl border-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-ui font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_0_20px_rgba(245,158,11,0.5)] active:scale-95 transition-all"
+        >
+          <Lock className="w-3.5 h-3.5 fill-slate-950" />
+          <span className="hidden sm:inline">LOCK</span>
+          <span className="text-[10px] font-mono bg-slate-950/30 px-1 py-0.5 rounded text-slate-950 font-bold">
+            E
+          </span>
+        </button>
+      </div>
+
+      {/* Full Detailed Route Choice Cards */}
+      <div className="flex items-stretch justify-center gap-2 sm:gap-3 max-w-3xl w-full">
         {telemetry.availableRoutes.map((route: BranchRouteConfig) => {
           const isSelected = route.id === telemetry.selectedRouteId;
           const theme = getRouteTheme(route.direction, route.isShortcut || !!route.hasShortcut);
@@ -238,33 +340,35 @@ export const JunctionHUD: React.FC<JunctionHUDProps> = ({ telemetry, onSelectRou
           // Estimated length delta
           const isShort = route.lengthMultiplier < 0.98;
           const lengthDeltaText = isShort
-            ? `-${Math.round((1 - route.lengthMultiplier) * 100)}% DISTANCE`
+            ? `-${Math.round((1 - route.lengthMultiplier) * 100)}% DIST`
             : route.lengthMultiplier > 1.02
-            ? `+${Math.round((route.lengthMultiplier - 1) * 100)}% BOOST SLIPSTREAM`
-            : 'STANDARD VECTOR';
+            ? `+${Math.round((route.lengthMultiplier - 1) * 100)}% BOOST`
+            : 'CENTER HIGHWAY';
 
           return (
             <button
               key={route.id}
               id={`junction-route-btn-${route.id}`}
-              onClick={() => onSelectRoute?.(route.direction)}
-              className={`relative flex-1 rounded-2xl border-2 p-2.5 sm:p-3.5 transition-all duration-150 cursor-pointer flex flex-col items-center backdrop-blur-xl active:scale-95 ${
+              type="button"
+              onPointerDown={(e) => handleSelect(route.direction, e)}
+              onClick={(e) => handleSelect(route.direction, e)}
+              className={`relative flex-1 rounded-2xl border-2 p-2 sm:p-3 transition-all duration-150 cursor-pointer flex flex-col items-center backdrop-blur-xl active:scale-95 ${
                 isSelected
-                  ? `${theme.border} ${theme.bg} ${theme.glow} ring-4 ring-white/70 scale-[1.03] z-10`
-                  : 'border-slate-800 bg-slate-950/80 opacity-85 hover:opacity-100 hover:border-slate-600'
+                  ? `${theme.border} ${theme.bg} ${theme.glow} ring-2 ring-white scale-[1.02] z-10`
+                  : 'border-slate-800 bg-slate-950/85 opacity-85 hover:opacity-100 hover:border-slate-600'
               }`}
             >
               {/* Selected Badge */}
               {isSelected && (
-                <div className="absolute -top-3 bg-cyan-400 text-slate-950 text-[8px] sm:text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-full shadow-[0_0_12px_#00f0ff] flex items-center gap-1">
+                <div className="absolute -top-2.5 bg-cyan-400 text-slate-950 text-[8px] sm:text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-full shadow-[0_0_12px_#00f0ff] flex items-center gap-1">
                   <CheckCircle2 className="w-2.5 h-2.5" />
-                  SELECTED
+                  ACTIVE
                 </div>
               )}
 
               {/* Shortcut Tag */}
               {(route.isShortcut || route.hasShortcut) && (
-                <div className="absolute -top-3 right-2 bg-amber-400 text-slate-950 text-[8px] font-mono font-black uppercase px-2 py-0.5 rounded-full shadow-[0_0_12px_#f59e0b] flex items-center gap-0.5">
+                <div className="absolute -top-2.5 right-2 bg-amber-400 text-slate-950 text-[8px] font-mono font-black uppercase px-2 py-0.5 rounded-full shadow-[0_0_12px_#f59e0b] flex items-center gap-0.5">
                   <Sparkles className="w-2.5 h-2.5" />
                   SHORTCUT
                 </div>
@@ -272,38 +376,29 @@ export const JunctionHUD: React.FC<JunctionHUDProps> = ({ telemetry, onSelectRou
 
               {/* Header: Arrow Icon & Prompts */}
               <div className="flex items-center justify-between w-full mb-1">
-                <div className={`p-1.5 sm:p-2 rounded-xl border ${theme.border} ${theme.bg} ${theme.text}`}>
+                <div className={`p-1 sm:p-1.5 rounded-lg border ${theme.border} ${theme.bg} ${theme.text}`}>
                   {getDirectionIcon(route.direction)}
                 </div>
-                <div className="flex flex-col items-end">
-                  {/* Desktop key prompt */}
-                  <span className="hidden sm:inline-block text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-900/90 text-slate-300 border border-slate-700">
-                    {getDirectionKeyPrompt(route.direction)}
-                  </span>
-                  {/* Mobile direction label */}
-                  <span className="sm:hidden text-[9px] font-mono font-black tracking-wider uppercase text-cyan-300">
-                    {getDirectionMobileLabel(route.direction)}
-                  </span>
-                </div>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-900/90 text-slate-300 border border-slate-700">
+                  {getDirectionKeyPrompt(route.direction)}
+                </span>
               </div>
 
               {/* Route Name & Metadata */}
-              <div className="w-full text-left mt-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-sm font-ui font-black uppercase tracking-wider text-white truncate">
-                    {route.name}
-                  </span>
-                </div>
+              <div className="w-full text-left mt-0.5">
+                <span className="text-[11px] sm:text-xs font-ui font-black uppercase tracking-wider text-white truncate block">
+                  {route.name}
+                </span>
 
                 {/* Tactical Badges */}
-                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                <div className="flex flex-wrap items-center gap-1 mt-1">
                   <span
-                    className={`text-[8px] sm:text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded border ${riskInfo.color}`}
+                    className={`text-[8px] font-mono font-bold uppercase px-1 py-0.2 rounded border ${riskInfo.color}`}
                   >
                     {riskInfo.label}
                   </span>
                   <span
-                    className={`text-[8px] sm:text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded border ${
+                    className={`text-[8px] font-mono font-bold uppercase px-1 py-0.2 rounded border ${
                       isShort
                         ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                         : 'bg-slate-800 text-slate-300 border-slate-700'
@@ -312,13 +407,13 @@ export const JunctionHUD: React.FC<JunctionHUDProps> = ({ telemetry, onSelectRou
                     {lengthDeltaText}
                   </span>
                   {boostPads > 0 && (
-                    <span className="text-[8px] sm:text-[9px] font-mono text-cyan-400 flex items-center gap-0.5">
+                    <span className="text-[8px] font-mono text-cyan-400 flex items-center gap-0.5">
                       <Zap className="w-2.5 h-2.5" />
                       {boostPads}
                     </span>
                   )}
                   {obstacles > 0 && (
-                    <span className="text-[8px] sm:text-[9px] font-mono text-rose-400 flex items-center gap-0.5">
+                    <span className="text-[8px] font-mono text-rose-400 flex items-center gap-0.5">
                       <AlertTriangle className="w-2.5 h-2.5" />
                       {obstacles}
                     </span>
@@ -327,31 +422,12 @@ export const JunctionHUD: React.FC<JunctionHUDProps> = ({ telemetry, onSelectRou
               </div>
 
               {/* Detail Preview Description */}
-              <p className="text-[8px] sm:text-[10px] text-slate-400 mt-1 line-clamp-1 w-full text-left font-mono">
-                {route.subtitle || route.detail || (route as any).description}
+              <p className="text-[8px] sm:text-[9px] text-slate-400 mt-1 line-clamp-1 w-full text-left font-mono">
+                {route.subtitle || route.detail}
               </p>
             </button>
           );
         })}
-      </div>
-
-      {/* Desktop Instruction Hint */}
-      <div className="hidden sm:flex items-center gap-3 text-[10px] font-mono text-slate-400 mt-2 bg-slate-950/80 px-3 py-1 rounded-full border border-slate-800">
-        <span>
-          Press <strong className="text-cyan-400">[A / ←]</strong> for Left
-        </span>
-        <span>•</span>
-        <span>
-          Press <strong className="text-cyan-400">[D / →]</strong> for Right
-        </span>
-        <span>•</span>
-        <span>
-          Press <strong className="text-cyan-400">[W / ↑]</strong> for Center
-        </span>
-        <span>•</span>
-        <span>
-          Press <strong className="text-amber-400">[E]</strong> to Confirm
-        </span>
       </div>
     </div>
   );

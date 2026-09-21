@@ -238,6 +238,7 @@ export class GameEngine {
   private totalLaps: number = 2;
   private nextCheckpointIdx: number = 0;
   private hasFinished: boolean = false;
+  public finishLineCooldownTimer: number = 0;
   private raceStartTime: number = 0;
   private totalDistanceTraveled: number = 0;
   public isRacing: boolean = false;
@@ -1481,6 +1482,7 @@ export class GameEngine {
     this.respawnTimer = 0;
     this.invulnerableTimer = 0;
     this.checkpointsPassedThisLap.clear();
+    this.junctionManager.clearLapJunctions();
     this.latestValidCheckpoint = {
       idx: 0,
       t: 0,
@@ -1529,6 +1531,7 @@ export class GameEngine {
     this.respawnTimer = 0;
     this.invulnerableTimer = 0;
     this.checkpointsPassedThisLap.clear();
+    this.junctionManager.clearLapJunctions();
     this.isWrongWay = false;
     this.wrongWayTimer = 0;
     this.driftChargeTime = 0;
@@ -1578,6 +1581,9 @@ export class GameEngine {
     this.totalTimeElapsed += dt;
     if (this.collisionCooldown > 0) {
       this.collisionCooldown = Math.max(0, this.collisionCooldown - dt);
+    }
+    if (this.finishLineCooldownTimer > 0) {
+      this.finishLineCooldownTimer = Math.max(0, this.finishLineCooldownTimer - dt);
     }
 
     this.track.updateDynamicEvents(dt, this.totalTimeElapsed);
@@ -2051,8 +2057,56 @@ export class GameEngine {
       });
 
       if (branchUpdate.finishedBranch) {
-        this.splineT = branchUpdate.rejoinSplineT;
-        this.callbacks.onShortcutUsed?.(this.junctionManager.feedbackMessage || 'ROUTE COMPLETED');
+        // Rejoin main track smoothly at or past the junction exit
+        const progressAdvance = (this.currentSpeed * dt) / this.track.totalLength;
+        this.splineT = ((branchUpdate.rejoinSplineT + progressAdvance) % 1.0 + 1.0) % 1.0;
+        this.lateralOffset = 0;
+        this.isWrongWay = false;
+        this.wrongWayTimer = 0;
+        this.currentSpeed = Math.max(this.currentSpeed, 140);
+
+        // Instantly align ship world position and orientation with main track centerline
+        const rejoinSample = this.track.getSampleAt(this.splineT);
+        this.updateShipTransform(0);
+
+        // Sync checkpoints so any gates within or before the rejoined route are marked as passed
+        const totalCps = this.track.checkpoints.length;
+        for (let i = 0; i < totalCps; i++) {
+          if (this.track.checkpoints[i].t <= this.splineT) {
+            this.checkpointsPassedThisLap.add(i);
+          }
+        }
+
+        // Advance nextCheckpointIdx to the nearest upcoming gate ahead of splineT
+        let upcomingIdx = 0;
+        let foundAhead = false;
+        for (let i = 0; i < totalCps; i++) {
+          if (this.track.checkpoints[i].t > this.splineT) {
+            upcomingIdx = i;
+            foundAhead = true;
+            break;
+          }
+        }
+        this.nextCheckpointIdx = foundAhead ? upcomingIdx : 0;
+        this.callbacks.onCheckpointUpdate(this.nextCheckpointIdx, totalCps);
+
+        // Update latestValidCheckpoint to the rejoin point so recovery/respawn never sends the player backwards
+        this.latestValidCheckpoint = {
+          idx: (this.nextCheckpointIdx - 1 + totalCps) % totalCps,
+          t: this.splineT,
+          pos: rejoinSample.point.clone(),
+        };
+
+        // Reset branch route progress state
+        this.junctionManager.playerRouteProgress.activeJunctionId = null;
+        this.junctionManager.playerRouteProgress.activeRouteId = null;
+        this.junctionManager.playerRouteProgress.branchRouteInstance = null;
+        this.junctionManager.playerRouteProgress.isInBranch = false;
+        this.junctionManager.playerRouteProgress.progress = 0;
+        this.junctionManager.isSelectionLocked = false;
+        this.junctionManager.activeJunctionTelemetry = null;
+
+        this.callbacks.onShortcutUsed?.(this.junctionManager.feedbackMessage || 'ROUTE COMPLETED // MERGED TO MAIN LANE');
         sound.playCheckpoint();
       } else {
         const junc = this.junctionManager.junctions.get(this.junctionManager.playerRouteProgress.activeJunctionId || '');
@@ -2242,36 +2296,62 @@ export class GameEngine {
     if (nextGate) {
       const dist = shipPos.distanceTo(nextGate.position);
       if (dist < nextGate.width) {
-        sound.playCheckpoint();
-        this.latestValidCheckpoint = {
-          idx: this.nextCheckpointIdx,
-          t: nextGate.t,
-          pos: nextGate.position.clone(),
-        };
-        this.checkpointsPassedThisLap.add(this.nextCheckpointIdx);
-        this.nextCheckpointIdx = (this.nextCheckpointIdx + 1) % this.track.checkpoints.length;
-        this.callbacks.onCheckpointUpdate(this.nextCheckpointIdx, this.track.checkpoints.length);
+        // Forward travel check
+        const shipForward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.playerShipGroup.quaternion);
+        const isForward = nextGate.tangent.dot(shipForward) > -0.2 && !this.isWrongWay;
 
-        if (this.nextCheckpointIdx === 1) {
-          const now = Date.now();
-          if (this.lapStartTime > 0) {
-            const lapDuration = now - this.lapStartTime;
-            if (this.bestLapTime === 0 || lapDuration < this.bestLapTime) {
-              this.bestLapTime = lapDuration;
+        if (isForward) {
+          const isFinishGate = this.nextCheckpointIdx === 0;
+          const minCoverage = Math.max(3, Math.floor(this.track.checkpoints.length * 0.65));
+          const hasPassedEnoughCheckpoints = this.checkpointsPassedThisLap.size >= minCoverage;
+
+          if (isFinishGate) {
+            // Only count lap if passed required checkpoints, cooldown passed, and minimum race time passed
+            if (hasPassedEnoughCheckpoints && this.finishLineCooldownTimer <= 0 && (Date.now() - this.lapStartTime > 3500)) {
+              sound.playCheckpoint();
+              this.latestValidCheckpoint = {
+                idx: 0,
+                t: nextGate.t,
+                pos: nextGate.position.clone(),
+              };
+              this.checkpointsPassedThisLap.add(0);
+              this.nextCheckpointIdx = 1;
+              this.callbacks.onCheckpointUpdate(this.nextCheckpointIdx, this.track.checkpoints.length);
+              this.finishLineCooldownTimer = 4.5; // 4.5s debounce
+
+              const now = Date.now();
+              if (this.lapStartTime > 0) {
+                const lapDuration = now - this.lapStartTime;
+                if (this.bestLapTime === 0 || lapDuration < this.bestLapTime) {
+                  this.bestLapTime = lapDuration;
+                }
+              }
+              this.lapStartTime = now;
+              this.checkpointsPassedThisLap.clear();
+              this.junctionManager.clearLapJunctions();
+
+              if (this.currentLap >= this.totalLaps) {
+                this.hasFinished = true;
+                this.currentLap = this.totalLaps;
+                const finalTime = Date.now() - this.raceStartTime;
+                sound.playFinish();
+                this.callbacks.onRaceFinish(finalTime);
+              } else {
+                this.currentLap++;
+                this.callbacks.onLapUpdate(this.currentLap, this.totalLaps);
+              }
             }
-          }
-          this.lapStartTime = now;
-          this.checkpointsPassedThisLap.clear();
-
-          if (this.currentLap >= this.totalLaps) {
-            this.hasFinished = true;
-            this.currentLap = this.totalLaps + 1;
-            const finalTime = Date.now() - this.raceStartTime;
-            sound.playFinish();
-            this.callbacks.onRaceFinish(finalTime);
           } else {
-            this.currentLap++;
-            this.callbacks.onLapUpdate(this.currentLap, this.totalLaps);
+            // Intermediate checkpoint gate
+            sound.playCheckpoint();
+            this.latestValidCheckpoint = {
+              idx: this.nextCheckpointIdx,
+              t: nextGate.t,
+              pos: nextGate.position.clone(),
+            };
+            this.checkpointsPassedThisLap.add(this.nextCheckpointIdx);
+            this.nextCheckpointIdx = (this.nextCheckpointIdx + 1) % this.track.checkpoints.length;
+            this.callbacks.onCheckpointUpdate(this.nextCheckpointIdx, this.track.checkpoints.length);
           }
         }
       }
@@ -3072,9 +3152,25 @@ export class GameEngine {
   public respawnPlayerShip() {
     this.isDestroyed = false;
     this.respawnTimer = 0;
-    this.splineT = this.latestValidCheckpoint.t;
+
+    const currentRoute = this.junctionManager?.playerRouteProgress?.activeRouteId || 'main_route';
+    const recovery = this.track.trackManager?.respawnManager?.getSafeRecoveryPoint(this.splineT, currentRoute);
+    if (recovery) {
+      this.splineT = recovery.splineT;
+      if (recovery.routeId === 'main_route' && this.junctionManager) {
+        this.junctionManager.playerRouteProgress.isInBranch = false;
+        this.junctionManager.playerRouteProgress.activeJunctionId = null;
+        this.junctionManager.playerRouteProgress.activeRouteId = null;
+        this.junctionManager.playerRouteProgress.branchRouteInstance = null;
+        this.junctionManager.playerRouteProgress.progress = 0;
+      }
+      this.currentSpeed = Math.max(20, recovery.safeSpeed);
+    } else {
+      this.splineT = this.latestValidCheckpoint.t;
+      this.currentSpeed = 20;
+    }
+
     this.lateralOffset = 0;
-    this.currentSpeed = 16;
     this.hullHealth = 100;
     this.invulnerableTimer = 2.5;
     this.shipRoll = 0;
@@ -3085,7 +3181,12 @@ export class GameEngine {
     this.cameraShake = 0;
     this.collisionFovPunch = 0;
 
+    const sample = this.track.getSampleAt(this.splineT);
     if (this.playerShipGroup) {
+      const rotMatrix = new THREE.Matrix4().makeBasis(sample.binormal, sample.normal, sample.tangent);
+      this.playerShipGroup.rotation.setFromRotationMatrix(rotMatrix);
+      const safePos = sample.point.clone().add(sample.normal.clone().multiplyScalar(2.0));
+      this.playerShipGroup.position.copy(safePos);
       this.playerShipGroup.visible = true;
     }
     sound.playRespawn();
@@ -3733,8 +3834,23 @@ export class GameEngine {
           this.callbacks.onAsteroidDestroyed?.(obstacle, points, credits);
         }
       );
+
+      // Visual emitter pulse and ship physical recoil
+      if (emitter) {
+        const aperture = emitter.getObjectByName('emitter_aperture');
+        if (aperture) aperture.scale.set(1.35, 1.35, 1.35);
+      }
+      if (this.beamSystem.recoilOffset.lengthSq() > 0.0001) {
+        this.playerShipGroup.position.add(
+          forward.clone().multiplyScalar(-this.beamSystem.recoilOffset.z * 0.3)
+        );
+      }
     } else {
       this.beamSystem.ceaseFire();
+      if (emitter) {
+        const aperture = emitter.getObjectByName('emitter_aperture');
+        if (aperture) aperture.scale.set(1.0, 1.0, 1.0);
+      }
     }
 
     // Update beam internal physics, cooling, fragments, shockwaves
