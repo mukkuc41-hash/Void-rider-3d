@@ -32,8 +32,12 @@ import {
   BeamCustomization,
   BeamUpgrades,
   BeamTelemetry,
+  GameMode,
 } from '../types';
 import { BeamSystem, DEFAULT_BEAM_CUSTOMIZATION, DEFAULT_BEAM_UPGRADES } from './beamSystem';
+import { BlackHoleManager, SingularityTelemetry } from './blackHoleSystem';
+import { ModeManager, ModeHUDTelemetry } from './modeManager';
+import { ModeEntitySystem } from './modeEntitySystem';
 import { Obstacle, SamplePoint } from './trackData';
 import {
   JunctionManager,
@@ -49,6 +53,15 @@ import {
   CollisionParticipant,
   CollisionEventFeedback,
 } from './collisionSystem';
+import { MissileManager, MissileTargetCandidate } from './missileSystem';
+import { ActiveShieldManager } from './shieldSystem';
+import { MinimapManager } from './minimapSystem';
+import {
+  MissileTelemetry,
+  ActiveShieldTelemetry,
+  MinimapTelemetry,
+  MinimapBranchPoint,
+} from '../types';
 
 export interface LocalAIRacer {
   id: string;
@@ -118,6 +131,11 @@ export interface GameEngineCallbacks {
   onJunctionTelemetry?: (telemetry: ActiveJunctionTelemetry | null) => void;
   onRouteSelected?: (routeName: string, direction: BranchRouteDirection) => void;
   onCollisionFeedback?: (feedback: CollisionEventFeedback) => void;
+  onModeTelemetry?: (telemetry: ModeHUDTelemetry) => void;
+  onSingularityTelemetry?: (telemetry: SingularityTelemetry) => void;
+  onMissileTelemetry?: (telemetry: MissileTelemetry) => void;
+  onActiveShieldTelemetry?: (telemetry: ActiveShieldTelemetry) => void;
+  onMinimapTelemetry?: (telemetry: MinimapTelemetry) => void;
   onEngineReady?: () => void;
 }
 
@@ -151,6 +169,11 @@ export class GameEngine {
 
   // Branching Path & Junction Switching System
   public junctionManager: JunctionManager;
+
+  // Combat & Navigation Subsystems
+  public missileManager: MissileManager;
+  public activeShieldManager: ActiveShieldManager;
+  public minimapManager: MinimapManager;
 
   // Asteroid Destruction Beam System
   public beamSystem: BeamSystem;
@@ -226,6 +249,7 @@ export class GameEngine {
   // Local Physics & Movement
   public input: PlayerInput = { throttle: 0, steer: 0, boost: false, drift: false, recover: false };
   private splineT: number = 0;
+  private prevSplineT: number = 0;
   private lateralOffset: number = 0;
   private currentSpeed: number = 0;
   private boostEnergy: number = 100;
@@ -233,6 +257,12 @@ export class GameEngine {
   private isDrifting: boolean = false;
   private shipRoll: number = 0;
   private cameraRoll: number = 0;
+
+  // 20 Unique Game Modes & Black Hole System
+  public activeGameMode: GameMode = 'NEON_CIRCUIT';
+  public modeManager: ModeManager = new ModeManager('NEON_CIRCUIT');
+  public blackHoleManager: BlackHoleManager | null = null;
+  public modeEntitySystem: ModeEntitySystem | null = null;
 
   private currentLap: number = 1;
   private totalLaps: number = 2;
@@ -430,6 +460,37 @@ export class GameEngine {
         sound.playCollision();
       }
     };
+
+    // Initialize Missile Weapon System (all 20 modes)
+    this.missileManager = new MissileManager(this.scene, this.camera, {
+      onCameraShake: (intensity) => {
+        if (this.cameraShakeEnabled) {
+          this.cameraShake = Math.max(this.cameraShake, intensity);
+        }
+      },
+      onFovPulse: (degrees) => {
+        this.collisionFovPunch = Math.max(this.collisionFovPunch, degrees);
+      },
+      onImpactFeedback: (title, detail) => {
+        this.callbacks.onCollisionFeedback?.({
+          id: `missile_${Date.now()}`,
+          type: 'IMPACT',
+          title,
+          detail,
+          impactForce: 65,
+          timestamp: Date.now(),
+        });
+      },
+    });
+
+    // Initialize Active Shield System (60s cooldown)
+    this.activeShieldManager = new ActiveShieldManager();
+
+    // Initialize Interactive Real-Time Track Minimap System
+    this.minimapManager = new MinimapManager();
+    if (this.track) {
+      this.minimapManager.initTrack(this.track.curve, this.track.checkpoints, this.track.name || 'SECTOR ALPHA');
+    }
 
     // Prewarm Shaders & Compile Scene Ahead of Time for Stutter-Free Start
     try {
@@ -1418,6 +1479,9 @@ export class GameEngine {
       this.junctionManager.mainTrack = this.track;
       this.junctionManager.initJunctions(trackId);
     }
+    if (this.minimapManager) {
+      this.minimapManager.initTrack(this.track.curve, this.track.checkpoints, this.track.name || 'SECTOR ALPHA');
+    }
     this.resetToStart();
   }
 
@@ -1494,6 +1558,10 @@ export class GameEngine {
     this.lapStartTime = Date.now();
     this.currentLapTime = 0;
     this.bestLapTime = 0;
+
+    // Reset missile weapon and active shield cooldowns
+    this.missileManager?.reset();
+    this.activeShieldManager?.reset();
 
     if (this.playerShipGroup) {
       this.playerShipGroup.visible = true;
@@ -2119,6 +2187,7 @@ export class GameEngine {
         }
       }
     } else {
+      this.prevSplineT = this.splineT;
       const progressAdvance = (this.currentSpeed * dt) / this.track.totalLength;
       this.splineT = (this.splineT + progressAdvance) % 1.0;
     }
@@ -2177,6 +2246,105 @@ export class GameEngine {
       this.maxSpeedReached = speedKmH;
     }
     this.callbacks.onSpeedUpdate(speedKmH);
+
+    // Update Active Game Mode Telemetry
+    const modeTelemetry = this.modeManager.update(dt, speedKmH, this.isBoosting, this.isDrifting);
+    this.callbacks.onModeTelemetry?.(modeTelemetry);
+
+    // Mode 01: Singularity Run (Black Hole System)
+    if (this.activeGameMode === 'SINGULARITY_RUN' && this.blackHoleManager) {
+      const bhUpdate = this.blackHoleManager.update(dt, this.playerShipGroup.position, this.currentSpeed);
+      this.callbacks.onSingularityTelemetry?.(bhUpdate.telemetry);
+
+      if (bhUpdate.slingshotMult > 1.0) {
+        this.currentSpeed = Math.min(this.currentSpeed * bhUpdate.slingshotMult, 440 / 3.6);
+      }
+
+      if (bhUpdate.isConsumed && !this.isDestroyed) {
+        this.destroyPlayerShip('CONSUMED BY EVENT HORIZON');
+      }
+
+      if (bhUpdate.escaped && !this.hasFinished) {
+        this.hasFinished = true;
+        this.currentLap = this.totalLaps;
+        const finalTime = Date.now() - this.raceStartTime;
+        sound.playFinish();
+        this.callbacks.onRaceFinish(finalTime);
+      }
+    }
+
+    // 19 Non-Black-Hole Unique Modes Entity & Systems Update
+    if (this.activeGameMode !== 'SINGULARITY_RUN' && this.modeEntitySystem) {
+      this.modeEntitySystem.update(
+        dt,
+        this.playerShipGroup.position,
+        speedKmH,
+        this.splineT,
+        speedDelta => {
+          this.currentSpeed = Math.max(20 / 3.6, Math.min(540 / 3.6, this.currentSpeed + speedDelta / 3.6));
+        },
+        newT => {
+          this.splineT = newT;
+          if (this.track && this.track.curve) {
+            this.playerShipGroup.position.copy(this.track.curve.getPointAt(newT));
+          }
+        },
+        specialty => {
+          if (specialty === 'HANDLING') {
+            this.boostEnergy = Math.min(100, this.boostEnergy + 50);
+          } else if (specialty === 'BOOST') {
+            this.boostEnergy = 100;
+            this.phaseShieldTimer = 6;
+            this.damageZones.shieldCore = 100;
+          }
+        }
+      );
+
+      // Mode 07: Plasma Storm Loss Condition
+      if (this.activeGameMode === 'PLASMA_STORM' && this.modeManager.stormWallDistance <= 0 && !this.isDestroyed) {
+        this.destroyPlayerShip('VAPORIZED BY PLASMA STORM WALL');
+      }
+
+      // Mode 11: Energy Heist Loss Condition
+      if (
+        this.activeGameMode === 'ENERGY_HEIST' &&
+        this.modeManager.heistTimer <= 0 &&
+        !this.isDestroyed &&
+        !this.hasFinished
+      ) {
+        this.destroyPlayerShip('HEIST EXTRACTION TIMED OUT');
+      }
+
+      // Mode 13: Collapsing Track Loss Condition
+      if (this.activeGameMode === 'COLLAPSING_TRACK' && this.modeManager.collapseGap <= 0 && !this.isDestroyed) {
+        this.destroyPlayerShip('CONSUMED BY DISINTEGRATING TRACK VOID');
+      }
+
+      // Mode 16: Rival Duel Gap to Zer0
+      if (this.activeGameMode === 'RIVAL_DUEL' && this.localAIRacers.length > 0) {
+        const rival = this.localAIRacers[0];
+        const gap = this.playerShipGroup.position.distanceTo(rival.group.position);
+        this.modeManager.rivalGapMeters = this.totalDistanceTraveled >= rival.progressDistance ? gap : -gap;
+      }
+
+      // Mode 18: Survival Elimination Knockout Logic
+      if (this.activeGameMode === 'SURVIVAL_ELIMINATION' && this.isRacing && !this.hasFinished) {
+        if (this.modeManager.eliminationTimer <= 0.05) {
+          const playerRank = this.getPlayerRank();
+          const totalRacers = 1 + this.localAIRacers.length;
+          if (playerRank >= totalRacers && !this.isDestroyed) {
+            this.destroyPlayerShip('ELIMINATED BY ORBITAL DEFENSE CANNON');
+          } else if (this.localAIRacers.length > 0) {
+            const slowest = this.localAIRacers.reduce((prev, curr) =>
+              curr.progressDistance < prev.progressDistance ? curr : prev
+            );
+            sound.playExplosion();
+            this.scene.remove(slowest.group);
+            this.localAIRacers = this.localAIRacers.filter(r => r.id !== slowest.id);
+          }
+        }
+      }
+    }
 
     if (this.isRacing) {
       const pos = this.playerShipGroup.position;
@@ -2292,67 +2460,72 @@ export class GameEngine {
       }
     }
 
-    const nextGate = this.track.checkpoints[this.nextCheckpointIdx];
-    if (nextGate) {
-      const dist = shipPos.distanceTo(nextGate.position);
-      if (dist < nextGate.width) {
-        // Forward travel check
-        const shipForward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.playerShipGroup.quaternion);
-        const isForward = nextGate.tangent.dot(shipForward) > -0.2 && !this.isWrongWay;
+    const totalCps = this.track.checkpoints.length;
+    if (totalCps === 0) return;
 
-        if (isForward) {
-          const isFinishGate = this.nextCheckpointIdx === 0;
-          const minCoverage = Math.max(3, Math.floor(this.track.checkpoints.length * 0.65));
-          const hasPassedEnoughCheckpoints = this.checkpointsPassedThisLap.size >= minCoverage;
+    // 1. Check all intermediate checkpoints
+    for (let i = 1; i < totalCps; i++) {
+      const gate = this.track.checkpoints[i];
+      if (!this.checkpointsPassedThisLap.has(i)) {
+        const dist = shipPos.distanceTo(gate.position);
+        const physicallyNear = dist < Math.max(gate.width * 1.6, 26.0);
+        const splinePassed = (this.splineT >= gate.t && this.splineT < gate.t + 0.12 && this.prevSplineT < gate.t);
 
-          if (isFinishGate) {
-            // Only count lap if passed required checkpoints, cooldown passed, and minimum race time passed
-            if (hasPassedEnoughCheckpoints && this.finishLineCooldownTimer <= 0 && (Date.now() - this.lapStartTime > 3500)) {
-              sound.playCheckpoint();
-              this.latestValidCheckpoint = {
-                idx: 0,
-                t: nextGate.t,
-                pos: nextGate.position.clone(),
-              };
-              this.checkpointsPassedThisLap.add(0);
-              this.nextCheckpointIdx = 1;
-              this.callbacks.onCheckpointUpdate(this.nextCheckpointIdx, this.track.checkpoints.length);
-              this.finishLineCooldownTimer = 4.5; // 4.5s debounce
+        if (physicallyNear || splinePassed) {
+          this.checkpointsPassedThisLap.add(i);
+          this.latestValidCheckpoint = {
+            idx: i,
+            t: gate.t,
+            pos: gate.position.clone(),
+          };
+          sound.playCheckpoint();
+          this.nextCheckpointIdx = (i + 1) % totalCps;
+          this.callbacks.onCheckpointUpdate(this.nextCheckpointIdx, totalCps);
+          this.modeManager.recordRingPassed();
+        }
+      }
+    }
 
-              const now = Date.now();
-              if (this.lapStartTime > 0) {
-                const lapDuration = now - this.lapStartTime;
-                if (this.bestLapTime === 0 || lapDuration < this.bestLapTime) {
-                  this.bestLapTime = lapDuration;
-                }
-              }
-              this.lapStartTime = now;
-              this.checkpointsPassedThisLap.clear();
-              this.junctionManager.clearLapJunctions();
+    // 2. Check Finish Line / Lap Completion (Gate 0 or Spline Loop Wrap)
+    const gate0 = this.track.checkpoints[0];
+    const distToFinish = gate0 ? shipPos.distanceTo(gate0.position) : 999;
+    const isPhysicallyAtFinish = distToFinish < Math.max((gate0?.width || 20) * 1.6, 28.0);
+    const isSplineLoopWrapped = (this.prevSplineT > 0.82 && this.splineT < 0.18);
 
-              if (this.currentLap >= this.totalLaps) {
-                this.hasFinished = true;
-                this.currentLap = this.totalLaps;
-                const finalTime = Date.now() - this.raceStartTime;
-                sound.playFinish();
-                this.callbacks.onRaceFinish(finalTime);
-              } else {
-                this.currentLap++;
-                this.callbacks.onLapUpdate(this.currentLap, this.totalLaps);
-              }
-            }
-          } else {
-            // Intermediate checkpoint gate
-            sound.playCheckpoint();
-            this.latestValidCheckpoint = {
-              idx: this.nextCheckpointIdx,
-              t: nextGate.t,
-              pos: nextGate.position.clone(),
-            };
-            this.checkpointsPassedThisLap.add(this.nextCheckpointIdx);
-            this.nextCheckpointIdx = (this.nextCheckpointIdx + 1) % this.track.checkpoints.length;
-            this.callbacks.onCheckpointUpdate(this.nextCheckpointIdx, this.track.checkpoints.length);
+    if ((isPhysicallyAtFinish || isSplineLoopWrapped) && this.finishLineCooldownTimer <= 0 && !this.isWrongWay) {
+      const now = Date.now();
+      // Ensure player has been racing on this lap for at least 2.5 seconds
+      if (now - this.lapStartTime > 2500) {
+        sound.playCheckpoint();
+        this.finishLineCooldownTimer = 3.5; // 3.5s cooldown debounce
+        this.latestValidCheckpoint = {
+          idx: 0,
+          t: gate0 ? gate0.t : 0,
+          pos: gate0 ? gate0.position.clone() : shipPos.clone(),
+        };
+        this.checkpointsPassedThisLap.add(0);
+
+        if (this.lapStartTime > 0) {
+          const lapDuration = now - this.lapStartTime;
+          if (this.bestLapTime === 0 || lapDuration < this.bestLapTime) {
+            this.bestLapTime = lapDuration;
           }
+        }
+        this.lapStartTime = now;
+        this.checkpointsPassedThisLap.clear();
+        this.junctionManager.clearLapJunctions();
+        this.nextCheckpointIdx = 1;
+        this.callbacks.onCheckpointUpdate(1, totalCps);
+
+        if (this.currentLap >= this.totalLaps) {
+          this.hasFinished = true;
+          this.currentLap = this.totalLaps;
+          const finalTime = now - this.raceStartTime;
+          sound.playFinish();
+          this.callbacks.onRaceFinish(finalTime);
+        } else {
+          this.currentLap++;
+          this.callbacks.onLapUpdate(this.currentLap, this.totalLaps);
         }
       }
     }
@@ -3296,11 +3469,67 @@ export class GameEngine {
     }
   }
 
+  public setGameMode(mode: GameMode) {
+    this.activeGameMode = mode;
+    this.modeManager.setMode(mode);
+
+    if (mode === 'SINGULARITY_RUN') {
+      if (!this.blackHoleManager) {
+        this.blackHoleManager = new BlackHoleManager(this.scene);
+      }
+      if (this.modeEntitySystem) {
+        this.modeEntitySystem.clear();
+      }
+    } else {
+      if (this.blackHoleManager) {
+        this.blackHoleManager.dispose();
+        this.blackHoleManager = null;
+      }
+      if (!this.modeEntitySystem) {
+        this.modeEntitySystem = new ModeEntitySystem(this.scene, this.modeManager);
+      }
+      this.modeEntitySystem.initModeEntities(mode, this.track?.curve || null);
+    }
+  }
+
+  public getPlayerRank(): number {
+    const playerScore = (this.currentLap - 1) * 100000 + this.splineT * 10000;
+    let rank = 1;
+    for (const ai of this.localAIRacers) {
+      const aiScore = (ai.currentLap - 1) * 100000 + ai.t * 10000;
+      if (aiScore > playerScore) rank++;
+    }
+    return rank;
+  }
+
   public startAIRace(config: AIRaceConfig) {
     this.totalLaps = config.laps || 2;
+    if (config.mode) {
+      this.setGameMode(config.mode);
+    }
     this.setTrack(config.trackId);
-    this.initAIRacers(config);
+
+    // Mode-specific bot configurations
+    const adjustedConfig = { ...config };
+    if (config.mode === 'QUANTUM_TIME_TRIAL') {
+      adjustedConfig.botCount = 0; // Pure solo time attack
+    } else if (config.mode === 'RIVAL_DUEL') {
+      adjustedConfig.botCount = 1; // 1v1 duel against Zer0
+      adjustedConfig.difficulty = 'ELITE';
+    } else if (config.mode === 'SURVIVAL_ELIMINATION') {
+      adjustedConfig.botCount = 5; // 6 total racers
+    }
+
+    this.initAIRacers(adjustedConfig);
     this.startRace();
+
+    // Re-init mode entities with the active track spline
+    if (this.activeGameMode !== 'SINGULARITY_RUN') {
+      if (!this.modeEntitySystem) {
+        this.modeEntitySystem = new ModeEntitySystem(this.scene, this.modeManager);
+      }
+      this.modeEntitySystem.initModeEntities(this.activeGameMode, this.track?.curve || null);
+    }
   }
 
   public clearAIRacers() {
@@ -3768,7 +3997,15 @@ export class GameEngine {
         this.updateSpeedParticles();
         this.updateAsteroids(dt);
         this.updateBeamSystem(dt);
+        this.updateMissileSystem(dt);
+        this.updateActiveShieldSystem(dt);
+        this.updateMinimapSystem(dt);
         this.updateJunctions(dt);
+      } else {
+        // Paused loop: keep telemetry synced with zero dt
+        this.updateMissileSystem(0);
+        this.updateActiveShieldSystem(0);
+        this.updateMinimapSystem(0);
       }
 
       if (this.container) {
@@ -3877,6 +4114,284 @@ export class GameEngine {
 
   public setBeamInput(firing: boolean) {
     this.input.fireBeam = firing;
+  }
+
+  // ==========================================
+  // MISSILE WEAPON SUBSYSTEM (ALL 20 MODES)
+  // ==========================================
+  public firePlayerMissile(): { success: boolean; reason?: string } {
+    if (!this.isRacing || this.isDestroyed || !this.missileManager) {
+      return { success: false, reason: 'NOT_RACING' };
+    }
+
+    const candidates: MissileTargetCandidate[] = [];
+
+    // Local AI racers
+    for (const ai of this.localAIRacers) {
+      candidates.push({
+        id: ai.id,
+        name: ai.name,
+        isAI: true,
+        isTeammate: false,
+        isDestroyed: !!ai.isDestroyed,
+        position: ai.group.position,
+        meshGroup: ai.group,
+        shield: ai.shield ?? 100,
+        hull: ai.hull ?? 100,
+        applyDamage: (shieldDmg, hullDmg, impactForce) => {
+          ai.shield = Math.max(0, (ai.shield ?? 100) - shieldDmg);
+          ai.hull = Math.max(0, (ai.hull ?? 100) - hullDmg);
+          ai.angularVelocity += (Math.random() - 0.5) * 8.0;
+          ai.angularDisplacement += 0.8;
+          ai.collisionCooldown = 0.5;
+        },
+        triggerCrash: (reason) => {
+          ai.isDestroyed = true;
+          ai.respawnTimer = 3.5;
+          ai.group.visible = false;
+          this.callbacks.onHazardHit?.(`${ai.name.toUpperCase()} CRASHED: ${reason}`);
+          this.callbacks.onCollisionFeedback?.({
+            id: `rival_destroyed_${Date.now()}`,
+            type: 'RIVAL_CRASHED',
+            title: `RIVAL NEUTRALIZED`,
+            detail: `${ai.name.toUpperCase()} ELIMINATED BY MISSILE`,
+            impactForce: 80,
+            timestamp: Date.now(),
+          });
+        },
+      });
+    }
+
+    // Remote multiplayer racers
+    this.remoteShips.forEach((remote, id) => {
+      candidates.push({
+        id,
+        name: `Rival ${id.slice(0, 4)}`,
+        isAI: false,
+        isTeammate: false,
+        isDestroyed: false,
+        position: remote.group.position,
+        meshGroup: remote.group,
+        shield: 100,
+        hull: 100,
+        applyDamage: (shieldDmg, hullDmg) => {
+          networkClient.send({
+            type: 'DAMAGE_EVENT',
+            payload: { targetId: id, shieldDmg, hullDmg },
+          });
+        },
+      });
+    });
+
+    return this.missileManager.fireMissile(
+      'player',
+      this.playerShipGroup.position,
+      this.playerShipGroup.quaternion,
+      candidates
+    );
+  }
+
+  public setMissileInput(firing: boolean) {
+    this.input.fireMissile = firing;
+  }
+
+  private updateMissileSystem(dt: number) {
+    if (!this.missileManager || !this.playerShipGroup) return;
+
+    if (this.input.fireMissile && !this.isPaused) {
+      this.firePlayerMissile();
+      this.input.fireMissile = false;
+    }
+
+    const candidates: MissileTargetCandidate[] = [];
+    for (const ai of this.localAIRacers) {
+      candidates.push({
+        id: ai.id,
+        name: ai.name,
+        isAI: true,
+        isTeammate: false,
+        isDestroyed: !!ai.isDestroyed,
+        position: ai.group.position,
+        meshGroup: ai.group,
+        shield: ai.shield ?? 100,
+        hull: ai.hull ?? 100,
+        applyDamage: (shieldDmg, hullDmg) => {
+          ai.shield = Math.max(0, (ai.shield ?? 100) - shieldDmg);
+          ai.hull = Math.max(0, (ai.hull ?? 100) - hullDmg);
+          ai.angularVelocity += (Math.random() - 0.5) * 8.0;
+          ai.angularDisplacement += 0.8;
+          ai.collisionCooldown = 0.5;
+        },
+        triggerCrash: (reason) => {
+          ai.isDestroyed = true;
+          ai.respawnTimer = 3.5;
+          ai.group.visible = false;
+          this.callbacks.onHazardHit?.(`${ai.name.toUpperCase()} CRASHED: ${reason}`);
+          this.callbacks.onCollisionFeedback?.({
+            id: `rival_destroyed_${Date.now()}`,
+            type: 'RIVAL_CRASHED',
+            title: `RIVAL NEUTRALIZED`,
+            detail: `${ai.name.toUpperCase()} ELIMINATED BY MISSILE`,
+            impactForce: 80,
+            timestamp: Date.now(),
+          });
+        },
+      });
+    }
+
+    this.remoteShips.forEach((remote, id) => {
+      candidates.push({
+        id,
+        name: `Rival ${id.slice(0, 4)}`,
+        isAI: false,
+        isTeammate: false,
+        isDestroyed: false,
+        position: remote.group.position,
+        meshGroup: remote.group,
+        shield: 100,
+        hull: 100,
+        applyDamage: (shieldDmg, hullDmg) => {
+          networkClient.send({
+            type: 'DAMAGE_EVENT',
+            payload: { targetId: id, shieldDmg, hullDmg },
+          });
+        },
+      });
+    });
+
+    this.missileManager.scanForTargets(
+      this.playerShipGroup.position,
+      this.playerShipGroup.quaternion,
+      candidates
+    );
+
+    this.missileManager.update(dt, this.isPaused);
+    const tel = this.missileManager.getTelemetry(this.playerShipGroup.position);
+    this.callbacks.onMissileTelemetry?.(tel);
+  }
+
+  // ==========================================
+  // ACTIVE SHIELD SUBSYSTEM (60S COOLDOWN)
+  // ==========================================
+  public activatePlayerShield(): boolean {
+    if (!this.isRacing || this.isDestroyed || !this.activeShieldManager) {
+      return false;
+    }
+    const activated = this.activeShieldManager.activate();
+    if (activated) {
+      this.phaseShieldTimer = 6.0;
+      if (this.shieldMeshGroup) {
+        this.shieldMeshGroup.visible = true;
+      }
+      this.callbacks.onHazardHit?.('ACTIVE SHIELD DEPLOYED // DAMAGE MITIGATION 95%');
+    }
+    return activated;
+  }
+
+  public setShieldInput(activating: boolean) {
+    this.input.activateShield = activating;
+  }
+
+  private updateActiveShieldSystem(dt: number) {
+    if (!this.activeShieldManager) return;
+
+    if (this.input.activateShield && !this.isPaused) {
+      this.activatePlayerShield();
+      this.input.activateShield = false;
+    }
+
+    this.activeShieldManager.update(dt, this.isPaused);
+
+    const isShieldActive =
+      this.activeShieldManager.status === 'ACTIVE' || this.phaseShieldTimer > 0;
+    if (this.shieldMeshGroup) {
+      this.shieldMeshGroup.visible = isShieldActive;
+      if (isShieldActive && dt > 0) {
+        this.shieldMeshGroup.rotateY(dt * 2.5);
+      }
+    }
+
+    const tel = this.activeShieldManager.getTelemetry(this.damageZones.shieldCore);
+    this.callbacks.onActiveShieldTelemetry?.(tel);
+  }
+
+  // ==========================================
+  // INTERACTIVE MINIMAP SUBSYSTEM
+  // ==========================================
+  public toggleMinimapMode() {
+    return this.minimapManager?.toggleMode();
+  }
+
+  public zoomInMinimap() {
+    this.minimapManager?.zoomIn();
+  }
+
+  public zoomOutMinimap() {
+    this.minimapManager?.zoomOut();
+  }
+
+  public resetMinimapZoom() {
+    this.minimapManager?.resetZoom();
+  }
+
+  public toggleMinimapExpand() {
+    return this.minimapManager?.toggleExpanded();
+  }
+
+  private updateMinimapSystem(dt: number) {
+    if (!this.minimapManager || !this.playerShipGroup) return;
+
+    // Synchronize route branches from junctionManager
+    if (this.junctionManager) {
+      const branches: MinimapBranchPoint[] = [];
+      const actTel = this.junctionManager.activeJunctionTelemetry;
+      if (actTel && actTel.availableRoutes) {
+        actTel.availableRoutes.forEach(route => {
+          const branchPoints: { x: number; z: number }[] = [];
+          if (route.splineCurve) {
+            for (let i = 0; i <= 20; i++) {
+              const pt = route.splineCurve.getPointAt(i / 20);
+              branchPoints.push({ x: pt.x, z: pt.z });
+            }
+          }
+          branches.push({
+            id: route.id,
+            name: route.name,
+            direction: route.direction,
+            isSelected: route.isSelected,
+            points: branchPoints,
+          });
+        });
+      }
+      this.minimapManager.updateBranches(branches);
+    }
+
+    // Synchronize AI opponents
+    const aiList = this.localAIRacers.map(ai => ({
+      id: ai.id,
+      name: ai.name,
+      position: ai.group.position,
+      quaternion: ai.group.quaternion,
+      color: ai.color,
+      rank: ai.rank,
+      isDestroyed: !!ai.isDestroyed,
+      isTeammate: false,
+    }));
+
+    const targetId = this.missileManager?.currentTarget?.id || null;
+    const actJunction = this.junctionManager?.activeJunctionTelemetry?.junctionName;
+    const actRoute = this.junctionManager?.playerRouteProgress?.activeRouteDirection;
+
+    const tel = this.minimapManager.getTelemetry(
+      this.playerShipGroup.position,
+      this.playerShipGroup.quaternion,
+      aiList,
+      targetId,
+      actJunction,
+      actRoute
+    );
+
+    this.callbacks.onMinimapTelemetry?.(tel);
   }
 
   private onResize = () => {

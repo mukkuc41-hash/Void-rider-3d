@@ -196,6 +196,8 @@ export interface PlayerInput {
   drift: boolean;   // Shift
   recover: boolean; // R
   fireBeam?: boolean; // E / Right Mouse Button / Mobile ⚡ button
+  fireMissile?: boolean; // M / HUD Missile Button / Mobile Missile Button
+  activateShield?: boolean; // K / HUD Shield Button / Mobile Shield Button
   selectRouteDirection?: 'LEFT' | 'RIGHT' | 'CENTER' | 'SHORTCUT'; // Branching path selection
 }
 
@@ -441,6 +443,9 @@ export interface ClientMessage {
   powerUpType?: PowerUpType;
   damageZone?: DamageZone;
   damageAmount?: number;
+  targetId?: string;
+  shieldDmg?: number;
+  hullDmg?: number;
   timestamp?: number;
 }
 
@@ -649,5 +654,94 @@ export interface CollisionEventFeedback {
   hullDelta?: number;
   impactForce: number;
   timestamp: number;
+}
+
+export type { GameModeConfig } from './game/modeConfig';
+export { GAME_MODE_CONFIGS, ModeValidator } from './game/modeConfig';
+
+// ==========================================
+// MISSILE WEAPON SYSTEM TELEMETRY
+// ==========================================
+export type MissileState = 'READY' | 'RELOADING' | 'NO_TARGET' | 'LOCKED';
+
+export interface MissileTargetInfo {
+  id: string;
+  name: string;
+  position: { x: number; y: number; z: number };
+  distance: number;
+  screenX?: number; // 0-100 normalized screen coordinate
+  screenY?: number; // 0-100 normalized screen coordinate
+  isLocked: boolean;
+  hull: number;
+  shield: number;
+}
+
+export interface MissileTelemetry {
+  status: MissileState;
+  cooldownRemaining: number; // 0 to 60 seconds
+  totalCooldown: number; // 60
+  hasTarget: boolean;
+  target: MissileTargetInfo | null;
+  missilesInFlight: number;
+  friendlyFire: boolean;
+  lastLaunchTime?: number;
+  feedbackText?: string;
+}
+
+// ==========================================
+// ACTIVE SHIELD SYSTEM TELEMETRY
+// ==========================================
+export type ActiveShieldStatus = 'READY' | 'ACTIVE' | 'RECHARGING';
+
+export interface ActiveShieldTelemetry {
+  status: ActiveShieldStatus;
+  activeRemaining: number; // Duration left while ACTIVE (e.g., 6.0s)
+  activeTotalDuration: number;
+  cooldownRemaining: number; // 0 to 60 seconds
+  totalCooldown: number; // 60
+  shieldCoreHealth: number; // 0 to 100
+  damageBlocked: number;
+}
+
+// ==========================================
+// INTERACTIVE MINIMAP SYSTEM TELEMETRY
+// ==========================================
+export type MinimapMode = 'PLAYER_FACING' | 'NORTH_UP';
+
+export interface MinimapMarker {
+  id: string;
+  type: 'PLAYER' | 'AI' | 'TEAMMATE' | 'REMOTE' | 'CHECKPOINT' | 'FINISH' | 'HAZARD' | 'TARGET';
+  x: number;
+  z: number;
+  heading?: number; // radians
+  label?: string;
+  color: string;
+  rank?: number;
+  isLockedTarget?: boolean;
+}
+
+export interface MinimapBranchPoint {
+  id: string;
+  name: string;
+  direction: string;
+  isSelected: boolean;
+  points: { x: number; z: number }[];
+}
+
+export interface MinimapTelemetry {
+  mode: MinimapMode;
+  zoom: number; // 1.0 = normal, 1.5, 2.0, 0.7
+  isExpanded: boolean;
+  playerPos: { x: number; y: number; z: number };
+  playerHeading: number; // in radians
+  trackPoints: { x: number; z: number }[];
+  branches: MinimapBranchPoint[];
+  checkpoints: { id: number; x: number; z: number }[];
+  finishLine: { x: number; z: number };
+  markers: MinimapMarker[];
+  activeJunctionName?: string;
+  activeRouteDirection?: string;
+  sectorName: string;
+  bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
 }
 

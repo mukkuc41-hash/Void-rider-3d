@@ -612,6 +612,124 @@ class SoundSystem {
     osc.stop(now + 0.22);
   }
 
+  public playMissileLaunch() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    const now = this.ctx.currentTime;
+
+    // Rocket booster ignition whoosh with rising high-pitch hiss
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, now);
+    osc.frequency.exponentialRampToValueAtTime(750, now + 0.22);
+    osc.frequency.exponentialRampToValueAtTime(280, now + 0.55);
+
+    gain.gain.setValueAtTime(0.38 * this.volume, now);
+    gain.gain.linearRampToValueAtTime(0.48 * this.volume, now + 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.62);
+  }
+
+  public playTargetLock() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    const now = this.ctx.currentTime;
+
+    // High tech double pulse lock-on confirmation
+    [0, 0.09].forEach(delay => {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1180, now + delay);
+      osc.frequency.setValueAtTime(1480, now + delay + 0.04);
+
+      gain.gain.setValueAtTime(0.22 * this.volume, now + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.075);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now + delay);
+      osc.stop(now + delay + 0.08);
+    });
+  }
+
+  public playMissileExplosion() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    const now = this.ctx.currentTime;
+
+    // Concussive impact blast with low sub-bass boom
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(190, now);
+    osc1.frequency.exponentialRampToValueAtTime(32, now + 0.45);
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(80, now);
+    osc2.frequency.exponentialRampToValueAtTime(18, now + 0.6);
+
+    gain.gain.setValueAtTime(0.55 * this.volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.65);
+    osc2.stop(now + 0.65);
+  }
+
+  public playMissileReloadReady() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(520, now);
+    osc.frequency.exponentialRampToValueAtTime(1040, now + 0.18);
+
+    gain.gain.setValueAtTime(0.25 * this.volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.24);
+  }
+
+  public playShieldRechargeReady() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+
+    gain.gain.setValueAtTime(0.22 * this.volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.22);
+  }
+
   public playMagnetPulse() {
     this.initContext();
     if (!this.ctx || !this.sfxEnabled) return;

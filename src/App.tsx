@@ -32,6 +32,9 @@ import {
   BeamTelemetry,
   BeamCustomization,
   BeamUpgrades,
+  MissileTelemetry,
+  ActiveShieldTelemetry,
+  MinimapTelemetry,
 } from './types';
 import { DEFAULT_BEAM_CUSTOMIZATION, DEFAULT_BEAM_UPGRADES } from './game/beamSystem';
 import { ActiveJunctionTelemetry, BranchRouteDirection } from './game/junctionSystem';
@@ -53,6 +56,8 @@ import { StoryUniverseModal } from './components/StoryUniverseModal';
 import { MultiplayerModal } from './components/MultiplayerModal';
 import { CollisionHUD } from './components/CollisionHUD';
 import { CollisionEventFeedback, PlayerCollisionConfig } from './types';
+import { ModeHUDTelemetry } from './game/modeManager';
+import { SingularityTelemetry } from './game/blackHoleSystem';
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -142,6 +147,15 @@ export default function App() {
   const [collisionFeedback, setCollisionFeedback] = useState<CollisionEventFeedback | null>(null);
   const [collisionConfig, setCollisionConfig] = useState<PlayerCollisionConfig | undefined>(undefined);
   const respawnIntervalRef = useRef<any>(null);
+
+  // 20 Modes & Singularity Telemetry State
+  const [modeTelemetry, setModeTelemetry] = useState<ModeHUDTelemetry | null>(null);
+  const [singularityTelemetry, setSingularityTelemetry] = useState<SingularityTelemetry | null>(null);
+
+  // Functional Missile, Active Shield & Minimap Telemetry States
+  const [missileTelemetry, setMissileTelemetry] = useState<MissileTelemetry | null>(null);
+  const [activeShieldTelemetry, setActiveShieldTelemetry] = useState<ActiveShieldTelemetry | null>(null);
+  const [minimapTelemetry, setMinimapTelemetry] = useState<MinimapTelemetry | null>(null);
 
   // Keyboard & Mouse input tracking
   const keysPressed = useRef<{ [key: string]: boolean }>({});
@@ -239,6 +253,11 @@ export default function App() {
       onBeamTelemetry: telemetry => setBeamTelemetry(telemetry),
       onJunctionTelemetry: telemetry => setJunctionTelemetry(telemetry),
       onCollisionFeedback: feedback => setCollisionFeedback(feedback),
+      onModeTelemetry: telemetry => setModeTelemetry(telemetry),
+      onSingularityTelemetry: telemetry => setSingularityTelemetry(telemetry),
+      onMissileTelemetry: telemetry => setMissileTelemetry(telemetry),
+      onActiveShieldTelemetry: telemetry => setActiveShieldTelemetry(telemetry),
+      onMinimapTelemetry: telemetry => setMinimapTelemetry(telemetry),
     });
 
     setCollisionConfig(engine.getCollisionConfig());
@@ -378,10 +397,46 @@ export default function App() {
 
       keysPressed.current[e.code] = true;
 
-      if (e.code === 'KeyC') {
+      if (e.code === 'KeyM' || e.code === 'KeyQ') {
+        if (engineRef.current && appState === 'RACING') {
+          engineRef.current.firePlayerMissile();
+        }
+      }
+
+      if (e.code === 'KeyC' || e.code === 'KeyX' || e.code === 'KeyF') {
+        if (engineRef.current && appState === 'RACING') {
+          engineRef.current.activatePlayerShield();
+        }
+      }
+
+      if (e.code === 'KeyV' || (e.code === 'KeyC' && appState !== 'RACING')) {
         if (engineRef.current) {
           const nextMode = engineRef.current.toggleCameraMode();
           setCameraMode(nextMode);
+        }
+      }
+
+      if (e.code === 'KeyN') {
+        if (engineRef.current && appState === 'RACING') {
+          engineRef.current.toggleMinimapMode();
+        }
+      }
+
+      if (e.code === 'Equal' || e.code === 'NumpadAdd') {
+        if (engineRef.current && appState === 'RACING') {
+          engineRef.current.zoomInMinimap();
+        }
+      }
+
+      if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
+        if (engineRef.current && appState === 'RACING') {
+          engineRef.current.zoomOutMinimap();
+        }
+      }
+
+      if (e.code === 'Digit0' || e.code === 'Numpad0') {
+        if (engineRef.current && appState === 'RACING') {
+          engineRef.current.resetMinimapZoom();
         }
       }
 
@@ -977,6 +1032,32 @@ export default function App() {
           spectatorTargetName={spectatorTargetName}
           beamTelemetry={beamTelemetry}
           junctionTelemetry={junctionTelemetry}
+          modeTelemetry={modeTelemetry}
+          singularityTelemetry={singularityTelemetry}
+          missileTelemetry={missileTelemetry}
+          activeShieldTelemetry={activeShieldTelemetry}
+          minimapTelemetry={minimapTelemetry}
+          onFireMissile={() => {
+            engineRef.current?.firePlayerMissile();
+          }}
+          onActivateShield={() => {
+            engineRef.current?.activatePlayerShield();
+          }}
+          onToggleMinimapMode={() => {
+            engineRef.current?.toggleMinimapMode();
+          }}
+          onZoomInMinimap={() => {
+            engineRef.current?.zoomInMinimap();
+          }}
+          onZoomOutMinimap={() => {
+            engineRef.current?.zoomOutMinimap();
+          }}
+          onResetMinimapZoom={() => {
+            engineRef.current?.resetMinimapZoom();
+          }}
+          onToggleMinimapExpand={() => {
+            engineRef.current?.toggleMinimapExpand();
+          }}
           onSelectRoute={direction => {
             if (engineRef.current) {
               engineRef.current.input.selectRouteDirection = direction;
@@ -1008,6 +1089,12 @@ export default function App() {
           }}
           onInputChange={inp => {
             if (engineRef.current) {
+              if (inp.fireMissile) {
+                engineRef.current.firePlayerMissile();
+              }
+              if (inp.activateShield) {
+                engineRef.current.activatePlayerShield();
+              }
               engineRef.current.input = { ...engineRef.current.input, ...inp };
             }
           }}
@@ -1164,6 +1251,7 @@ export default function App() {
           onStartConfiguredRace={config => {
             setGameMode(config.mode);
             handleStartAIRace({
+              mode: config.mode,
               difficulty: config.difficulty,
               trackId: config.trackId,
               botCount: config.botCount,
@@ -1173,10 +1261,11 @@ export default function App() {
           onSelectMode={mode => {
             setGameMode(mode);
             handleStartAIRace({
+              mode,
               difficulty: 'ACE',
               trackId: 'circuit_alpha',
-              botCount: mode === 'ENDURANCE' ? 1 : 5,
-              laps: mode === 'ENDURANCE' ? 99 : 3,
+              botCount: 4,
+              laps: 2,
             });
           }}
         />

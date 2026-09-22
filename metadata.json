@@ -1,6 +1,6 @@
 {
   "name": "Void-Rider 3D",
-  "description": "Multiplayer 3D futuristic cosmic space racing game with real-time room battles, dynamic neon tracks, and high-velocity flight physics.",
+  "description": "Futuristic 3D cosmic space racing game with 20 distinct game modes, black-hole gravity slingshots, combat drones, plasma storms, dynamic neon tracks, and high-velocity flight physics.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

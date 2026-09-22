@@ -20,10 +20,25 @@ import {
   Eye,
   Target,
   Crosshair,
+  Rocket,
+  ShieldCheck,
 } from 'lucide-react';
-import { ActivePowerUp, BeamTelemetry, CameraMode, DynamicTrackEvent, PlayerInput, ShipDamageZones } from '../types';
+import {
+  ActivePowerUp,
+  BeamTelemetry,
+  CameraMode,
+  DynamicTrackEvent,
+  PlayerInput,
+  ShipDamageZones,
+  MissileTelemetry,
+  ActiveShieldTelemetry,
+  MinimapTelemetry,
+} from '../types';
 import { ActiveJunctionTelemetry, BranchRouteDirection } from '../game/junctionSystem';
 import { JunctionHUD } from './JunctionHUD';
+import { InteractiveMinimap } from './InteractiveMinimap';
+import { ModeHUDTelemetry } from '../game/modeManager';
+import { SingularityTelemetry } from '../game/blackHoleSystem';
 
 interface RaceHUDProps {
   speed: number;
@@ -62,6 +77,18 @@ interface RaceHUDProps {
   junctionTelemetry?: ActiveJunctionTelemetry | null;
   onSelectRoute?: (direction: BranchRouteDirection) => void;
   onCommitRoute?: () => void;
+  modeTelemetry?: ModeHUDTelemetry | null;
+  singularityTelemetry?: SingularityTelemetry | null;
+  missileTelemetry?: MissileTelemetry | null;
+  activeShieldTelemetry?: ActiveShieldTelemetry | null;
+  minimapTelemetry?: MinimapTelemetry | null;
+  onFireMissile?: () => void;
+  onActivateShield?: () => void;
+  onToggleMinimapMode?: () => void;
+  onZoomInMinimap?: () => void;
+  onZoomOutMinimap?: () => void;
+  onResetMinimapZoom?: () => void;
+  onToggleMinimapExpand?: () => void;
 }
 
 const SECTOR_NAMES: Record<string, string> = {
@@ -111,6 +138,18 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
   junctionTelemetry,
   onSelectRoute,
   onCommitRoute,
+  modeTelemetry,
+  singularityTelemetry,
+  missileTelemetry,
+  activeShieldTelemetry,
+  minimapTelemetry,
+  onFireMissile,
+  onActivateShield,
+  onToggleMinimapMode,
+  onZoomInMinimap,
+  onZoomOutMinimap,
+  onResetMinimapZoom,
+  onToggleMinimapExpand,
 }) => {
   // Joystick State
   const [stickPos, setStickPos] = useState({ x: 0, y: 0 });
@@ -295,6 +334,50 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
           </div>
         </div>
 
+        {/* Top Center: Mode & Singularity Telemetry Banner */}
+        {singularityTelemetry ? (
+          <div className="flex flex-col items-center pointer-events-none bg-[#050b14]/95 border border-purple-500/80 rounded-2xl px-3.5 py-1.5 backdrop-blur-md shadow-[0_0_25px_rgba(168,85,247,0.35)] min-w-[200px]">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono font-black text-purple-300 tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+              <span>MODE 01: SINGULARITY RUN</span>
+            </div>
+            <div className="flex items-center gap-3 mt-1 text-[11px] font-mono">
+              <div className="text-slate-300">
+                HORIZON: <span className={singularityTelemetry.distanceToHorizon < 200 ? 'text-red-400 font-bold animate-pulse' : 'text-purple-300'}>{Math.round(singularityTelemetry.distanceToHorizon)}M</span>
+              </div>
+              <div className="text-slate-300">
+                GRAVITY: <span className="text-amber-400 font-bold">{Math.round(singularityTelemetry.gravitationalPull)} M/S²</span>
+              </div>
+              <div className="text-slate-300">
+                ESCAPE PORTAL: <span className="text-cyan-400 font-bold">{Math.round(singularityTelemetry.escapePortalDistance)}M</span>
+              </div>
+            </div>
+            {singularityTelemetry.warningAlert && (
+              <div className="mt-0.5 text-[9px] font-mono font-bold text-red-400 tracking-wider animate-pulse">
+                {singularityTelemetry.warningAlert}
+              </div>
+            )}
+          </div>
+        ) : modeTelemetry ? (
+          <div className="flex flex-col items-center pointer-events-none bg-[#050b14]/90 border border-cyan-500/40 rounded-2xl px-3.5 py-1.5 backdrop-blur-md shadow-[0_0_18px_rgba(0,240,255,0.2)] min-w-[190px]">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-cyan-300 tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+              <span>{modeTelemetry.modeName.toUpperCase()}</span>
+            </div>
+            <div className="flex items-center gap-3 mt-0.5 text-[11px] font-mono">
+              <span className="text-white font-bold">{modeTelemetry.primaryMetric}</span>
+              {modeTelemetry.secondaryMetric && (
+                <span className="text-slate-400">{modeTelemetry.secondaryMetric}</span>
+              )}
+            </div>
+            {modeTelemetry.warningText && (
+              <div className="text-[9px] font-mono font-bold text-amber-400 animate-pulse">
+                {modeTelemetry.warningText}
+              </div>
+            )}
+          </div>
+        ) : null}
+
         {/* Top Center: Spectator Broadcast Banner */}
         {isSpectator && (
           <div className="flex flex-col items-center pointer-events-auto bg-[#050b14]/90 border border-purple-500/60 rounded-2xl px-4 py-2 backdrop-blur-md shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-pulse">
@@ -354,56 +437,32 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
             </div>
           </div>
 
-          {/* Circular Minimap Radar */}
-          <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-full border border-cyan-500/40 bg-[#040812]/90 backdrop-blur-md relative flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(0,240,255,0.2)] pointer-events-none mt-1">
-            {/* Radar Grid SVG */}
-            <svg className="absolute inset-0 w-full h-full opacity-35" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="46" fill="none" stroke="#00f0ff" strokeWidth="0.8" strokeDasharray="2,2" />
-              <circle cx="50" cy="50" r="32" fill="none" stroke="#00f0ff" strokeWidth="0.8" strokeDasharray="2,2" />
-              <circle cx="50" cy="50" r="16" fill="none" stroke="#00f0ff" strokeWidth="0.8" strokeDasharray="2,2" />
-              <line x1="50" y1="4" x2="50" y2="96" stroke="#00f0ff" strokeWidth="0.6" strokeDasharray="2,2" />
-              <line x1="4" y1="50" x2="96" y2="50" stroke="#00f0ff" strokeWidth="0.6" strokeDasharray="2,2" />
-            </svg>
-
-            {/* Track Ribbon Shape SVG matching Sector Alpha heart-loop */}
-            <svg className="absolute inset-0 w-full h-full p-2" viewBox="0 0 100 100">
-              {/* Glowing Outer Track Loop */}
-              <path
-                d="M 50 20 C 30 18, 16 35, 24 55 C 32 75, 48 84, 50 84 C 52 84, 68 75, 76 55 C 84 35, 70 18, 50 20 Z"
-                fill="none"
-                stroke="#00f0ff"
-                strokeWidth="3.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="drop-shadow-[0_0_6px_#00f0ff]"
+          {/* Interactive Dynamic HUD Minimap */}
+          {minimapTelemetry ? (
+            <div className="pointer-events-auto mt-1">
+              <InteractiveMinimap
+                telemetry={minimapTelemetry}
+                onToggleMode={onToggleMinimapMode}
+                onZoomIn={onZoomInMinimap}
+                onZoomOut={onZoomOutMinimap}
+                onResetZoom={onResetMinimapZoom}
+                onToggleExpand={onToggleMinimapExpand}
               />
-              {/* Inner accent track line */}
-              <path
-                d="M 50 28 C 36 26, 26 38, 32 54 C 38 68, 48 76, 50 76 C 52 76, 62 68, 68 54 C 74 38, 64 26, 50 28 Z"
-                fill="none"
-                stroke="#ff00e5"
-                strokeWidth="1.2"
-                strokeDasharray="3,3"
-                className="opacity-60"
-              />
-
-              {/* Player dot */}
-              <circle
-                cx={radarPlayerX}
-                cy={radarPlayerY}
-                r="3.5"
-                fill="#ffffff"
-                stroke="#00f0ff"
-                strokeWidth="2"
-                className="animate-pulse drop-shadow-[0_0_8px_#00f0ff]"
-              />
-            </svg>
-
-            {/* Sector Title text inside radar */}
-            <div className="absolute bottom-1.5 text-[8px] font-mono font-bold text-cyan-300 tracking-widest uppercase text-center w-full">
-              {sectorTitle}
             </div>
-          </div>
+          ) : (
+            <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-full border border-cyan-500/40 bg-[#040812]/90 backdrop-blur-md relative flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(0,240,255,0.2)] pointer-events-none mt-1">
+              <svg className="absolute inset-0 w-full h-full opacity-35" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="46" fill="none" stroke="#00f0ff" strokeWidth="0.8" strokeDasharray="2,2" />
+                <circle cx="50" cy="50" r="32" fill="none" stroke="#00f0ff" strokeWidth="0.8" strokeDasharray="2,2" />
+                <circle cx="50" cy="50" r="16" fill="none" stroke="#00f0ff" strokeWidth="0.8" strokeDasharray="2,2" />
+                <line x1="50" y1="4" x2="50" y2="96" stroke="#00f0ff" strokeWidth="0.6" strokeDasharray="2,2" />
+                <line x1="4" y1="50" x2="96" y2="50" stroke="#00f0ff" strokeWidth="0.6" strokeDasharray="2,2" />
+              </svg>
+              <div className="absolute bottom-1.5 text-[8px] font-mono font-bold text-cyan-300 tracking-widest uppercase text-center w-full">
+                {sectorTitle}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -467,6 +526,38 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
         {shortcutMessage && (
           <div className="px-5 py-2 rounded-2xl bg-fuchsia-500/20 border border-fuchsia-400 text-fuchsia-300 text-xs font-ui font-black uppercase tracking-wider shadow-[0_0_20px_#ff00e5] animate-bounce">
             WARP PASSAGE: {shortcutMessage}
+          </div>
+        )}
+
+        {/* Guided Homing Missile Target Lock Reticle */}
+        {missileTelemetry?.hasTargetLock && missileTelemetry.targetInfo && (
+          <div className="flex flex-col items-center pointer-events-none select-none transition-all duration-150 animate-fadeIn mb-2">
+            <div className="relative flex items-center justify-center">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 border-2 border-red-500 rounded-2xl rotate-45 flex items-center justify-center animate-pulse shadow-[0_0_30px_rgba(255,51,102,0.6)]">
+                <div className="w-14 h-14 border border-dashed border-red-400/90 -rotate-45 flex items-center justify-center">
+                  <Crosshair className="w-6 h-6 text-red-400 animate-spin" />
+                </div>
+              </div>
+              <div className="absolute -top-2 px-2 py-0.5 bg-red-950/95 border border-red-500 rounded text-[9px] font-mono font-bold text-red-300 tracking-wider shadow">
+                MISSILE LOCK // [M]
+              </div>
+            </div>
+
+            <div className="mt-2 px-3 py-1.5 rounded-xl bg-black/90 border border-red-500/70 text-red-300 text-[10px] font-mono font-bold tracking-wider flex items-center gap-3 shadow-[0_0_15px_rgba(255,0,85,0.4)]">
+              <Rocket className="w-4 h-4 text-red-400 animate-bounce" />
+              <span>{missileTelemetry.targetInfo.name.toUpperCase()}</span>
+              <span className="text-white">{Math.round(missileTelemetry.targetInfo.distance)}M</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] text-cyan-300">SHD</span>
+                <div className="w-10 h-1.5 bg-slate-800 rounded overflow-hidden">
+                  <div className="h-full bg-cyan-400 transition-all duration-75" style={{ width: `${Math.max(0, Math.min(100, missileTelemetry.targetInfo.shield))}%` }} />
+                </div>
+                <span className="text-[9px] text-rose-300">HUL</span>
+                <div className="w-10 h-1.5 bg-slate-800 rounded overflow-hidden">
+                  <div className="h-full bg-rose-500 transition-all duration-75" style={{ width: `${Math.max(0, Math.min(100, missileTelemetry.targetInfo.hull))}%` }} />
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -852,6 +943,132 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
               <Wind className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5" />
               <span className="text-[8px] sm:text-[9px] font-ui font-black uppercase tracking-wider">
                 DRIFT
+              </span>
+            </button>
+
+            {/* Guided Homing Missile Weapon Button (All 20 Modes) */}
+            <button
+              onClick={e => {
+                e.preventDefault();
+                onFireMissile?.();
+                onInputChange?.({ fireMissile: true });
+              }}
+              disabled={missileTelemetry?.status === 'RELOADING'}
+              className={`relative w-14 h-14 sm:w-15 sm:h-15 rounded-full border-2 flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden select-none touch-none active:scale-95 ${
+                missileTelemetry?.status === 'RELOADING'
+                  ? 'bg-slate-950/80 border-slate-700/60 text-slate-500 cursor-not-allowed'
+                  : missileTelemetry?.hasTargetLock
+                  ? 'bg-red-600 text-white border-white shadow-[0_0_35px_#ff0033] scale-105 ring-4 ring-red-500/70 animate-pulse'
+                  : 'bg-red-950/90 border-red-500/80 text-red-300 hover:border-red-400 active:bg-red-600 active:text-white shadow-[0_0_20px_rgba(255,51,102,0.4)]'
+              }`}
+              title="Launch Guided Missile [M]"
+            >
+              <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-800/80" />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="29"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeDasharray={182}
+                  strokeDashoffset={
+                    182 - (182 * Math.max(0, Math.min(100, missileTelemetry?.cooldownProgress ?? 0))) / 100
+                  }
+                  className="text-red-400 transition-all duration-100"
+                />
+              </svg>
+
+              {missileTelemetry?.status === 'RELOADING' && (
+                <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-0.5 z-10">
+                  <span className="text-[7px] font-mono font-black text-red-400 leading-tight">
+                    RELOAD
+                  </span>
+                  <span className="text-[9px] font-mono font-bold text-white leading-tight">
+                    {Math.ceil(missileTelemetry.cooldownRemaining)}s
+                  </span>
+                </div>
+              )}
+
+              {missileTelemetry?.hasTargetLock && missileTelemetry.status !== 'RELOADING' && (
+                <div className="absolute top-1 right-2 w-2 h-2 rounded-full bg-red-400 shadow-[0_0_8px_#ff0033] animate-ping" />
+              )}
+
+              <Rocket
+                className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                  missileTelemetry?.hasTargetLock ? 'animate-bounce text-white drop-shadow-[0_0_10px_#fff]' : ''
+                }`}
+              />
+              <span className="text-[8px] sm:text-[9px] font-ui font-black uppercase tracking-wider leading-none mt-0.5">
+                MISSILE
+              </span>
+              <span className="text-[7px] font-mono font-bold text-red-300/80 uppercase tracking-wider leading-none mt-0.5">
+                [M]
+              </span>
+            </button>
+
+            {/* Active Damage Mitigation Shield Button (60s Cooldown) */}
+            <button
+              onClick={e => {
+                e.preventDefault();
+                onActivateShield?.();
+                onInputChange?.({ activateShield: true });
+              }}
+              disabled={activeShieldTelemetry?.status === 'RECHARGING'}
+              className={`relative w-14 h-14 sm:w-15 sm:h-15 rounded-full border-2 flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden select-none touch-none active:scale-95 ${
+                activeShieldTelemetry?.status === 'ACTIVE'
+                  ? 'bg-cyan-500 text-slate-950 border-white shadow-[0_0_35px_#00f0ff] ring-4 ring-cyan-400/60 scale-105'
+                  : activeShieldTelemetry?.status === 'RECHARGING'
+                  ? 'bg-slate-950/80 border-slate-700/60 text-slate-500 cursor-not-allowed'
+                  : 'bg-cyan-950/90 border-cyan-400 text-cyan-300 hover:border-cyan-300 active:bg-cyan-400 active:text-slate-950 shadow-[0_0_20px_rgba(0,240,255,0.4)]'
+              }`}
+              title="Deploy Active Shield (6s duration / 60s cooldown) [C]"
+            >
+              <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-800/80" />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="29"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeDasharray={182}
+                  strokeDashoffset={
+                    182 - (182 * Math.max(0, Math.min(100, activeShieldTelemetry?.rechargeProgress ?? 0))) / 100
+                  }
+                  className="text-cyan-400 transition-all duration-100"
+                />
+              </svg>
+
+              {activeShieldTelemetry?.status === 'RECHARGING' && (
+                <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-0.5 z-10">
+                  <span className="text-[7px] font-mono font-black text-cyan-400 leading-tight">
+                    RECHARGE
+                  </span>
+                  <span className="text-[9px] font-mono font-bold text-white leading-tight">
+                    {Math.ceil(activeShieldTelemetry.rechargeRemaining)}s
+                  </span>
+                </div>
+              )}
+
+              {activeShieldTelemetry?.status === 'ACTIVE' && (
+                <div className="absolute top-1 right-2 px-1 rounded bg-slate-950/80 text-[7px] font-mono font-black text-cyan-300 animate-pulse">
+                  {activeShieldTelemetry.activeTimeRemaining.toFixed(1)}s
+                </div>
+              )}
+
+              <ShieldCheck
+                className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                  activeShieldTelemetry?.status === 'ACTIVE' ? 'animate-spin text-slate-950 drop-shadow-[0_0_10px_#fff]' : ''
+                }`}
+              />
+              <span className="text-[8px] sm:text-[9px] font-ui font-black uppercase tracking-wider leading-none mt-0.5">
+                SHIELD
+              </span>
+              <span className="text-[7px] font-mono font-bold text-cyan-300/80 uppercase tracking-wider leading-none mt-0.5">
+                [C]
               </span>
             </button>
 

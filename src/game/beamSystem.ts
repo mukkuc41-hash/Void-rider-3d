@@ -43,7 +43,7 @@ export const DEFAULT_BEAM_UPGRADES: BeamUpgrades = {
 };
 
 // Mode-Specific Beam Rules
-export const MODE_BEAM_CONFIGS: Record<GameMode, ModeBeamConfig> = {
+export const MODE_BEAM_CONFIGS: Partial<Record<GameMode, ModeBeamConfig>> & { STANDARD: ModeBeamConfig } = {
   STANDARD: {
     beamEnabled: true,
     beamDamageMultiplier: 1.0,
