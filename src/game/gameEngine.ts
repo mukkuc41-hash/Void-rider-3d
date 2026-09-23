@@ -56,11 +56,23 @@ import {
 import { MissileManager, MissileTargetCandidate } from './missileSystem';
 import { ActiveShieldManager } from './shieldSystem';
 import { MinimapManager } from './minimapSystem';
+import { HazardManager } from './hazardManager';
+import { GameDifficulty, getDifficultyProfile } from './modeConfigs';
+import { championshipManager } from './championshipManager';
+import {
+  AIRacingIntelligenceSystem,
+  AIRacerTacticalState,
+  AIRacerCombatState,
+  normalizeAIDifficulty,
+  normalizeAIPersonality,
+} from './aiRacingSystem';
 import {
   MissileTelemetry,
   ActiveShieldTelemetry,
   MinimapTelemetry,
   MinimapBranchPoint,
+  MinimapMarker,
+  AIDebugTelemetry,
 } from '../types';
 
 export interface LocalAIRacer {
@@ -100,6 +112,8 @@ export interface LocalAIRacer {
   angularVelocity?: number;
   angularDisplacement?: number;
   invulnerableTimer?: number;
+  tactical?: AIRacerTacticalState;
+  combat?: AIRacerCombatState;
 }
 
 export interface GameEngineCallbacks {
@@ -136,6 +150,7 @@ export interface GameEngineCallbacks {
   onMissileTelemetry?: (telemetry: MissileTelemetry) => void;
   onActiveShieldTelemetry?: (telemetry: ActiveShieldTelemetry) => void;
   onMinimapTelemetry?: (telemetry: MinimapTelemetry) => void;
+  onAIDebugTelemetry?: (telemetry: AIDebugTelemetry) => void;
   onEngineReady?: () => void;
 }
 
@@ -150,6 +165,7 @@ const _botNegTangent = new THREE.Vector3();
 const _botPos = new THREE.Vector3();
 const _botOffsetBinormal = new THREE.Vector3();
 const _botOffsetNormal = new THREE.Vector3();
+const _aiVel = new THREE.Vector3();
 
 export class GameEngine {
   private container: HTMLElement;
@@ -174,6 +190,8 @@ export class GameEngine {
   public missileManager: MissileManager;
   public activeShieldManager: ActiveShieldManager;
   public minimapManager: MinimapManager;
+  public hazardManager: HazardManager;
+  public activeDifficulty: GameDifficulty = 'NORMAL';
 
   // Asteroid Destruction Beam System
   public beamSystem: BeamSystem;
@@ -207,7 +225,8 @@ export class GameEngine {
   // Local AI Competitor Grid
   public localAIRacers: LocalAIRacer[] = [];
   public isAIRaceActive: boolean = false;
-  public aiDifficulty: AIDifficulty = 'ACE';
+  public aiDifficulty: AIDifficulty = 'NORMAL';
+  public aiRacingSystem: AIRacingIntelligenceSystem;
 
   // Collectibles & Power-Ups
   private creditsInstancedMesh: THREE.InstancedMesh | null = null;
@@ -489,8 +508,17 @@ export class GameEngine {
     // Initialize Interactive Real-Time Track Minimap System
     this.minimapManager = new MinimapManager();
     if (this.track) {
-      this.minimapManager.initTrack(this.track.curve, this.track.checkpoints, this.track.name || 'SECTOR ALPHA');
+      this.minimapManager.initTrack(this.track.curve, this.track.checkpoints, this.track.id || 'SECTOR ALPHA');
     }
+
+    // Initialize Dynamic Hazard & Difficulty System
+    this.hazardManager = new HazardManager(this.scene);
+    if (this.track) {
+      this.hazardManager.initForMode(this.activeGameMode, this.activeDifficulty, this.track.curve);
+    }
+
+    // Initialize Advanced AI Racing Intelligence System
+    this.aiRacingSystem = new AIRacingIntelligenceSystem(this.track, this.scene);
 
     // Prewarm Shaders & Compile Scene Ahead of Time for Stutter-Free Start
     try {
@@ -1480,7 +1508,13 @@ export class GameEngine {
       this.junctionManager.initJunctions(trackId);
     }
     if (this.minimapManager) {
-      this.minimapManager.initTrack(this.track.curve, this.track.checkpoints, this.track.name || 'SECTOR ALPHA');
+      this.minimapManager.initTrack(this.track.curve, this.track.checkpoints, this.track.id || 'SECTOR ALPHA');
+    }
+    if (this.hazardManager) {
+      this.hazardManager.initForMode(this.activeGameMode, this.activeDifficulty, this.track.curve);
+    }
+    if (this.aiRacingSystem) {
+      this.aiRacingSystem.setTrack(this.track);
     }
     this.resetToStart();
   }
@@ -2522,6 +2556,10 @@ export class GameEngine {
           this.currentLap = this.totalLaps;
           const finalTime = now - this.raceStartTime;
           sound.playFinish();
+          if (this.activeGameMode === 'VOID_CHAMPIONSHIP') {
+            const playerRank = this.getPlayerRank();
+            championshipManager.recordStageFinish(playerRank);
+          }
           this.callbacks.onRaceFinish(finalTime);
         } else {
           this.currentLap++;
@@ -3469,9 +3507,16 @@ export class GameEngine {
     }
   }
 
-  public setGameMode(mode: GameMode) {
+  public setGameMode(mode: GameMode, difficulty: GameDifficulty = 'NORMAL') {
     this.activeGameMode = mode;
+    this.activeDifficulty = difficulty;
     this.modeManager.setMode(mode);
+
+    const diffProfile = getDifficultyProfile(mode, difficulty);
+
+    if (this.hazardManager) {
+      this.hazardManager.initForMode(mode, difficulty, this.track?.curve || null);
+    }
 
     if (mode === 'SINGULARITY_RUN') {
       if (!this.blackHoleManager) {
@@ -3488,7 +3533,7 @@ export class GameEngine {
       if (!this.modeEntitySystem) {
         this.modeEntitySystem = new ModeEntitySystem(this.scene, this.modeManager);
       }
-      this.modeEntitySystem.initModeEntities(mode, this.track?.curve || null);
+      this.modeEntitySystem.initModeEntities(mode, this.track?.curve || null, diffProfile.hazardDensity);
     }
   }
 
@@ -3503,11 +3548,19 @@ export class GameEngine {
   }
 
   public startAIRace(config: AIRaceConfig) {
-    this.totalLaps = config.laps || 2;
-    if (config.mode) {
-      this.setGameMode(config.mode);
+    if (config.mode === 'VOID_CHAMPIONSHIP') {
+      const stage = championshipManager.getCurrentStage();
+      this.activeDifficulty = stage.difficulty;
+      this.totalLaps = stage.laps;
+      this.setGameMode('VOID_CHAMPIONSHIP', stage.difficulty);
+      this.setTrack(stage.trackId);
+    } else {
+      this.totalLaps = config.laps || 2;
+      if (config.mode) {
+        this.setGameMode(config.mode, this.activeDifficulty);
+      }
+      this.setTrack(config.trackId);
     }
-    this.setTrack(config.trackId);
 
     // Mode-specific bot configurations
     const adjustedConfig = { ...config };
@@ -3525,10 +3578,11 @@ export class GameEngine {
 
     // Re-init mode entities with the active track spline
     if (this.activeGameMode !== 'SINGULARITY_RUN') {
+      const diffProfile = getDifficultyProfile(this.activeGameMode, this.activeDifficulty);
       if (!this.modeEntitySystem) {
         this.modeEntitySystem = new ModeEntitySystem(this.scene, this.modeManager);
       }
-      this.modeEntitySystem.initModeEntities(this.activeGameMode, this.track?.curve || null);
+      this.modeEntitySystem.initModeEntities(this.activeGameMode, this.track?.curve || null, diffProfile.hazardDensity);
     }
   }
 
@@ -3572,31 +3626,15 @@ export class GameEngine {
       baseSpeed: number;
       personality: AIPersonality;
     }[] = [
-      { name: 'Zer0', shipId: 'apex_phantom', color: '#00f0ff', secondary: '#ff0055', baseSpeed: 295, personality: 'AGGRESSIVE' },
-      { name: 'Nova', shipId: 'vortex_nemesis', color: '#ff00aa', secondary: '#00f0ff', baseSpeed: 288, personality: 'RISK_TAKER' },
-      { name: 'Viper', shipId: 'solaris_stinger', color: '#ffaa00', secondary: '#ffff00', baseSpeed: 280, personality: 'TECHNICAL' },
-      { name: 'Aegis', shipId: 'void_valkyrie', color: '#9900ff', secondary: '#00ffea', baseSpeed: 275, personality: 'DEFENSIVE' },
+      { name: 'Zer0', shipId: 'apex_phantom', color: '#00f0ff', secondary: '#ff0055', baseSpeed: 295, personality: 'AGGRESSOR' },
+      { name: 'Nova', shipId: 'vortex_nemesis', color: '#ff00aa', secondary: '#00f0ff', baseSpeed: 288, personality: 'SPEEDSTER' },
+      { name: 'Viper', shipId: 'solaris_stinger', color: '#ffaa00', secondary: '#ffff00', baseSpeed: 280, personality: 'TACTICIAN' },
+      { name: 'Aegis', shipId: 'void_valkyrie', color: '#9900ff', secondary: '#00ffea', baseSpeed: 275, personality: 'DEFENDER' },
       { name: 'Titan-X', shipId: 'apex_phantom', color: '#39ff14', secondary: '#ffffff', baseSpeed: 270, personality: 'BALANCED' },
     ];
 
     const count = Math.min(config.botCount || 5, botRoster.length);
-    const speedMult =
-      config.difficulty === 'RECRUIT'
-        ? 0.74
-        : config.difficulty === 'STANDARD'
-        ? 0.90
-        : config.difficulty === 'ACE'
-        ? 1.05
-        : 1.18; // ELITE
-
-    const lateralSpeed =
-      config.difficulty === 'RECRUIT'
-        ? 2.8
-        : config.difficulty === 'STANDARD'
-        ? 4.2
-        : config.difficulty === 'ACE'
-        ? 5.5
-        : 6.8; // ELITE
+    const normDiff = normalizeAIDifficulty(config.difficulty);
 
     for (let i = 0; i < count; i++) {
       const p = botRoster[i];
@@ -3626,6 +3664,15 @@ export class GameEngine {
           ? 0.85
           : 1.1;
 
+      // Instantiate AI Tactical & Combat subsystems
+      const canonicalPersonality = normalizeAIPersonality(p.personality);
+      const tactical = this.aiRacingSystem.createTacticalState(
+        normDiff,
+        canonicalPersonality,
+        initialLaneX
+      );
+      const combat = this.aiRacingSystem.createCombatState(shipGroup, p.color);
+
       this.localAIRacers.push({
         id: `local_ai_${i}`,
         name: p.name,
@@ -3638,16 +3685,16 @@ export class GameEngine {
         progressDistance: startGridT * this.track.totalLength,
         currentLap: 1,
         t: startGridT,
-        speed: p.baseSpeed * speedMult * (0.8 + Math.random() * 0.25),
-        targetSpeed: p.baseSpeed * speedMult,
+        speed: p.baseSpeed * tactical.params.speedMultiplier * (0.8 + Math.random() * 0.25),
+        targetSpeed: p.baseSpeed * tactical.params.speedMultiplier,
         currentLateral: initialLaneX,
         targetLateral: initialLaneX,
-        lateralSpeed,
+        lateralSpeed: tactical.params.lateralSpeedMultiplier,
         isBoosting: false,
         boostCooldown: 3 + Math.random() * 6,
         boostDuration: 0,
         difficulty: config.difficulty,
-        personality: p.personality,
+        personality: canonicalPersonality,
         isDestroyed: false,
         respawnTimer: 0,
         rank: rankNum,
@@ -3660,6 +3707,8 @@ export class GameEngine {
         recoveryTimer: 0,
         angularVelocity: 0,
         angularDisplacement: 0,
+        tactical,
+        combat,
       });
     }
   }
@@ -3750,6 +3799,30 @@ export class GameEngine {
     const trackLen = this.track.totalLength || 4600;
     const time = Date.now() * 0.003;
 
+    // Snapshot player and AI states for tactical decision making
+    const playerInfo = {
+      t: this.splineT,
+      speed: this.currentSpeed,
+      lateral: this.lateralOffset,
+      position: this.playerShipGroup?.position || new THREE.Vector3(),
+      isDestroyed: this.isDestroyed,
+      shield: this.damageZones.shieldCore,
+      hull: this.hullHealth,
+    };
+
+    const otherAIs = this.localAIRacers.map(r => ({
+      id: r.id,
+      name: r.name,
+      t: r.t,
+      speed: r.speed,
+      lateral: r.currentLateral,
+      position: r.group.position,
+      isDestroyed: r.isDestroyed,
+      shield: r.shield,
+      hull: r.hull,
+      group: r.group,
+    }));
+
     for (let i = 0; i < this.localAIRacers.length; i++) {
       const ai = this.localAIRacers[i];
 
@@ -3778,84 +3851,37 @@ export class GameEngine {
         ai.group.visible = true;
       }
 
-      if (ai.isBoosting) {
-        ai.boostDuration -= dt;
-        if (ai.boostDuration <= 0) {
-          ai.isBoosting = false;
-          const baseCool =
-            ai.personality === 'RISK_TAKER'
-              ? 2.5
-              : ai.personality === 'AGGRESSIVE'
-              ? 3.5
-              : ai.difficulty === 'ELITE'
-              ? 3.8
-              : 6.0;
-          ai.boostCooldown = baseCool + Math.random() * 3.5;
-        }
+      // Advanced AI Racing Intelligence Cycle (Tactical Line, Curvature Braking, Drift, Overtaking, Blocking, Missiles & Shields)
+      if (ai.tactical && ai.combat) {
+        this.aiRacingSystem.updateAIRacerTactics(
+          ai,
+          ai.tactical,
+          ai.combat,
+          playerInfo,
+          otherAIs,
+          this.missileManager,
+          dt,
+          this.isRacing
+        );
       } else {
-        ai.boostCooldown -= dt;
-        if (ai.boostCooldown <= 0 && this.isRacing) {
-          ai.isBoosting = true;
-          ai.boostDuration = ai.personality === 'RISK_TAKER' ? 2.8 : 2.2;
-        }
+        // Fallback smooth lateral step
+        ai.currentLateral = THREE.MathUtils.lerp(ai.currentLateral, ai.targetLateral, ai.lateralSpeed * dt);
       }
 
-      const boostBonus = ai.isBoosting ? 85 : 0;
-      const desiredSpeed = (ai.targetSpeed + boostBonus) / 3.6;
-      ai.speed = THREE.MathUtils.lerp(ai.speed, desiredSpeed, 2.5 * dt);
-
-      const lookAheadDist = ai.personality === 'TECHNICAL' ? 0.035 : 0.02;
-      const lookAheadT = (ai.t + lookAheadDist) % 1.0;
-      const lookAheadSample = this.track.getSampleAt(lookAheadT);
-
-      let barrierEvaded = false;
-      if (this.track.energyBarriers) {
-        for (const b of this.track.energyBarriers) {
-          const deltaT = (b.t - ai.t + 1.0) % 1.0;
-          if (deltaT > 0 && deltaT < 0.03) {
-            ai.targetLateral = b.gapLane === 'left' ? -6.0 : b.gapLane === 'right' ? 6.0 : 0.0;
-            barrierEvaded = true;
-            break;
-          }
-        }
-      }
-
-      if (!barrierEvaded) {
-        if (ai.personality === 'AGGRESSIVE' && this.playerShipGroup) {
-          const distToPlayerSpline = (this.splineT - ai.t + 1.0) % 1.0;
-          if (distToPlayerSpline < 0.05 && distToPlayerSpline > 0) {
-            ai.targetLateral = THREE.MathUtils.lerp(ai.targetLateral, this.lateralOffset, 0.4);
-          }
-        } else if (ai.personality === 'DEFENSIVE') {
-          if (Math.abs(ai.currentLateral - this.lateralOffset) < 3.0) {
-            ai.targetLateral = this.lateralOffset > 0 ? -6.0 : 6.0;
-          }
-        } else if (ai.personality === 'RISK_TAKER') {
-          ai.targetLateral = Math.sin(time * 0.8 + i) * 6.5;
-        }
-
-        if (ai.difficulty === 'ACE' || ai.difficulty === 'ELITE' || ai.personality === 'TECHNICAL') {
-          for (const obs of this.track.obstacles) {
-            if (lookAheadSample.point.distanceTo(obs.position) < obs.radius + 6.0) {
-              const safeLanes = [-6.0, 0.0, 6.0].filter(l => Math.abs(l - ai.currentLateral) > 2.5);
-              if (safeLanes.length > 0) {
-                ai.targetLateral = safeLanes[Math.floor(Math.random() * safeLanes.length)];
-              }
-              break;
-            }
-          }
-        }
-      }
-
-      ai.currentLateral = THREE.MathUtils.lerp(ai.currentLateral, ai.targetLateral, ai.lateralSpeed * dt);
-
+      // Obstacle impacts & damage
       for (const obs of this.track.obstacles) {
         if (ai.group.position.distanceTo(obs.position) < obs.radius + 1.2) {
-          ai.isDestroyed = true;
-          ai.respawnTimer = 1.6;
-          ai.group.visible = false;
-          this.triggerCollisionBurst(ai.group.position, 0xff0055, 30);
-          break;
+          if (ai.combat?.isShieldActive) {
+            // Shield absorbs kinetic impact!
+            this.triggerCollisionBurst(ai.group.position, 0x00f0ff, 15);
+            ai.speed = Math.max(25, ai.speed * 0.7);
+          } else {
+            ai.isDestroyed = true;
+            ai.respawnTimer = 2.0;
+            ai.group.visible = false;
+            this.triggerCollisionBurst(ai.group.position, 0xff0055, 30);
+            break;
+          }
         }
       }
 
@@ -3924,8 +3950,10 @@ export class GameEngine {
         ai.group.quaternion.setFromRotationMatrix(_botRotMatrix);
       }
 
+      // Banking and drifting visual cues
       const lateralVel = (ai.targetLateral - ai.currentLateral);
-      const bankRoll = -Math.sign(lateralVel) * Math.min(0.45, Math.abs(lateralVel) * 0.1);
+      const isDrifting = ai.tactical?.isDrifting || false;
+      const bankRoll = -Math.sign(lateralVel) * Math.min(isDrifting ? 0.65 : 0.45, Math.abs(lateralVel) * (isDrifting ? 0.18 : 0.1));
       ai.group.rotateZ(bankRoll);
       if (ai.angularDisplacement && Math.abs(ai.angularDisplacement) > 0.001) {
         ai.group.rotateY(ai.angularDisplacement);
@@ -3933,6 +3961,54 @@ export class GameEngine {
 
       const flameScale = 0.8 + (ai.speed * 3.6) / 120 + (ai.isBoosting ? 1.5 : 0);
       ai.thrusters.forEach(fl => fl.scale.set(1 + (ai.isBoosting ? 0.5 : 0), flameScale, 1 + (ai.isBoosting ? 0.5 : 0)));
+
+      // Synchronize with PlayerCollisionSystem (Kinematics, Ramming, Knockback & Physical Resolution)
+      if (this.collisionSystem && !ai.isDestroyed) {
+        _aiVel.copy(sample.tangent).multiplyScalar(ai.speed);
+        this.collisionSystem.registerParticipant({
+          id: ai.id,
+          category: 'AI_RACER',
+          name: ai.name,
+          position: ai.group.position,
+          velocity: _aiVel,
+          speed: ai.speed,
+          direction: sample.tangent,
+          radius: ai.radius || 2.5,
+          mass: ai.mass || 1.0,
+          shield: ai.combat?.isShieldActive ? 100 : (ai.shield ?? 100),
+          hull: ai.hull ?? 100,
+          isBoosting: ai.isBoosting,
+          collisionCooldown: ai.collisionCooldown || 0,
+          recoveryTimer: ai.recoveryTimer || 0,
+          angularVelocity: ai.angularVelocity || 0,
+          angularDisplacement: ai.angularDisplacement || 0,
+          lateralOffset: ai.currentLateral,
+          splineT: ai.t,
+          invulnerableTimer: ai.invulnerableTimer || 0,
+          isDestroyed: !!ai.isDestroyed,
+          meshGroup: ai.group,
+          applyDamage: (shieldLoss, hullLoss, impactForce) => {
+            if (ai.combat?.isShieldActive) {
+              shieldLoss *= 0.05;
+              hullLoss *= 0.05;
+            }
+            ai.shield = Math.max(0, (ai.shield ?? 100) - shieldLoss);
+            ai.hull = Math.max(0, (ai.hull ?? 100) - hullLoss);
+            if (ai.hull <= 0 && !ai.isDestroyed) {
+              ai.isDestroyed = true;
+              ai.respawnTimer = 2.0;
+              ai.group.visible = false;
+              this.triggerCollisionBurst(ai.group.position, 0xff0055, 35);
+            }
+          },
+          onCrash: (reason) => {
+            ai.isDestroyed = true;
+            ai.respawnTimer = 2.0;
+            ai.group.visible = false;
+            this.triggerCollisionBurst(ai.group.position, 0xff0055, 35);
+          },
+        });
+      }
     }
 
     const allRacers = [
@@ -3964,6 +4040,23 @@ export class GameEngine {
         this.updateNameplateRank(racer.ai.nameplateSprite, rankStr);
       }
     }
+
+    // Emit live AI debug telemetry if enabled
+    if (this.callbacks.onAIDebugTelemetry) {
+      const telemetry = this.aiRacingSystem.generateDebugTelemetry(
+        this.localAIRacers.filter(r => r.tactical && r.combat) as any
+      );
+      this.callbacks.onAIDebugTelemetry(telemetry);
+    }
+  }
+
+  public toggleAIDebug(enable?: boolean): boolean {
+    return this.aiRacingSystem.isDebugActive =
+      enable !== undefined ? enable : !this.aiRacingSystem.isDebugActive;
+  }
+
+  public isAIDebugEnabled(): boolean {
+    return this.aiRacingSystem ? this.aiRacingSystem.isDebugActive : false;
   }
 
   public togglePause() {
@@ -3999,12 +4092,14 @@ export class GameEngine {
         this.updateBeamSystem(dt);
         this.updateMissileSystem(dt);
         this.updateActiveShieldSystem(dt);
+        this.updateHazardSystem(dt);
         this.updateMinimapSystem(dt);
         this.updateJunctions(dt);
       } else {
         // Paused loop: keep telemetry synced with zero dt
         this.updateMissileSystem(0);
         this.updateActiveShieldSystem(0);
+        this.updateHazardSystem(0);
         this.updateMinimapSystem(0);
       }
 
@@ -4177,7 +4272,10 @@ export class GameEngine {
         applyDamage: (shieldDmg, hullDmg) => {
           networkClient.send({
             type: 'DAMAGE_EVENT',
-            payload: { targetId: id, shieldDmg, hullDmg },
+            targetId: id,
+            shieldDmg,
+            hullDmg,
+            damageAmount: shieldDmg + hullDmg,
           });
         },
       });
@@ -4253,7 +4351,10 @@ export class GameEngine {
         applyDamage: (shieldDmg, hullDmg) => {
           networkClient.send({
             type: 'DAMAGE_EVENT',
-            payload: { targetId: id, shieldDmg, hullDmg },
+            targetId: id,
+            shieldDmg,
+            hullDmg,
+            damageAmount: shieldDmg + hullDmg,
           });
         },
       });
@@ -4316,6 +4417,51 @@ export class GameEngine {
   }
 
   // ==========================================
+  // DYNAMIC HAZARD & DIFFICULTY SUBSYSTEM
+  // ==========================================
+  private updateHazardSystem(dt: number) {
+    if (!this.hazardManager || !this.isRacing || this.isDestroyed || this.isPaused || !this.playerShipGroup) return;
+
+    const warning = this.hazardManager.update(
+      dt,
+      this.playerShipGroup.position,
+      this.splineT,
+      this.currentSpeed * 3.6,
+      (dmg, hazardName) => {
+        if (this.activeShieldManager && this.activeShieldManager.isActive()) {
+          this.activeShieldManager.absorbDamage(dmg);
+          sound.playShieldHit();
+          this.callbacks.onHazardHit?.(`SHIELD DEFLECTED: ${hazardName.toUpperCase()}`);
+          return;
+        }
+
+        let remaining = dmg;
+        if (this.damageZones.shieldCore > 0) {
+          const absorbed = Math.min(this.damageZones.shieldCore, remaining);
+          this.damageZones.shieldCore -= absorbed;
+          remaining -= absorbed;
+        }
+        if (remaining > 0) {
+          this.hullHealth = Math.max(0, this.hullHealth - remaining);
+          this.callbacks.onHullUpdate?.(this.hullHealth);
+          const zone = Math.random() > 0.5 ? 'leftWing' : 'rightWing';
+          this.applyZoneDamage(zone, remaining);
+          if (this.hullHealth <= 0) {
+            this.destroyPlayerShip(`DESTROYED BY ${hazardName.toUpperCase()}`);
+          }
+        }
+        this.callbacks.onDamageZonesUpdate?.({ ...this.damageZones });
+        this.callbacks.onHazardHit?.(`IMPACT: ${hazardName.toUpperCase()} (-${dmg}% HULL)`);
+        this.cameraShake = Math.max(this.cameraShake, 0.45);
+      }
+    );
+
+    if (warning && this.modeManager && this.modeManager.currentTelemetry) {
+      this.modeManager.currentTelemetry.warningAlert = `${warning.hazardName.toUpperCase()} INCOMING [${warning.distanceMeters}M] // ${warning.avoidanceAdvice.toUpperCase()}`;
+    }
+  }
+
+  // ==========================================
   // INTERACTIVE MINIMAP SUBSYSTEM
   // ==========================================
   public toggleMinimapMode() {
@@ -4345,12 +4491,14 @@ export class GameEngine {
     if (this.junctionManager) {
       const branches: MinimapBranchPoint[] = [];
       const actTel = this.junctionManager.activeJunctionTelemetry;
+      const junction = actTel?.junctionId ? this.junctionManager.junctions.get(actTel.junctionId) : null;
       if (actTel && actTel.availableRoutes) {
         actTel.availableRoutes.forEach(route => {
+          const inst = junction?.routeInstances.get(route.id);
           const branchPoints: { x: number; z: number }[] = [];
-          if (route.splineCurve) {
+          if (inst && inst.curve) {
             for (let i = 0; i <= 20; i++) {
-              const pt = route.splineCurve.getPointAt(i / 20);
+              const pt = inst.curve.getPointAt(i / 20);
               branchPoints.push({ x: pt.x, z: pt.z });
             }
           }
@@ -4358,7 +4506,7 @@ export class GameEngine {
             id: route.id,
             name: route.name,
             direction: route.direction,
-            isSelected: route.isSelected,
+            isSelected: actTel.selectedRouteId === route.id,
             points: branchPoints,
           });
         });
@@ -4380,7 +4528,17 @@ export class GameEngine {
 
     const targetId = this.missileManager?.currentTarget?.id || null;
     const actJunction = this.junctionManager?.activeJunctionTelemetry?.junctionName;
-    const actRoute = this.junctionManager?.playerRouteProgress?.activeRouteDirection;
+    const actRoute = this.junctionManager?.playerRouteProgress?.branchRouteInstance?.config.direction ||
+      this.junctionManager?.activeJunctionTelemetry?.selectedRouteDirection;
+
+    const hazardMarkers: MinimapMarker[] = (this.hazardManager?.hazards || []).map(h => ({
+      id: h.id,
+      type: 'HAZARD' as const,
+      x: h.position.x,
+      z: h.position.z,
+      label: h.name,
+      color: h.color,
+    }));
 
     const tel = this.minimapManager.getTelemetry(
       this.playerShipGroup.position,
@@ -4388,7 +4546,8 @@ export class GameEngine {
       aiList,
       targetId,
       actJunction,
-      actRoute
+      actRoute,
+      hazardMarkers
     );
 
     this.callbacks.onMinimapTelemetry?.(tel);

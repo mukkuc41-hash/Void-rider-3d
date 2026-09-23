@@ -163,7 +163,8 @@ export class MinimapManager {
     }[],
     targetLockId?: string | null,
     activeJunctionName?: string,
-    activeRouteDirection?: string
+    activeRouteDirection?: string,
+    extraMarkers?: MinimapMarker[]
   ): MinimapTelemetry {
     // Calculate player heading (yaw angle)
     const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(playerQuat);
@@ -202,6 +203,11 @@ export class MinimapManager {
         rank: ai.rank,
         isLockedTarget: isTarget,
       });
+    }
+
+    // 3. Dynamic Extra Markers (e.g. Active Track Hazards)
+    if (extraMarkers && extraMarkers.length > 0) {
+      markers.push(...extraMarkers);
     }
 
     return {

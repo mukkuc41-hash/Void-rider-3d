@@ -10,7 +10,7 @@ interface AIRaceModalProps {
 }
 
 export const AIRaceModal: React.FC<AIRaceModalProps> = ({ isOpen, onClose, onStartAIRace }) => {
-  const [difficulty, setDifficulty] = useState<AIDifficulty>('ACE');
+  const [difficulty, setDifficulty] = useState<AIDifficulty>('NORMAL');
   const [trackId, setTrackId] = useState<TrackId>('circuit_alpha');
   const [botCount, setBotCount] = useState<number>(5);
   const [laps, setLaps] = useState<number>(2);
@@ -35,33 +35,41 @@ export const AIRaceModal: React.FC<AIRaceModalProps> = ({ isOpen, onClose, onSta
     bonus: string;
   }[] = [
     {
-      id: 'RECRUIT',
-      label: 'RECRUIT',
-      desc: 'Forgiving AI bots with relaxed speeds and wide turns. Ideal for rookie pilots.',
+      id: 'EASY',
+      label: '1. EASY',
+      desc: 'Slow reaction, gentle steering, rare overtaking, avoids collisions, rarely uses missiles.',
       color: 'border-emerald-500/40 text-emerald-400 bg-emerald-950/20',
       icon: Shield,
       bonus: '+0% XP',
     },
     {
-      id: 'STANDARD',
-      label: 'STANDARD',
-      desc: 'Competent rivals who utilize drift lanes and boost pads efficiently.',
+      id: 'NORMAL',
+      label: '2. NORMAL',
+      desc: 'Balanced racing, moderate overtakes, reacts to hazards, occasional missiles, human mistakes.',
       color: 'border-cyan-500/40 text-cyan-400 bg-cyan-950/20',
       icon: Gauge,
       bonus: '+25% XP',
     },
     {
-      id: 'ACE',
-      label: 'ACE',
-      desc: 'High-speed combatants who aggressively ram, evade obstacles, and chain turbos.',
-      color: 'border-fuchsia-500/40 text-fuchsia-400 bg-fuchsia-950/20',
-      icon: Flame,
+      id: 'HARD',
+      label: '3. HARD',
+      desc: 'Fast reactions, aggressive acceleration & drift, strategic missiles, defensive line blocking.',
+      color: 'border-blue-500/40 text-blue-400 bg-blue-950/20',
+      icon: Zap,
       bonus: '+50% XP',
     },
     {
-      id: 'ELITE',
-      label: 'ELITE',
-      desc: 'Hyper-responsive synaptic AI with optimal racing lines and relentless drafting.',
+      id: 'EXPERT',
+      label: '4. EXPERT',
+      desc: 'Highly competitive, predictive movement, shortcuts, tactical ramming & lethal missile timing.',
+      color: 'border-fuchsia-500/40 text-fuchsia-400 bg-fuchsia-950/20',
+      icon: Flame,
+      bonus: '+75% XP',
+    },
+    {
+      id: 'MASTER',
+      label: '5. MASTER',
+      desc: 'Elite racing intelligence, dynamic counter-overtakes, advanced path blocking, realistic mistakes.',
       color: 'border-amber-500/40 text-amber-400 bg-amber-950/20',
       icon: Sparkles,
       bonus: '+100% XP',

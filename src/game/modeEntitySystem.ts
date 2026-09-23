@@ -94,7 +94,11 @@ export class ModeEntitySystem {
     this.scene.add(this.rootGroup);
   }
 
-  public initModeEntities(mode: GameMode, trackSpline: THREE.CatmullRomCurve3 | null) {
+  public initModeEntities(
+    mode: GameMode,
+    trackSpline: THREE.CatmullRomCurve3 | null,
+    densityMultiplier: number = 1.0
+  ) {
     this.clear();
     this.trackSpline = trackSpline;
 
@@ -122,11 +126,11 @@ export class ModeEntitySystem {
         break;
 
       case 'ENERGY_HEIST':
-        this.spawnEnergyCores();
+        this.spawnEnergyCores(densityMultiplier);
         break;
 
       case 'DRONE_ASSAULT':
-        this.spawnCombatDrones();
+        this.spawnCombatDrones(densityMultiplier);
         break;
 
       case 'COLLAPSING_TRACK':
@@ -134,7 +138,7 @@ export class ModeEntitySystem {
         break;
 
       case 'RING_RUNNER':
-        this.spawnOrbitalRings();
+        this.spawnOrbitalRings(densityMultiplier);
         break;
 
       case 'RELAY_RACE':
@@ -142,7 +146,7 @@ export class ModeEntitySystem {
         break;
 
       case 'COSMIC_TREASURE_HUNT':
-        this.spawnAncientRelics();
+        this.spawnAncientRelics(densityMultiplier);
         break;
 
       default:
@@ -283,9 +287,10 @@ export class ModeEntitySystem {
   // ==========================================
   // MODE 11: ENERGY HEIST
   // ==========================================
-  private spawnEnergyCores() {
+  private spawnEnergyCores(densityMultiplier: number = 1.0) {
     if (!this.trackSpline) return;
-    const coreTs = [0.12, 0.24, 0.36, 0.48, 0.60, 0.72, 0.84, 0.94];
+    const count = Math.max(6, Math.floor(10 * densityMultiplier));
+    const coreTs = Array.from({ length: count }, (_, i) => (i + 1) / (count + 1));
 
     coreTs.forEach((t, i) => {
       const pos = this.trackSpline!.getPointAt(t);
@@ -333,9 +338,10 @@ export class ModeEntitySystem {
   // ==========================================
   // MODE 12: DRONE ASSAULT
   // ==========================================
-  private spawnCombatDrones() {
+  private spawnCombatDrones(densityMultiplier: number = 1.0) {
     if (!this.trackSpline) return;
-    const droneTs = [0.18, 0.32, 0.47, 0.62, 0.76, 0.89];
+    const count = Math.max(6, Math.floor(8 * densityMultiplier));
+    const droneTs = Array.from({ length: count }, (_, i) => (i + 1) / (count + 1));
 
     droneTs.forEach((t, i) => {
       const pos = this.trackSpline!.getPointAt(t);
@@ -398,9 +404,9 @@ export class ModeEntitySystem {
   // ==========================================
   // MODE 14: RING RUNNER
   // ==========================================
-  private spawnOrbitalRings() {
+  private spawnOrbitalRings(densityMultiplier: number = 1.0) {
     if (!this.trackSpline) return;
-    const ringCount = 12;
+    const ringCount = Math.max(8, Math.floor(12 * densityMultiplier));
 
     for (let i = 0; i < ringCount; i++) {
       const t = (i + 1) / (ringCount + 1);
@@ -473,9 +479,10 @@ export class ModeEntitySystem {
   // ==========================================
   // MODE 19: COSMIC TREASURE HUNT
   // ==========================================
-  private spawnAncientRelics() {
+  private spawnAncientRelics(densityMultiplier: number = 1.0) {
     if (!this.trackSpline) return;
-    const relicTs = [0.28, 0.58, 0.85];
+    const relicCount = Math.max(3, Math.floor(4 * densityMultiplier));
+    const relicTs = Array.from({ length: relicCount }, (_, i) => (i + 1) / (relicCount + 1));
 
     relicTs.forEach((t, i) => {
       const pos = this.trackSpline!.getPointAt(t);

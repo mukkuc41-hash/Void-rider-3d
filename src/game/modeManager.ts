@@ -48,6 +48,7 @@ export class ModeManager {
   public currentMode: GameMode = 'NEON_CIRCUIT';
   public modeTimer = 0;
   public score = 0;
+  public currentTelemetry: ModeHUDTelemetry | null = null;
 
   // Mode 05: Solar Storm
   public solarHeat = 0; // 0-100%
@@ -143,6 +144,12 @@ export class ModeManager {
   }
 
   public update(dt: number, shipSpeed: number, isBoosting: boolean, isDrifting: boolean): ModeHUDTelemetry {
+    const tel = this.computeTelemetry(dt, shipSpeed, isBoosting, isDrifting);
+    this.currentTelemetry = tel;
+    return tel;
+  }
+
+  private computeTelemetry(dt: number, shipSpeed: number, isBoosting: boolean, isDrifting: boolean): ModeHUDTelemetry {
     this.modeTimer += dt;
 
     switch (this.currentMode) {

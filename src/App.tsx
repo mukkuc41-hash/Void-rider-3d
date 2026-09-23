@@ -29,6 +29,7 @@ import {
   ShipDamageZones,
   CustomRoomSettings,
   MultiplayerMode,
+  AIDifficulty,
   BeamTelemetry,
   BeamCustomization,
   BeamUpgrades,
@@ -58,6 +59,7 @@ import { CollisionHUD } from './components/CollisionHUD';
 import { CollisionEventFeedback, PlayerCollisionConfig } from './types';
 import { ModeHUDTelemetry } from './game/modeManager';
 import { SingularityTelemetry } from './game/blackHoleSystem';
+import { championshipManager } from './game/championshipManager';
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -675,6 +677,20 @@ export default function App() {
     }
   };
 
+  const handleProceedToNextChampionshipStage = () => {
+    sound.playMenuClick();
+    setIsResultsOpen(false);
+    const stage = championshipManager.getCurrentStage();
+    const aiDiff: AIDifficulty = stage.difficulty === 'EXPERT' ? 'ELITE' : stage.difficulty === 'HARD' ? 'VETERAN' : 'STANDARD';
+    handleStartAIRace({
+      trackId: stage.trackId,
+      difficulty: aiDiff,
+      botCount: 5,
+      laps: stage.laps,
+      mode: 'VOID_CHAMPIONSHIP',
+    });
+  };
+
   const handleTogglePause = () => {
     if (!engineRef.current) return;
     engineRef.current.togglePause();
@@ -1117,6 +1133,8 @@ export default function App() {
           onRestart={handleRestartRace}
           onReturnToLobby={handleReturnToLobby}
           earnedCredits={earnedCredits}
+          gameMode={gameMode}
+          onNextChampionshipStage={handleProceedToNextChampionshipStage}
         />
       )}
 

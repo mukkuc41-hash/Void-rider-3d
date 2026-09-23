@@ -102,7 +102,7 @@ export class GameNetworkClient {
     }
   }
 
-  private send(msg: ClientMessage) {
+  public send(msg: ClientMessage) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     }

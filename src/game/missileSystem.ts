@@ -397,6 +397,51 @@ export class MissileManager {
     return { success: true };
   }
 
+  /**
+   * Fires a homing missile launched by an AI racer or non-player entity
+   */
+  public launchMissileFromEntity(
+    ownerId: string,
+    originPos: THREE.Vector3,
+    originQuat: THREE.Quaternion,
+    target: MissileTargetCandidate,
+    accuracyVariance: number = 0
+  ): boolean {
+    const projectile = this.missilePool.find(m => !m.active);
+    if (!projectile) return false;
+
+    this._forwardVec.set(0, 0, -1).applyQuaternion(originQuat).normalize();
+    if (accuracyVariance > 0.001) {
+      this._forwardVec.x += (Math.random() - 0.5) * accuracyVariance;
+      this._forwardVec.y += (Math.random() - 0.5) * accuracyVariance;
+      this._forwardVec.normalize();
+    }
+
+    const spawnPos = originPos.clone().addScaledVector(this._forwardVec, 3.2);
+
+    projectile.active = true;
+    projectile.ownerId = ownerId;
+    projectile.targetId = target.id;
+    projectile.targetRef = target;
+    projectile.position.copy(spawnPos);
+    projectile.direction.copy(this._forwardVec);
+    projectile.velocity.copy(this._forwardVec).multiplyScalar(MISSILE_CONFIG.MISSILE_SPEED);
+    projectile.distanceTraveled = 0;
+    projectile.lifeTimer = 0;
+
+    projectile.group.position.copy(spawnPos);
+    projectile.group.quaternion.copy(originQuat);
+    projectile.group.visible = true;
+
+    for (let p = 0; p < projectile.trailPoints.length; p++) {
+      projectile.trailPoints[p].copy(spawnPos);
+    }
+    projectile.trailLine.visible = true;
+
+    sound.playMissileLaunch();
+    return true;
+  }
+
   // ==========================================
   // UPDATE LOOP (FLIGHT, HOMING, COLLISIONS)
   // ==========================================

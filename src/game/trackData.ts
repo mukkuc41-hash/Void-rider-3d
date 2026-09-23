@@ -95,12 +95,12 @@ export const TRACKS_CATALOG: TrackMeta[] = [
     name: 'Neon Orbit',
     subtitle: 'Ringed Gas Giant & Orbital Spire',
     difficulty: 'STANDARD',
-    lengthKm: '4.8 KM',
+    lengthKm: '9.8 KM',
     themeColor: '#00f0ff',
     dynamicEventsSummary: [
-      'Zero-G Slipstream across Orbital Planetary Rings',
+      'Multi-level transit skyways across Orbital Planetary Rings',
       'Quantum Wormhole Shortcut bypasses S-Bend canyon',
-      'Gravitational Field Shifts altering drift and handling',
+      'Triple-junction route splits with subterranean high-speed tubes',
     ],
   },
   {
@@ -108,10 +108,10 @@ export const TRACKS_CATALOG: TrackMeta[] = [
     name: 'Asteroid Run',
     subtitle: 'Dense Hazard Belt & Ore Mines',
     difficulty: 'EXPERT',
-    lengthKm: '5.1 KM',
+    lengthKm: '11.2 KM',
     themeColor: '#ff9900',
     dynamicEventsSummary: [
-      'Dense tumbling Asteroid Swarm across Sector 2',
+      'Dense tumbling Asteroid Swarm across Deep Sector 2',
       'High-velocity debris fragments traversing mining canyon',
       'Emergency Shield Overdrive pick-ups before the gauntlet',
     ],
@@ -121,7 +121,7 @@ export const TRACKS_CATALOG: TrackMeta[] = [
     name: 'Void Rift',
     subtitle: 'Dimensional Abyss & Singularity',
     difficulty: 'EXPERT',
-    lengthKm: '5.4 KM',
+    lengthKm: '11.8 KM',
     themeColor: '#d000ff',
     dynamicEventsSummary: [
       'Crystalline Asteroid Barrage in Under-Deck Corridor',
@@ -134,7 +134,7 @@ export const TRACKS_CATALOG: TrackMeta[] = [
     name: 'Cosmic Ring',
     subtitle: 'Pulsar Megastructure & Solar Arcs',
     difficulty: 'STANDARD',
-    lengthKm: '5.0 KM',
+    lengthKm: '12.2 KM',
     themeColor: '#00ffcc',
     dynamicEventsSummary: [
       'Supercharged Solar Accelerator Rings granting ultra-boost',
@@ -147,7 +147,7 @@ export const TRACKS_CATALOG: TrackMeta[] = [
     name: 'Quantum Highway',
     subtitle: 'Hyper-Tunnel & Energy Laser Barriers',
     difficulty: 'EXPERT',
-    lengthKm: '4.5 KM',
+    lengthKm: '13.5 KM',
     themeColor: '#ff0055',
     dynamicEventsSummary: [
       'Pulsating Energy Laser Barriers crossing race lanes',
@@ -161,7 +161,7 @@ export const TRACKS_CATALOG: TrackMeta[] = [
     name: 'Circuit Alpha (Neon Orbit)',
     subtitle: 'Void Valley & Ion Chasm',
     difficulty: 'STANDARD',
-    lengthKm: '4.8 KM',
+    lengthKm: '9.8 KM',
     themeColor: '#00f0ff',
     dynamicEventsSummary: [
       'Periodic Asteroid Storm in Sector 3',
@@ -174,7 +174,7 @@ export const TRACKS_CATALOG: TrackMeta[] = [
     name: 'Nebula Rift (Void Rift)',
     subtitle: 'Orbital Megastructure & Abyss',
     difficulty: 'EXPERT',
-    lengthKm: '5.4 KM',
+    lengthKm: '11.8 KM',
     themeColor: '#d000ff',
     dynamicEventsSummary: [
       'Crystalline Asteroid Barrage in Under-Deck Corridor',
@@ -201,8 +201,8 @@ export const TRACK_CONFIGS: Record<TrackId, TrackConfig> = {
     id: 'neon_orbit',
     name: 'Neon Orbit',
     subtitle: 'Ringed Gas Giant & Orbital Spire',
-    description: 'Zero-G slipstream across planetary rings with high-speed banked apex turns.',
-    length: 4800,
+    description: 'Extended zero-G slipstream across planetary rings with high-speed banked apex turns and triple route forks.',
+    length: 9800,
     laps: 3,
     themeColor: '#00f0ff',
   },
@@ -211,7 +211,7 @@ export const TRACK_CONFIGS: Record<TrackId, TrackConfig> = {
     name: 'Circuit Alpha',
     subtitle: 'Void Valley & Ion Chasm',
     description: 'Championship proving ground with dynamic asteroid squalls and warp shortcuts.',
-    length: 4800,
+    length: 9800,
     laps: 3,
     themeColor: '#00f0ff',
   },
@@ -219,8 +219,8 @@ export const TRACK_CONFIGS: Record<TrackId, TrackConfig> = {
     id: 'asteroid_run',
     name: 'Asteroid Run',
     subtitle: 'Dense Hazard Belt & Ore Mines',
-    description: 'Dangerous orbital minefield featuring tumbling boulders, kinetic hazards, and tight tunnels.',
-    length: 5100,
+    description: 'Extended dangerous orbital minefield featuring tumbling boulders, kinetic hazards, and underground lava tubes.',
+    length: 11200,
     laps: 3,
     themeColor: '#ff9900',
   },
@@ -228,8 +228,8 @@ export const TRACK_CONFIGS: Record<TrackId, TrackConfig> = {
     id: 'void_rift',
     name: 'Void Rift',
     subtitle: 'Dimensional Abyss & Singularity',
-    description: 'Extreme anti-gravity corkscrew through dark matter anomalies and sub-space wormholes.',
-    length: 5400,
+    description: 'Extended extreme anti-gravity corkscrew through dark matter anomalies and sub-space wormholes.',
+    length: 11800,
     laps: 2,
     themeColor: '#d000ff',
   },
@@ -237,8 +237,8 @@ export const TRACK_CONFIGS: Record<TrackId, TrackConfig> = {
     id: 'nebula_rift',
     name: 'Nebula Rift',
     subtitle: 'Orbital Megastructure & Abyss',
-    description: 'Deep space crystalline corridor with gravity shifts and inverted track segments.',
-    length: 5400,
+    description: 'Extended deep space crystalline corridor with gravity shifts and inverted track segments.',
+    length: 11800,
     laps: 2,
     themeColor: '#d000ff',
   },
@@ -246,8 +246,8 @@ export const TRACK_CONFIGS: Record<TrackId, TrackConfig> = {
     id: 'cosmic_ring',
     name: 'Cosmic Ring',
     subtitle: 'Pulsar Megastructure & Solar Arcs',
-    description: 'Gigantic orbital accelerator ring engineered for continuous supersonic velocities.',
-    length: 5000,
+    description: 'Extended gigantic orbital accelerator ring engineered for continuous supersonic velocities.',
+    length: 12200,
     laps: 3,
     themeColor: '#00ffcc',
   },
@@ -255,107 +255,162 @@ export const TRACK_CONFIGS: Record<TrackId, TrackConfig> = {
     id: 'quantum_highway',
     name: 'Quantum Highway',
     subtitle: 'Hyper-Tunnel & Energy Laser Barriers',
-    description: 'High-frequency speed tunnels with pulsating energy gates and multi-lane split routes.',
-    length: 4500,
+    description: 'Extended high-frequency speed tunnels with pulsating energy gates and multi-lane split routes.',
+    length: 13500,
     laps: 3,
     themeColor: '#ff0055',
   },
 };
 
-// Track 1 & Circuit Alpha: Neon Orbit Control Points
+// Track 1 & Circuit Alpha: Extended Neon Orbit Control Points (9.8 KM)
 const NEON_ORBIT_POINTS: [number, number, number][] = [
-  [0, 0, 0],            // Start / Finish Line
-  [0, 15, -280],        // First gentle hill
-  [-140, 45, -580],     // Sweeping left turn, climbing
-  [-360, 75, -820],     // High elevation curve above planet rings
-  [-550, 50, -650],     // Banked descent
-  [-650, -15, -380],    // Deep dive into canyon valley
-  [-500, -45, -80],     // Low sweeping curve
-  [-280, -5, 180],      // Climbing back up
-  [-60, 45, 400],       // Orbital crest
-  [220, 85, 540],       // High apex loop overlooking the gas giant
-  [480, 65, 380],       // Banked right downward turn
-  [640, 15, 120],       // Fast straightaway canyon
-  [580, -25, -220],     // Underpass tunnel entry
-  [420, -55, -540],     // Warp tunnel depth
-  [260, -25, -740],     // Tunnel exit, sharp climb
-  [130, 20, -480],      // High speed S-bend
-  [45, 8, -160],        // Approach to finish straight
+  [0, 0, 0],              // 00 Start / Finish Grid
+  [0, 15, -280],          // 01 Gentle launch ascent
+  [-80, 35, -580],        // 02 High-speed left drift entry
+  [-220, 65, -880],       // 03 Climbing over orbital transit line
+  [-440, 95, -1140],      // 04 High panoramic banking above neon city
+  [-680, 80, -1260],      // 05 Megastructure apex turn
+  [-920, 45, -1150],      // 06 Sweeping descent into outer skyway
+  [-1050, 10, -920],      // 07 Outer rim straightaway entry
+  [-1120, -25, -620],     // 08 Canyon dive between skyscraper spires
+  [-1040, -60, -320],     // 09 Subterranean highway underpass
+  [-880, -75, -60],       // 10 Deep canyon curve with glowing neon walls
+  [-680, -45, 180],       // 11 Ascending out of underpass
+  [-440, -10, 360],       // 12 Mid-circuit connector straight
+  [-180, 25, 520],        // 13 Climbing toward upper orbital ring
+  [80, 75, 680],          // 14 High orbital crest overlooking gas giant
+  [360, 115, 780],        // 15 Stratospheric apex banked curve
+  [640, 95, 680],         // 16 High-G descending right sweep
+  [860, 60, 460],         // 17 Skybridge bypass straightaway
+  [980, 20, 180],         // 18 Technical S-bend entry
+  [1020, -15, -120],      // 19 Right-angle apex through laser towers
+  [920, -45, -420],       // 20 Underpass tunnel entrance
+  [740, -70, -720],       // 21 Warp tunnel depth
+  [520, -40, -980],       // 22 Tunnel exit, steep banking climb
+  [320, 5, -1180],        // 23 Elevated highway rejoin
+  [140, 40, -940],        // 24 High-speed chicane section
+  [60, 25, -620],         // 25 Pre-finish straight alignment
+  [15, 8, -260],          // 26 Final stadium sprint straight
 ];
 
-// Track 2: Asteroid Run Control Points
+// Track 2: Extended Asteroid Run Control Points (11.2 KM)
 const ASTEROID_RUN_POINTS: [number, number, number][] = [
-  [0, 0, 0],            // Starting Grid in dense rock belt
-  [30, -20, -260],      // Diving into mining canyon
-  [180, -40, -520],     // Sharp right banking around giant asteroid
-  [320, 10, -780],      // Climbing out of hazard trench
-  [260, 65, -1040],     // High crest between two floating boulders
-  [70, 40, -1250],      // Slalom chicane through debris field
-  [-150, -10, -1180],   // Rapid plunge into ore processor tunnel
-  [-380, -50, -920],    // Low cavern bend with tight clearances
-  [-520, -10, -640],    // Evasion sector with tumbling asteroids
-  [-440, 45, -340],     // Climbing hairpin turn
-  [-260, 80, -80],      // High ridge straightaway
-  [-70, 95, 240],       // Apex panoramic jump
-  [140, 60, 460],       // High speed descent
-  [280, 20, 320],       // Sweeping curve past mining station
-  [180, -10, 110],      // Final chicane
+  [0, 0, 0],              // 00 Starting Grid in dense rock belt
+  [40, -25, -320],        // 01 Diving into mining canyon trench
+  [180, -55, -640],       // 02 Heavy banking around iron megalith
+  [380, -20, -960],       // 03 Climbing out of hazard crevice
+  [520, 35, -1260],       // 04 High crest between dual rotating boulders
+  [480, 80, -1580],       // 05 Apex panoramic pass over ore processing plant
+  [280, 55, -1880],       // 06 Slalom chicane through dense debris field
+  [40, 15, -2060],        // 07 Plunge into deep ore refinery tunnel
+  [-240, -30, -2120],     // 08 Cavern interior sweeping turn
+  [-520, -70, -1980],     // 09 Deep underground lava conduit
+  [-780, -85, -1680],     // 10 Low cavern bend with tight rocky clearances
+  [-960, -45, -1320],     // 11 Evasion sector with tumbling kinetic rocks
+  [-1040, 10, -980],      // 12 Ascending mining elevator shaft
+  [-980, 65, -640],       // 13 High ridge overlooking molten craters
+  [-820, 95, -320],       // 14 Mountain apex panoramic straight
+  [-580, 110, -60],       // 15 Upper crater rim banked curve
+  [-320, 85, 180],        // 16 Fast descent toward extraction zone
+  [-60, 50, 420],         // 17 Overpass above abandoned freighter wreckage
+  [180, 20, 580],         // 18 Sweeping curve past automated refining cranes
+  [420, -15, 620],        // 19 High-velocity straightaway
+  [640, -45, 480],        // 20 Diving right hairpin
+  [740, -30, 220],        // 21 Debris field bypass
+  [680, 10, -80],         // 22 Re-entering main ore corridor
+  [480, 40, -360],        // 23 Slalom evasion zone
+  [280, 25, -540],        // 24 Final technical chicane
+  [100, 10, -240],        // 25 Final sprint straight to starting grid
 ];
 
-// Track 3 & Nebula Rift: Void Rift Control Points
+// Track 3 & Nebula Rift: Extended Void Rift Control Points (11.8 KM)
 const VOID_RIFT_POINTS: [number, number, number][] = [
-  [0, 15, 0],             // Starting Grid above Nebula
-  [40, 35, -280],         // Ascending launch ramp
-  [160, 75, -580],        // Mega loop entry
-  [280, 130, -820],       // Stratospheric apex
-  [200, 90, -1080],       // Diving into Neon Megastructure
-  [0, 20, -1220],         // Central spire fly-through
-  [-240, -45, -1080],     // Inverted Under-deck corkscrew
-  [-420, -80, -820],      // Zero-G Abyss sector
-  [-520, -30, -480],      // Ion Storm corridor
-  [-420, 30, -180],       // Climbing hairpin
-  [-280, 70, 120],        // Upper deck overpass
-  [-100, 85, 420],        // High banked panoramic bend
-  [120, 55, 540],         // Descent towards nebula falls
-  [300, 10, 380],         // Quantum bridge entry
-  [240, -20, 140],        // Sweeping S-curves
-  [100, 5, 40],           // Final chicane to line
+  [0, 15, 0],             // 00 Starting Grid above dark matter abyss
+  [60, 45, -340],         // 01 Ascending mega launch ramp
+  [220, 95, -680],        // 02 Stratospheric loop entry
+  [420, 145, -980],       // 03 High apex overlooking glowing dimensional rift
+  [580, 120, -1320],      // 04 Banked dive toward neon megastructure
+  [540, 60, -1660],       // 05 Central spire fly-through portal
+  [340, 0, -1940],        // 06 Diving beneath megastructure under-deck
+  [60, -55, -2080],       // 07 Inverted under-deck corkscrew
+  [-260, -95, -1980],     // 08 Zero-G abyss sector
+  [-560, -110, -1720],    // 09 Lowest point of singularity gravitational well
+  [-820, -75, -1360],     // 10 Ion storm corridor
+  [-980, -25, -980],      // 11 Climbing hairpin through purple crystalline clouds
+  [-1020, 35, -620],      // 12 Upper deck overpass straightaway
+  [-920, 85, -260],       // 13 Skyway overlooking antimatter waterfalls
+  [-720, 120, 80],        // 14 High banked panoramic curve
+  [-460, 130, 380],       // 15 Quantum bridge approach
+  [-180, 105, 580],       // 16 Descent toward dimensional vortex
+  [120, 65, 660],         // 17 High-speed S-curves
+  [380, 25, 580],         // 18 Megastructure outer ring bypass
+  [580, -15, 360],        // 19 Lower transit chute dive
+  [640, -45, 80],         // 20 Sub-space wormhole entry
+  [540, -30, -240],       // 21 Wormhole exit catapult
+  [360, 15, -480],        // 22 Fast chicane through energy pylons
+  [160, 20, -320],        // 23 Final straightaway alignment
+  [40, 15, -120],         // 24 Stadium finish straight
 ];
 
-// Track 4: Cosmic Ring Control Points
+// Track 4: Extended Cosmic Ring Control Points (12.2 KM)
 const COSMIC_RING_POINTS: [number, number, number][] = [
-  [0, 0, 0],            // Solar station start
-  [120, 20, -320],      // Inner ring curve
-  [340, 50, -600],      // Sweeping high-speed solar arc
-  [580, 80, -780],      // Megastructure perimeter banked loop
-  [740, 90, -500],      // Outer rim straightaway
-  [760, 60, -180],      // Orbital accelerator entry
-  [620, 20, 160],       // Solar flare fly-through
-  [380, -15, 420],      // Banked descent into interior conduit
-  [110, -35, 520],      // Grav-well lower deck
-  [-180, -20, 440],     // Sharp left chicane
-  [-420, 15, 220],      // Ascending outer ring arch
-  [-580, 55, -80],      // High elevation hairpin
-  [-540, 75, -420],     // Upper observation gallery
-  [-360, 60, -680],     // Diving back to inner track
-  [-140, 25, -400],     // Approach to starting line
+  [0, 0, 0],              // 00 Solar Station Grid
+  [160, 25, -380],        // 01 Inner ring curve
+  [420, 65, -720],        // 02 Sweeping high-speed solar arc
+  [740, 105, -960],       // 03 Megastructure perimeter banked loop
+  [1040, 120, -980],      // 04 Outer rim supersonic straightaway
+  [1280, 95, -760],       // 05 Orbital accelerator entry portal
+  [1380, 50, -420],       // 06 Solar flare corridor overpass
+  [1320, 0, -80],         // 07 Plasma flux gauntlet dive
+  [1120, -45, 260],       // 08 Lower magnetic conduit entrance
+  [840, -75, 540],        // 09 Grav-well lower deck interior
+  [520, -85, 720],        // 10 Deep heat sink underpass
+  [180, -60, 780],        // 11 Cooling station sprint straight
+  [-180, -25, 720],       // 12 Sharp left chicane climb
+  [-480, 20, 540],        // 13 Ascending outer ring arch
+  [-740, 65, 280],        // 14 High elevation hairpin overlooking solar corona
+  [-920, 95, -40],        // 15 Upper observation gallery straight
+  [-980, 115, -380],      // 16 Apex curve past solar collection sails
+  [-880, 100, -720],      // 17 Diving back into accelerator ring
+  [-660, 65, -980],       // 18 Secondary magnetic booster straight
+  [-420, 25, -1140],      // 19 High-G descending S-bend
+  [-180, -10, -1120],     // 20 Underpass crossing beneath main grid
+  [60, -35, -960],        // 21 Deep subterranean canyon run
+  [240, -20, -720],       // 22 Climbing out toward inner ring
+  [280, 10, -440],        // 23 High-speed chicane alignment
+  [120, 15, -200],        // 24 Final sprint to solar station
 ];
 
-// Track 5: Quantum Highway Control Points
+// Track 5: Extended Quantum Highway Control Points (13.5 KM)
 const QUANTUM_HIGHWAY_POINTS: [number, number, number][] = [
-  [0, 0, 0],            // Highway grid launch pad
-  [0, 5, -340],         // Hyper-speed straight tunnel
-  [-80, 25, -680],      // Quick flick left with energy barrier
-  [110, 45, -1020],     // Counter-flick right past laser pylon
-  [260, 60, -1350],     // Long sustained banked curve
-  [200, 30, -1680],     // Hyper-boost gate entrance
-  [-40, 10, -1820],     // Under-city tunnel portal
-  [-280, -20, -1620],   // Rapid dive with double barriers
-  [-450, -35, -1250],   // Deep warp chasm
-  [-410, 15, -860],     // Climbing accelerator straight
-  [-220, 55, -520],     // S-bend chicane with alternating lanes
-  [-60, 40, -220],      // Final sprint corridor
+  [0, 0, 0],              // 00 Highway grid launch pad
+  [0, 10, -420],          // 01 Hyper-speed straight tunnel
+  [-120, 35, -840],       // 02 Quick flick left past laser barrier pylons
+  [140, 65, -1260],       // 03 Counter-flick right past quantum charging coil
+  [380, 85, -1640],       // 04 Long sustained high-G banked curve
+  [540, 60, -2020],       // 05 Hyper-boost gate entrance
+  [480, 15, -2380],       // 06 Supersonic transit chute
+  [240, -30, -2620],      // 07 Diving into under-city tunnel portal
+  [-80, -65, -2680],      // 08 Subterranean speed tube
+  [-380, -80, -2520],     // 09 Double energy barrier chicane
+  [-680, -60, -2200],     // 10 Deep warp chasm tunnel
+  [-920, -20, -1820],     // 11 Climbing accelerator straight
+  [-1060, 30, -1420],     // 12 High-speed elevated highway split
+  [-1080, 75, -1020],     // 13 Panoramic curve over quantum core
+  [-960, 110, -640],      // 14 Upper deck overpass straightaway
+  [-740, 125, -280],      // 15 Stratospheric apex banking
+  [-460, 110, 60],        // 16 Descent toward quantum gate network
+  [-180, 75, 340],        // 17 Hyper-lane straightaway
+  [120, 35, 520],         // 18 Energy barrier chicane
+  [380, -10, 560],        // 19 Lower deck underpass dive
+  [580, -45, 420],        // 20 High-speed tunnel turn
+  [680, -60, 160],        // 21 Subterranean sprint straight
+  [640, -30, -140],       // 22 Climbing out into open air
+  [480, 15, -420],        // 23 Technical S-bend past observation decks
+  [280, 25, -640],        // 24 Final chicane alignment
+  [120, 10, -320],        // 25 Final sprint straight to grid
 ];
+
 
 export class CosmicTrack {
   public id: TrackId;
@@ -402,8 +457,18 @@ export class CosmicTrack {
     this.trackGraph = TrackGenerator.generateTrackGraph(trackId, rawPoints, 'CIRCUIT', 3);
     this.trackManager = new TrackManager(this.trackGraph);
 
-    this.generatePrecomputedSamples(420);
-    this.generateCheckpoints(12);
+    this.generatePrecomputedSamples(640);
+    const cpCount =
+      this.id === 'quantum_highway'
+        ? 32
+        : this.id === 'cosmic_ring'
+        ? 30
+        : this.id === 'asteroid_run'
+        ? 28
+        : this.id === 'void_rift' || this.id === 'nebula_rift'
+        ? 28
+        : 26;
+    this.generateCheckpoints(cpCount);
     this.generateBoostPads();
     this.generateObstacles();
     this.generateEnergyBarriers();
@@ -449,13 +514,13 @@ export class CosmicTrack {
   }
 
   private generateBoostPads() {
-    let boostTs = [0.08, 0.22, 0.38, 0.54, 0.71, 0.88];
+    let boostTs = [0.05, 0.12, 0.20, 0.28, 0.36, 0.44, 0.52, 0.60, 0.68, 0.76, 0.84, 0.92];
     if (this.id === 'quantum_highway') {
-      boostTs = [0.05, 0.18, 0.32, 0.48, 0.62, 0.76, 0.90];
+      boostTs = [0.04, 0.11, 0.18, 0.25, 0.32, 0.39, 0.46, 0.53, 0.61, 0.68, 0.75, 0.82, 0.89, 0.95];
     } else if (this.id === 'asteroid_run') {
-      boostTs = [0.10, 0.25, 0.45, 0.65, 0.85];
+      boostTs = [0.06, 0.15, 0.24, 0.33, 0.42, 0.51, 0.61, 0.71, 0.80, 0.89];
     } else if (this.id === 'cosmic_ring') {
-      boostTs = [0.07, 0.21, 0.36, 0.50, 0.64, 0.78, 0.92];
+      boostTs = [0.05, 0.12, 0.20, 0.27, 0.35, 0.43, 0.51, 0.58, 0.66, 0.74, 0.82, 0.90];
     }
 
     for (const t of boostTs) {
@@ -473,14 +538,14 @@ export class CosmicTrack {
 
   private generateObstacles() {
     // Determine obstacle density based on track theme
-    let obstacleCount = 12;
-    let swarmCount = 8;
+    let obstacleCount = 28;
+    let swarmCount = 14;
     if (this.id === 'asteroid_run') {
-      obstacleCount = 24; // dense asteroid field
-      swarmCount = 16;
+      obstacleCount = 48; // dense asteroid field
+      swarmCount = 24;
     } else if (this.id === 'quantum_highway') {
-      obstacleCount = 8;
-      swarmCount = 4;
+      obstacleCount = 18;
+      swarmCount = 8;
     }
 
     let obstacleIdCounter = 0;
@@ -570,11 +635,14 @@ export class CosmicTrack {
   private generateEnergyBarriers() {
     this.energyBarriers = [];
     // Energy laser barriers across tracks, especially Quantum Highway & Cosmic Ring
-    const barrierTs = this.id === 'quantum_highway'
-      ? [0.15, 0.30, 0.45, 0.60, 0.75, 0.88]
-      : this.id === 'cosmic_ring'
-      ? [0.25, 0.55, 0.82]
-      : [0.33, 0.72];
+    const barrierTs =
+      this.id === 'quantum_highway'
+        ? [0.08, 0.18, 0.28, 0.40, 0.52, 0.65, 0.78, 0.88]
+        : this.id === 'cosmic_ring'
+        ? [0.14, 0.28, 0.45, 0.62, 0.78, 0.90]
+        : this.id === 'asteroid_run'
+        ? [0.22, 0.48, 0.72]
+        : [0.16, 0.36, 0.58, 0.80];
 
     const lanes: ('left' | 'center' | 'right')[] = ['left', 'center', 'right'];
 
@@ -597,7 +665,7 @@ export class CosmicTrack {
 
   private generateCredits() {
     this.credits = [];
-    const totalCredits = 72;
+    const totalCredits = 128;
     const laneOffsets = [-6, -3, 0, 3, 6];
 
     for (let i = 0; i < totalCredits; i++) {

@@ -82,6 +82,14 @@ export class ActiveShieldManager {
     return { netDamage: rawDmg, blocked: 0 };
   }
 
+  public isActive(): boolean {
+    return this.status === 'ACTIVE';
+  }
+
+  public absorbDamage(rawDmg: number): { netDamage: number; blocked: number } {
+    return this.filterIncomingDamage(rawDmg);
+  }
+
   // ==========================================
   // RESET ON RACE RESTART
   // ==========================================

@@ -22,6 +22,7 @@ import {
   Crosshair,
   Rocket,
   ShieldCheck,
+  Cpu,
 } from 'lucide-react';
 import {
   ActivePowerUp,
@@ -89,6 +90,9 @@ interface RaceHUDProps {
   onZoomOutMinimap?: () => void;
   onResetMinimapZoom?: () => void;
   onToggleMinimapExpand?: () => void;
+  isAIRaceActive?: boolean;
+  isAIDebugOpen?: boolean;
+  onToggleAIDebug?: () => void;
 }
 
 const SECTOR_NAMES: Record<string, string> = {
@@ -150,6 +154,9 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
   onZoomOutMinimap,
   onResetMinimapZoom,
   onToggleMinimapExpand,
+  isAIRaceActive,
+  isAIDebugOpen,
+  onToggleAIDebug,
 }) => {
   // Joystick State
   const [stickPos, setStickPos] = useState({ x: 0, y: 0 });
@@ -417,6 +424,19 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
             >
               <Pause className="w-4 h-4" />
             </button>
+            {isAIRaceActive && onToggleAIDebug && (
+              <button
+                onClick={onToggleAIDebug}
+                className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-md cursor-pointer ${
+                  isAIDebugOpen
+                    ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300 shadow-[0_0_15px_#00f0ff]'
+                    : 'bg-[#060c18]/85 border-cyan-500/40 text-slate-400 hover:text-cyan-300'
+                }`}
+                title="Toggle AI Intelligence Telemetry [O]"
+              >
+                <Cpu className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           {/* Race Timer Card */}
@@ -922,276 +942,304 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
             </div>
           )}
 
-          {/* Drift, Beam & Boost Action Buttons */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Drift Button */}
-            <button
-              onPointerDown={e => {
-                e.preventDefault();
-                onInputChange?.({ drift: true });
-              }}
-              onPointerUp={e => {
-                e.preventDefault();
-                onInputChange?.({ drift: false });
-              }}
-              onPointerLeave={() => {
-                onInputChange?.({ drift: false });
-              }}
-              className="w-13 h-13 sm:w-14 sm:h-14 rounded-full border-2 border-fuchsia-400 bg-fuchsia-950/80 text-fuchsia-300 flex flex-col items-center justify-center shadow-[0_0_20px_rgba(217,70,239,0.4)] active:scale-95 active:bg-fuchsia-500 active:text-slate-950 transition-all cursor-pointer"
-              title="Drift Brake [SHIFT]"
-            >
-              <Wind className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5" />
-              <span className="text-[8px] sm:text-[9px] font-ui font-black uppercase tracking-wider">
-                DRIFT
-              </span>
-            </button>
+          {/* Tactical Flight Action Deck (2-Tier Ergonomic Clustered Layout) */}
+          <div className="flex flex-col items-end gap-2 mt-1">
+            {/* Upper Tier: Tactical Sub-systems (Drift, Missile, Shield) */}
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              {/* Drift Button */}
+              <button
+                onPointerDown={e => {
+                  e.preventDefault();
+                  onInputChange?.({ drift: true });
+                }}
+                onPointerUp={e => {
+                  e.preventDefault();
+                  onInputChange?.({ drift: false });
+                }}
+                onPointerLeave={() => {
+                  onInputChange?.({ drift: false });
+                }}
+                className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl border-2 border-fuchsia-400 bg-fuchsia-950/80 text-fuchsia-300 flex flex-col items-center justify-center shadow-[0_0_15px_rgba(217,70,239,0.3)] active:scale-95 active:bg-fuchsia-500 active:text-slate-950 transition-all cursor-pointer"
+                title="Drift Brake [SHIFT]"
+              >
+                <Wind className="w-4 h-4 sm:w-4.5 sm:h-4.5 mb-0.5" />
+                <span className="text-[7.5px] sm:text-[8px] font-ui font-black uppercase tracking-wider">
+                  DRIFT
+                </span>
+              </button>
 
-            {/* Guided Homing Missile Weapon Button (All 20 Modes) */}
-            <button
-              onClick={e => {
-                e.preventDefault();
-                onFireMissile?.();
-                onInputChange?.({ fireMissile: true });
-              }}
-              disabled={missileTelemetry?.status === 'RELOADING'}
-              className={`relative w-14 h-14 sm:w-15 sm:h-15 rounded-full border-2 flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden select-none touch-none active:scale-95 ${
-                missileTelemetry?.status === 'RELOADING'
-                  ? 'bg-slate-950/80 border-slate-700/60 text-slate-500 cursor-not-allowed'
-                  : missileTelemetry?.hasTargetLock
-                  ? 'bg-red-600 text-white border-white shadow-[0_0_35px_#ff0033] scale-105 ring-4 ring-red-500/70 animate-pulse'
-                  : 'bg-red-950/90 border-red-500/80 text-red-300 hover:border-red-400 active:bg-red-600 active:text-white shadow-[0_0_20px_rgba(255,51,102,0.4)]'
-              }`}
-              title="Launch Guided Missile [M]"
-            >
-              <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
-                <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-800/80" />
-                <circle
-                  cx="32"
-                  cy="32"
-                  r="29"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeDasharray={182}
-                  strokeDashoffset={
-                    182 - (182 * Math.max(0, Math.min(100, missileTelemetry?.cooldownProgress ?? 0))) / 100
+              {/* Guided Homing Missile Weapon Button (All 20 Modes) */}
+              <button
+                onPointerDown={e => {
+                  e.preventDefault();
+                  if (missileTelemetry?.status !== 'RELOADING') {
+                    onFireMissile?.();
+                    onInputChange?.({ fireMissile: true });
+                    setTimeout(() => onInputChange?.({ fireMissile: false }), 100);
                   }
-                  className="text-red-400 transition-all duration-100"
-                />
-              </svg>
-
-              {missileTelemetry?.status === 'RELOADING' && (
-                <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-0.5 z-10">
-                  <span className="text-[7px] font-mono font-black text-red-400 leading-tight">
-                    RELOAD
-                  </span>
-                  <span className="text-[9px] font-mono font-bold text-white leading-tight">
-                    {Math.ceil(missileTelemetry.cooldownRemaining)}s
-                  </span>
-                </div>
-              )}
-
-              {missileTelemetry?.hasTargetLock && missileTelemetry.status !== 'RELOADING' && (
-                <div className="absolute top-1 right-2 w-2 h-2 rounded-full bg-red-400 shadow-[0_0_8px_#ff0033] animate-ping" />
-              )}
-
-              <Rocket
-                className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                  missileTelemetry?.hasTargetLock ? 'animate-bounce text-white drop-shadow-[0_0_10px_#fff]' : ''
-                }`}
-              />
-              <span className="text-[8px] sm:text-[9px] font-ui font-black uppercase tracking-wider leading-none mt-0.5">
-                MISSILE
-              </span>
-              <span className="text-[7px] font-mono font-bold text-red-300/80 uppercase tracking-wider leading-none mt-0.5">
-                [M]
-              </span>
-            </button>
-
-            {/* Active Damage Mitigation Shield Button (60s Cooldown) */}
-            <button
-              onClick={e => {
-                e.preventDefault();
-                onActivateShield?.();
-                onInputChange?.({ activateShield: true });
-              }}
-              disabled={activeShieldTelemetry?.status === 'RECHARGING'}
-              className={`relative w-14 h-14 sm:w-15 sm:h-15 rounded-full border-2 flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden select-none touch-none active:scale-95 ${
-                activeShieldTelemetry?.status === 'ACTIVE'
-                  ? 'bg-cyan-500 text-slate-950 border-white shadow-[0_0_35px_#00f0ff] ring-4 ring-cyan-400/60 scale-105'
-                  : activeShieldTelemetry?.status === 'RECHARGING'
-                  ? 'bg-slate-950/80 border-slate-700/60 text-slate-500 cursor-not-allowed'
-                  : 'bg-cyan-950/90 border-cyan-400 text-cyan-300 hover:border-cyan-300 active:bg-cyan-400 active:text-slate-950 shadow-[0_0_20px_rgba(0,240,255,0.4)]'
-              }`}
-              title="Deploy Active Shield (6s duration / 60s cooldown) [C]"
-            >
-              <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
-                <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-800/80" />
-                <circle
-                  cx="32"
-                  cy="32"
-                  r="29"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeDasharray={182}
-                  strokeDashoffset={
-                    182 - (182 * Math.max(0, Math.min(100, activeShieldTelemetry?.rechargeProgress ?? 0))) / 100
+                }}
+                onClick={e => {
+                  e.preventDefault();
+                  if (missileTelemetry?.status !== 'RELOADING') {
+                    onFireMissile?.();
+                    onInputChange?.({ fireMissile: true });
+                    setTimeout(() => onInputChange?.({ fireMissile: false }), 100);
                   }
-                  className="text-cyan-400 transition-all duration-100"
-                />
-              </svg>
-
-              {activeShieldTelemetry?.status === 'RECHARGING' && (
-                <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-0.5 z-10">
-                  <span className="text-[7px] font-mono font-black text-cyan-400 leading-tight">
-                    RECHARGE
-                  </span>
-                  <span className="text-[9px] font-mono font-bold text-white leading-tight">
-                    {Math.ceil(activeShieldTelemetry.rechargeRemaining)}s
-                  </span>
-                </div>
-              )}
-
-              {activeShieldTelemetry?.status === 'ACTIVE' && (
-                <div className="absolute top-1 right-2 px-1 rounded bg-slate-950/80 text-[7px] font-mono font-black text-cyan-300 animate-pulse">
-                  {activeShieldTelemetry.activeTimeRemaining.toFixed(1)}s
-                </div>
-              )}
-
-              <ShieldCheck
-                className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                  activeShieldTelemetry?.status === 'ACTIVE' ? 'animate-spin text-slate-950 drop-shadow-[0_0_10px_#fff]' : ''
+                }}
+                disabled={missileTelemetry?.status === 'RELOADING'}
+                className={`relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl border-2 flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden select-none touch-none active:scale-95 ${
+                  missileTelemetry?.status === 'RELOADING'
+                    ? 'bg-slate-950/80 border-slate-700/60 text-slate-500 cursor-not-allowed'
+                    : missileTelemetry?.hasTargetLock
+                    ? 'bg-red-600 text-white border-white shadow-[0_0_25px_#ff0033] scale-105 ring-2 ring-red-400 animate-pulse'
+                    : 'bg-red-950/90 border-red-500/80 text-red-300 hover:border-red-400 active:bg-red-600 active:text-white shadow-[0_0_15px_rgba(255,51,102,0.3)]'
                 }`}
-              />
-              <span className="text-[8px] sm:text-[9px] font-ui font-black uppercase tracking-wider leading-none mt-0.5">
-                SHIELD
-              </span>
-              <span className="text-[7px] font-mono font-bold text-cyan-300/80 uppercase tracking-wider leading-none mt-0.5">
-                [C]
-              </span>
-            </button>
+                title="Launch Guided Missile [M]"
+              >
+                <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
+                  <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-800/80" />
+                  <circle
+                    cx="32"
+                    cy="32"
+                    r="29"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeDasharray={182}
+                    strokeDashoffset={
+                      182 - (182 * Math.max(0, Math.min(100, missileTelemetry?.cooldownProgress ?? 0))) / 100
+                    }
+                    className="text-red-400 transition-all duration-100"
+                  />
+                </svg>
 
-            {/* Front Asteroid Beam Button */}
-            <button
-              onPointerDown={e => {
-                e.preventDefault();
-                if (!beamTelemetry?.isOverheated && (beamTelemetry?.energy ?? 100) > 3) {
-                  onInputChange?.({ fireBeam: true });
-                }
-              }}
-              onPointerUp={e => {
-                e.preventDefault();
-                onInputChange?.({ fireBeam: false });
-              }}
-              onPointerLeave={() => {
-                onInputChange?.({ fireBeam: false });
-              }}
-              onPointerCancel={() => {
-                onInputChange?.({ fireBeam: false });
-              }}
-              onTouchEnd={() => {
-                onInputChange?.({ fireBeam: false });
-              }}
-              disabled={beamTelemetry?.isOverheated || (beamTelemetry?.energy ?? 100) <= 3}
-              className={`relative w-15 h-15 sm:w-16 sm:h-16 rounded-full border-2 flex flex-col items-center justify-center shadow-[0_0_25px_rgba(255,0,85,0.4)] active:scale-95 transition-all cursor-pointer overflow-hidden select-none touch-none ${
-                beamTelemetry?.isFiring
-                  ? 'bg-rose-500 text-white border-white shadow-[0_0_35px_#ff0055] scale-95 ring-4 ring-rose-400/60'
-                  : beamTelemetry?.isOverheated
-                  ? 'bg-rose-950/40 border-rose-900 text-rose-700/60 opacity-60 cursor-not-allowed'
-                  : (beamTelemetry?.energy ?? 100) <= 3
-                  ? 'bg-slate-950/60 border-slate-800 text-slate-600 cursor-not-allowed'
-                  : 'bg-rose-950/90 border-rose-400 text-rose-300 hover:border-rose-300 active:bg-rose-500 active:text-slate-950'
-              }`}
-              title="Fire Front Asteroid Destruction Beam [E / RMB]"
-            >
-              {/* Radial Energy Progress Ring */}
-              <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
-                <circle
-                  cx="32"
-                  cy="32"
-                  r="29"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  className="text-rose-950/60"
-                />
-                <circle
-                  cx="32"
-                  cy="32"
-                  r="29"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeDasharray={182}
-                  strokeDashoffset={182 - (182 * Math.max(0, Math.min(100, beamTelemetry?.energy ?? 100))) / 100}
-                  className={`transition-all duration-75 ${
-                    (beamTelemetry?.energy ?? 100) < 25 ? 'text-amber-400' : 'text-rose-400'
+                {missileTelemetry?.status === 'RELOADING' && (
+                  <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-0.5 z-10">
+                    <span className="text-[7px] font-mono font-black text-red-400 leading-tight">
+                      RELOAD
+                    </span>
+                    <span className="text-[8.5px] font-mono font-bold text-white leading-tight">
+                      {Math.ceil(missileTelemetry.cooldownRemaining)}s
+                    </span>
+                  </div>
+                )}
+
+                {missileTelemetry?.hasTargetLock && missileTelemetry.status !== 'RELOADING' && (
+                  <div className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_8px_#ff0033] animate-ping" />
+                )}
+
+                <Rocket
+                  className={`w-4 h-4 sm:w-4.5 sm:h-4.5 ${
+                    missileTelemetry?.hasTargetLock ? 'animate-bounce text-white drop-shadow-[0_0_8px_#fff]' : ''
                   }`}
                 />
-              </svg>
+                <span className="text-[7.5px] sm:text-[8px] font-ui font-black uppercase tracking-wider leading-none mt-0.5">
+                  MISSILE
+                </span>
+                <span className="text-[6.5px] font-mono font-bold text-red-300/80 uppercase tracking-wider leading-none">
+                  [M]
+                </span>
+              </button>
 
-              {/* Cooldown overlay when overheated */}
-              {beamTelemetry?.isOverheated && (
-                <div className="absolute inset-0 bg-rose-950/95 flex flex-col items-center justify-center p-0.5 z-10">
-                  <span className="text-[7px] font-mono font-black text-rose-400 leading-tight animate-pulse">
-                    COOLDOWN
-                  </span>
-                  <span className="text-[9px] font-mono font-bold text-white leading-tight">
-                    {beamTelemetry.cooldownRemaining.toFixed(1)}s
-                  </span>
-                </div>
-              )}
-
-              {/* Target lock ping pip */}
-              {beamTelemetry?.hasTargetLock && !beamTelemetry.isOverheated && (
-                <div className="absolute top-1 right-2 w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#39ff14] animate-ping" />
-              )}
-
-              <Zap
-                className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                  beamTelemetry?.isFiring ? 'animate-bounce text-white drop-shadow-[0_0_10px_#fff]' : ''
+              {/* Active Damage Mitigation Shield Button (60s Cooldown) */}
+              <button
+                onPointerDown={e => {
+                  e.preventDefault();
+                  if (activeShieldTelemetry?.status !== 'RECHARGING') {
+                    onActivateShield?.();
+                    onInputChange?.({ activateShield: true });
+                    setTimeout(() => onInputChange?.({ activateShield: false }), 100);
+                  }
+                }}
+                onClick={e => {
+                  e.preventDefault();
+                  if (activeShieldTelemetry?.status !== 'RECHARGING') {
+                    onActivateShield?.();
+                    onInputChange?.({ activateShield: true });
+                    setTimeout(() => onInputChange?.({ activateShield: false }), 100);
+                  }
+                }}
+                disabled={activeShieldTelemetry?.status === 'RECHARGING'}
+                className={`relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl border-2 flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden select-none touch-none active:scale-95 ${
+                  activeShieldTelemetry?.status === 'ACTIVE'
+                    ? 'bg-cyan-500 text-slate-950 border-white shadow-[0_0_25px_#00f0ff] ring-2 ring-cyan-300 scale-105'
+                    : activeShieldTelemetry?.status === 'RECHARGING'
+                    ? 'bg-slate-950/80 border-slate-700/60 text-slate-500 cursor-not-allowed'
+                    : 'bg-cyan-950/90 border-cyan-400 text-cyan-300 hover:border-cyan-300 active:bg-cyan-400 active:text-slate-950 shadow-[0_0_15px_rgba(0,240,255,0.3)]'
                 }`}
-              />
-              <span className="text-[9px] sm:text-[10px] font-ui font-black uppercase tracking-wider leading-none mt-0.5">
-                ⚡ BEAM
-              </span>
-              <span className="text-[7px] font-mono font-bold text-rose-300/80 uppercase tracking-wider leading-none mt-0.5">
-                [E]
-              </span>
-            </button>
+                title="Deploy Active Shield (6s duration / 60s cooldown) [C]"
+              >
+                <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
+                  <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-800/80" />
+                  <circle
+                    cx="32"
+                    cy="32"
+                    r="29"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeDasharray={182}
+                    strokeDashoffset={
+                      182 - (182 * Math.max(0, Math.min(100, activeShieldTelemetry?.rechargeProgress ?? 0))) / 100
+                    }
+                    className="text-cyan-400 transition-all duration-100"
+                  />
+                </svg>
 
-            {/* Boost Hold Button */}
-            <button
-              onPointerDown={e => {
-                e.preventDefault();
-                if (boost > 5) onInputChange?.({ boost: true });
-              }}
-              onPointerUp={e => {
-                e.preventDefault();
-                onInputChange?.({ boost: false });
-              }}
-              onPointerLeave={() => {
-                onInputChange?.({ boost: false });
-              }}
-              disabled={boost <= 5}
-              className={`w-15 h-15 sm:w-16 sm:h-16 rounded-full border-2 flex flex-col items-center justify-center shadow-[0_0_25px_rgba(0,240,255,0.4)] active:scale-95 transition-all cursor-pointer ${
-                speed > 250
-                  ? 'bg-cyan-400 text-slate-950 border-white shadow-[0_0_35px_#00f0ff]'
-                  : boost > 5
-                  ? 'bg-cyan-950/90 border-cyan-400 text-cyan-300 active:bg-cyan-400 active:text-slate-950'
-                  : 'bg-slate-950/60 border-slate-800 text-slate-600'
-              }`}
-              title="Hyper-Boost [SPACE]"
-            >
-              <ChevronsUp className="w-5 h-5 sm:w-6 sm:h-6 leading-none" />
-              <span className="text-[10px] sm:text-[11px] font-ui font-black uppercase tracking-widest leading-none mt-0.5">
-                BOOST
-              </span>
-              <span className="text-[7px] font-mono font-bold text-cyan-400/80 uppercase tracking-wider leading-none mt-0.5">
-                HOLD
-              </span>
-            </button>
+                {activeShieldTelemetry?.status === 'RECHARGING' && (
+                  <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-0.5 z-10">
+                    <span className="text-[7px] font-mono font-black text-cyan-400 leading-tight">
+                      RECHARGE
+                    </span>
+                    <span className="text-[8.5px] font-mono font-bold text-white leading-tight">
+                      {Math.ceil(activeShieldTelemetry.rechargeRemaining)}s
+                    </span>
+                  </div>
+                )}
+
+                {activeShieldTelemetry?.status === 'ACTIVE' && (
+                  <div className="absolute top-1 right-1 px-0.5 rounded bg-slate-950/80 text-[6.5px] font-mono font-black text-cyan-300 animate-pulse">
+                    {activeShieldTelemetry.activeTimeRemaining.toFixed(1)}s
+                  </div>
+                )}
+
+                <ShieldCheck
+                  className={`w-4 h-4 sm:w-4.5 sm:h-4.5 ${
+                    activeShieldTelemetry?.status === 'ACTIVE' ? 'animate-spin text-slate-950 drop-shadow-[0_0_8px_#fff]' : ''
+                  }`}
+                />
+                <span className="text-[7.5px] sm:text-[8px] font-ui font-black uppercase tracking-wider leading-none mt-0.5">
+                  SHIELD
+                </span>
+                <span className="text-[6.5px] font-mono font-bold text-cyan-300/80 uppercase tracking-wider leading-none">
+                  [C]
+                </span>
+              </button>
+            </div>
+
+            {/* Lower Tier: Main Offense & Propulsion (Beam, Hyper-Boost) */}
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              {/* Front Asteroid Beam Button */}
+              <button
+                onPointerDown={e => {
+                  e.preventDefault();
+                  if (!beamTelemetry?.isOverheated && (beamTelemetry?.energy ?? 100) > 3) {
+                    onInputChange?.({ fireBeam: true });
+                  }
+                }}
+                onPointerUp={e => {
+                  e.preventDefault();
+                  onInputChange?.({ fireBeam: false });
+                }}
+                onPointerLeave={() => {
+                  onInputChange?.({ fireBeam: false });
+                }}
+                onPointerCancel={() => {
+                  onInputChange?.({ fireBeam: false });
+                }}
+                onTouchEnd={() => {
+                  onInputChange?.({ fireBeam: false });
+                }}
+                disabled={beamTelemetry?.isOverheated || (beamTelemetry?.energy ?? 100) <= 3}
+                className={`relative w-15 h-15 sm:w-16 sm:h-16 rounded-2xl border-2 flex flex-col items-center justify-center shadow-[0_0_20px_rgba(255,0,85,0.3)] active:scale-95 transition-all cursor-pointer overflow-hidden select-none touch-none ${
+                  beamTelemetry?.isFiring
+                    ? 'bg-rose-500 text-white border-white shadow-[0_0_35px_#ff0055] scale-95 ring-4 ring-rose-400/60'
+                    : beamTelemetry?.isOverheated
+                    ? 'bg-rose-950/40 border-rose-900 text-rose-700/60 opacity-60 cursor-not-allowed'
+                    : (beamTelemetry?.energy ?? 100) <= 3
+                    ? 'bg-slate-950/60 border-slate-800 text-slate-600 cursor-not-allowed'
+                    : 'bg-rose-950/90 border-rose-400 text-rose-300 hover:border-rose-300 active:bg-rose-500 active:text-slate-950'
+                }`}
+                title="Fire Front Asteroid Destruction Beam [E / RMB]"
+              >
+                {/* Radial Energy Progress Ring */}
+                <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
+                  <circle
+                    cx="32"
+                    cy="32"
+                    r="29"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    className="text-rose-950/60"
+                  />
+                  <circle
+                    cx="32"
+                    cy="32"
+                    r="29"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeDasharray={182}
+                    strokeDashoffset={182 - (182 * Math.max(0, Math.min(100, beamTelemetry?.energy ?? 100))) / 100}
+                    className={`transition-all duration-75 ${
+                      (beamTelemetry?.energy ?? 100) < 25 ? 'text-amber-400' : 'text-rose-400'
+                    }`}
+                  />
+                </svg>
+
+                {/* Cooldown overlay when overheated */}
+                {beamTelemetry?.isOverheated && (
+                  <div className="absolute inset-0 bg-rose-950/95 flex flex-col items-center justify-center p-0.5 z-10">
+                    <span className="text-[7px] font-mono font-black text-rose-400 leading-tight animate-pulse">
+                      COOLDOWN
+                    </span>
+                    <span className="text-[9px] font-mono font-bold text-white leading-tight">
+                      {beamTelemetry.cooldownRemaining.toFixed(1)}s
+                    </span>
+                  </div>
+                )}
+
+                {/* Target lock ping pip */}
+                {beamTelemetry?.hasTargetLock && !beamTelemetry.isOverheated && (
+                  <div className="absolute top-1 right-2 w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#39ff14] animate-ping" />
+                )}
+
+                <Zap
+                  className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                    beamTelemetry?.isFiring ? 'animate-bounce text-white drop-shadow-[0_0_10px_#fff]' : ''
+                  }`}
+                />
+                <span className="text-[9px] sm:text-[10px] font-ui font-black uppercase tracking-wider leading-none mt-0.5">
+                  ⚡ BEAM
+                </span>
+                <span className="text-[7px] font-mono font-bold text-rose-300/80 uppercase tracking-wider leading-none mt-0.5">
+                  [E]
+                </span>
+              </button>
+
+              {/* Boost Hold Button */}
+              <button
+                onPointerDown={e => {
+                  e.preventDefault();
+                  if (boost > 5) onInputChange?.({ boost: true });
+                }}
+                onPointerUp={e => {
+                  e.preventDefault();
+                  onInputChange?.({ boost: false });
+                }}
+                onPointerLeave={() => {
+                  onInputChange?.({ boost: false });
+                }}
+                disabled={boost <= 5}
+                className={`w-15 h-15 sm:w-16 sm:h-16 rounded-2xl border-2 flex flex-col items-center justify-center shadow-[0_0_25px_rgba(0,240,255,0.4)] active:scale-95 transition-all cursor-pointer ${
+                  speed > 250
+                    ? 'bg-cyan-400 text-slate-950 border-white shadow-[0_0_35px_#00f0ff]'
+                    : boost > 5
+                    ? 'bg-cyan-950/90 border-cyan-400 text-cyan-300 active:bg-cyan-400 active:text-slate-950'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-600'
+                }`}
+                title="Hyper-Boost [SPACE]"
+              >
+                <ChevronsUp className="w-5 h-5 sm:w-6 sm:h-6 leading-none" />
+                <span className="text-[10px] sm:text-[11px] font-ui font-black uppercase tracking-widest leading-none mt-0.5">
+                  BOOST
+                </span>
+                <span className="text-[7px] font-mono font-bold text-cyan-400/80 uppercase tracking-wider leading-none mt-0.5">
+                  HOLD
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

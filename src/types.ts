@@ -59,8 +59,84 @@ export type TrackId =
   | 'circuit_alpha'
   | 'nebula_rift';
 
-export type AIDifficulty = 'RECRUIT' | 'STANDARD' | 'VETERAN' | 'ACE' | 'ELITE';
-export type AIPersonality = 'AGGRESSIVE' | 'DEFENSIVE' | 'BALANCED' | 'RISK_TAKER' | 'TECHNICAL';
+export type AIDifficulty =
+  | 'EASY'
+  | 'NORMAL'
+  | 'HARD'
+  | 'EXPERT'
+  | 'MASTER'
+  // Backward compatibility aliases
+  | 'RECRUIT'
+  | 'STANDARD'
+  | 'VETERAN'
+  | 'ACE'
+  | 'ELITE';
+
+export type AIPersonality =
+  | 'AGGRESSOR'
+  | 'DEFENDER'
+  | 'TACTICIAN'
+  | 'SPEEDSTER'
+  | 'BALANCED'
+  // Backward compatibility aliases
+  | 'AGGRESSIVE'
+  | 'RISK_TAKER'
+  | 'TECHNICAL';
+
+export type AIOvertakeState =
+  | 'APPROACHING'
+  | 'ANALYZING'
+  | 'SELECTING_SIDE'
+  | 'OVERTAKING'
+  | 'PASSING'
+  | 'RETURNING_TO_LINE'
+  | 'ABORTING'
+  | 'RECOVERING';
+
+export type AIDefensiveState =
+  | 'NORMAL_RACING'
+  | 'THREAT_DETECTED'
+  | 'DEFENDING_LINE'
+  | 'BLOCKING_LANE'
+  | 'COUNTER_OVERTAKE'
+  | 'RETURNING_TO_RACING_LINE'
+  | 'DEFENSIVE_RECOVERY';
+
+export type AIOvertakeType =
+  | 'LEFT'
+  | 'RIGHT'
+  | 'SLIPSTREAM'
+  | 'BOOST'
+  | 'SHORTCUT'
+  | 'LATE_BRAKING'
+  | 'COUNTER';
+
+export interface AIRacerDebugInfo {
+  id: string;
+  name: string;
+  difficulty: AIDifficulty;
+  personality: AIPersonality;
+  speed: number;
+  currentLateral: number;
+  targetLateral: number;
+  overtakeState: AIOvertakeState;
+  defensiveState: AIDefensiveState;
+  targetedOpponent: string | null;
+  missileCooldown: number;
+  shieldCooldown: number;
+  isShieldActive: boolean;
+  currentRoute: string;
+  collisionRisk: number; // 0-1
+  reactionTime: number; // seconds
+  aggression: number; // 0-1
+  rank: number;
+}
+
+export interface AIDebugTelemetry {
+  enabled: boolean;
+  difficulty: AIDifficulty;
+  racers: AIRacerDebugInfo[];
+}
 
 export type CameraMode = 'CHASE_NEAR' | 'CHASE_FAR' | 'COCKPIT';
 export type GraphicsQuality = 'LOW' | 'MEDIUM' | 'HIGH';
