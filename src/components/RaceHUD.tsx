@@ -93,6 +93,7 @@ interface RaceHUDProps {
   isAIRaceActive?: boolean;
   isAIDebugOpen?: boolean;
   onToggleAIDebug?: () => void;
+  isIntroActive?: boolean;
 }
 
 const SECTOR_NAMES: Record<string, string> = {
@@ -157,6 +158,7 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
   isAIRaceActive,
   isAIDebugOpen,
   onToggleAIDebug,
+  isIntroActive,
 }) => {
   // Joystick State
   const [stickPos, setStickPos] = useState({ x: 0, y: 0 });
@@ -489,12 +491,12 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
       {/* ================= SCREEN CENTER ALERTS & COUNTDOWN ================= */}
       <div className="my-auto flex flex-col items-center justify-center gap-3 text-center pointer-events-none">
         {/* Race Start Countdown */}
-        {countdown !== null && countdown > 0 && (
+        {!isIntroActive && countdown !== null && countdown > 0 && (
           <div className="animate-ping text-7xl sm:text-9xl font-ui font-black text-cyan-400 drop-shadow-[0_0_35px_#00f0ff]">
             {countdown}
           </div>
         )}
-        {countdown === 0 && (
+        {!isIntroActive && countdown === 0 && (
           <div className="text-7xl sm:text-9xl font-ui font-black text-emerald-400 drop-shadow-[0_0_35px_#39ff14] animate-bounce">
             ENGAGE!
           </div>

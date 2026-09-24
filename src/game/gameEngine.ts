@@ -58,6 +58,8 @@ import { ActiveShieldManager } from './shieldSystem';
 import { MinimapManager } from './minimapSystem';
 import { HazardManager } from './hazardManager';
 import { GameDifficulty, getDifficultyProfile } from './modeConfigs';
+import { ExtendedPathManager } from './extendedPath/extendedPathManager';
+import { ActiveCinematicState, ExtendedPathTelemetry } from './extendedPath/extendedPathTypes';
 import { championshipManager } from './championshipManager';
 import {
   AIRacingIntelligenceSystem,
@@ -74,6 +76,8 @@ import {
   MinimapMarker,
   AIDebugTelemetry,
 } from '../types';
+import { RaceIntroManager } from './cinematicIntro/raceIntroManager';
+import { IntroHUDTelemetry } from './cinematicIntro/cinematicTypes';
 
 export interface LocalAIRacer {
   id: string;
@@ -151,6 +155,10 @@ export interface GameEngineCallbacks {
   onActiveShieldTelemetry?: (telemetry: ActiveShieldTelemetry) => void;
   onMinimapTelemetry?: (telemetry: MinimapTelemetry) => void;
   onAIDebugTelemetry?: (telemetry: AIDebugTelemetry) => void;
+  onIntroTelemetry?: (telemetry: IntroHUDTelemetry | null) => void;
+  onCinematicStateUpdate?: (state: ActiveCinematicState) => void;
+  onPathTelemetryUpdate?: (telemetry: ExtendedPathTelemetry) => void;
+  onCountdownTick?: (count: number) => void;
   onEngineReady?: () => void;
 }
 
@@ -227,6 +235,7 @@ export class GameEngine {
   public isAIRaceActive: boolean = false;
   public aiDifficulty: AIDifficulty = 'NORMAL';
   public aiRacingSystem: AIRacingIntelligenceSystem;
+  public raceIntroManager: RaceIntroManager;
 
   // Collectibles & Power-Ups
   private creditsInstancedMesh: THREE.InstancedMesh | null = null;
@@ -282,6 +291,7 @@ export class GameEngine {
   public modeManager: ModeManager = new ModeManager('NEON_CIRCUIT');
   public blackHoleManager: BlackHoleManager | null = null;
   public modeEntitySystem: ModeEntitySystem | null = null;
+  public extendedPathManager!: ExtendedPathManager;
 
   private currentLap: number = 1;
   private totalLaps: number = 2;
@@ -511,6 +521,10 @@ export class GameEngine {
       this.minimapManager.initTrack(this.track.curve, this.track.checkpoints, this.track.id || 'SECTOR ALPHA');
     }
 
+    // Initialize Extended Procedural Path & Streaming Manager
+    this.extendedPathManager = new ExtendedPathManager(this.scene);
+    this.extendedPathManager.setMode(this.activeGameMode);
+
     // Initialize Dynamic Hazard & Difficulty System
     this.hazardManager = new HazardManager(this.scene);
     if (this.track) {
@@ -519,6 +533,31 @@ export class GameEngine {
 
     // Initialize Advanced AI Racing Intelligence System
     this.aiRacingSystem = new AIRacingIntelligenceSystem(this.track, this.scene);
+
+    // Initialize Cinematic Introduction System for All 20 Modes
+    this.raceIntroManager = new RaceIntroManager(
+      this.activeGameMode,
+      this.track,
+      this.camera,
+      this.scene,
+      {
+        onCountdownTick: count => {
+          this.callbacks.onCountdownTick?.(count);
+        },
+        onRaceStart: () => {
+          this.isRacing = true;
+          this.raceStartTime = Date.now();
+          this.lapStartTime = Date.now();
+          this.currentSpeed = 100;
+          this.input.throttle = 1;
+          sound.startEngine();
+          sound.startCosmicMusic();
+        },
+        onTelemetryUpdate: telem => {
+          this.callbacks.onIntroTelemetry?.(telem);
+        },
+      }
+    );
 
     // Prewarm Shaders & Compile Scene Ahead of Time for Stutter-Free Start
     try {
@@ -1453,8 +1492,9 @@ export class GameEngine {
     this.playerShipGroup.add(group);
   }
 
-  public setTrack(trackId: TrackId) {
-    if (this.trackId === trackId && this.track) return;
+  public setTrack(trackId: TrackId, customPoints?: [number, number, number][]) {
+    const modePoints = customPoints || (this.extendedPathManager ? this.extendedPathManager.activeConfig.controlPoints : undefined);
+    if (this.trackId === trackId && this.track && !customPoints) return;
     this.trackId = trackId;
 
     this.scene.remove(this.trackMeshGroup);
@@ -1494,7 +1534,7 @@ export class GameEngine {
     this.powerUpPodGroups.forEach(g => this.scene.remove(g));
     this.powerUpPodGroups = [];
 
-    this.track = new CosmicTrack(trackId);
+    this.track = new CosmicTrack(trackId, modePoints);
     this.buildTrackGeometry();
     this.buildCheckpoints();
     this.buildBoostPads();
@@ -1515,6 +1555,9 @@ export class GameEngine {
     }
     if (this.aiRacingSystem) {
       this.aiRacingSystem.setTrack(this.track);
+    }
+    if (this.raceIntroManager) {
+      this.raceIntroManager.setMode(this.activeGameMode, this.track);
     }
     this.resetToStart();
   }
@@ -1649,6 +1692,7 @@ export class GameEngine {
   public stopRace() {
     this.isRacing = false;
     this.isAIRaceActive = false;
+    this.raceIntroManager?.cleanup();
     this.clearAIRacers();
     this.isWrongWay = false;
     sound.stopEngine();
@@ -1657,6 +1701,17 @@ export class GameEngine {
 
   private updatePhysics(dt: number) {
     if (!this.playerShipGroup) return;
+
+    if (this.raceIntroManager && this.raceIntroManager.isControlsLocked) {
+      const slot = this.raceIntroManager.getGridSlot('player');
+      if (slot && slot.worldPos.lengthSq() > 0) {
+        this.playerShipGroup.position.copy(slot.worldPos);
+        this.splineT = slot.splineT;
+        this.lateralOffset = slot.lateralOffset;
+        this.currentSpeed = 0;
+      }
+      return;
+    }
 
     if (this.isDestroyed) {
       this.respawnTimer -= dt;
@@ -2734,6 +2789,24 @@ export class GameEngine {
     if (!this.playerShipGroup) return;
 
     const sample = this.track.getSampleAt(this.splineT);
+
+    // Mode-Specific 9-Phase Cinematic Introduction Camera Authority
+    if (this.raceIntroManager && this.raceIntroManager.latestTelemetry?.isActive) {
+      const behindDist = 14;
+      const heightOff = 5.2;
+      const shipPos = this.playerShipGroup.position;
+      const defaultCamPos = shipPos
+        .clone()
+        .add(sample.tangent.clone().multiplyScalar(-behindDist))
+        .add(sample.normal.clone().multiplyScalar(heightOff));
+      const defaultLook = shipPos.clone().add(sample.tangent.clone().multiplyScalar(25));
+
+      const introRes = this.raceIntroManager.update(dt, defaultCamPos, defaultLook, 65);
+      if (introRes.isIntroActive && introRes.phase !== 'COMPLETE') {
+        return; // Cinematic camera has authority
+      }
+    }
+
     let targetCamPos: THREE.Vector3;
     let lookTarget: THREE.Vector3;
 
@@ -2765,6 +2838,34 @@ export class GameEngine {
       lookTarget = this.playerShipGroup.position
         .clone()
         .add(sample.tangent.clone().multiplyScalar(25));
+    }
+
+    if (this.extendedPathManager && this.playerShipGroup) {
+      const shipQuat = this.playerShipGroup.quaternion;
+      const aiTs = this.localAIRacers.map(a => a.t);
+      const isCinActive = this.extendedPathManager.update(
+        dt,
+        this.splineT,
+        aiTs,
+        this.playerShipGroup.position,
+        shipQuat,
+        this.currentSpeed,
+        targetCamPos,
+        lookTarget,
+        this.camera,
+        this.isRacing
+      );
+
+      if (this.callbacks.onCinematicStateUpdate) {
+        this.callbacks.onCinematicStateUpdate(this.extendedPathManager.cinematicSystem.getActiveState());
+      }
+      if (this.callbacks.onPathTelemetryUpdate) {
+        this.callbacks.onPathTelemetryUpdate(this.extendedPathManager.getTelemetry(this.splineT, this.totalDistanceTraveled));
+      }
+
+      if (isCinActive) {
+        return; // In-race cinematic camera has temporary authority
+      }
     }
 
     if (this.cameraShakeEnabled && this.cameraShake > 0) {
@@ -3376,6 +3477,11 @@ export class GameEngine {
         this.junctionManager.playerRouteProgress.progress = 0;
       }
       this.currentSpeed = Math.max(20, recovery.safeSpeed);
+    } else if (this.extendedPathManager) {
+      const safeNode = this.extendedPathManager.getSafeRespawn(this.splineT);
+      this.splineT = safeNode.t;
+      this.lateralOffset = safeNode.safeLateral;
+      this.currentSpeed = 20;
     } else {
       this.splineT = this.latestValidCheckpoint.t;
       this.currentSpeed = 20;
@@ -3512,6 +3618,11 @@ export class GameEngine {
     this.activeDifficulty = difficulty;
     this.modeManager.setMode(mode);
 
+    if (this.extendedPathManager) {
+      this.extendedPathManager.setMode(mode);
+      this.setTrack(this.trackId, this.extendedPathManager.activeConfig.controlPoints);
+    }
+
     const diffProfile = getDifficultyProfile(mode, difficulty);
 
     if (this.hazardManager) {
@@ -3574,7 +3685,9 @@ export class GameEngine {
     }
 
     this.initAIRacers(adjustedConfig);
-    this.startRace();
+    this.resetToStart();
+    this.isAIRaceActive = true;
+    this.isRacing = false;
 
     // Re-init mode entities with the active track spline
     if (this.activeGameMode !== 'SINGULARITY_RUN') {
@@ -3584,6 +3697,25 @@ export class GameEngine {
       }
       this.modeEntitySystem.initModeEntities(this.activeGameMode, this.track?.curve || null, diffProfile.hazardDensity);
     }
+
+    // Launch Mode-Specific 9-Phase Cinematic Introduction System
+    const rival = this.localAIRacers.length > 0 ? {
+      name: this.localAIRacers[0].name,
+      shipId: this.localAIRacers[0].shipId,
+      personality: this.localAIRacers[0].personality || 'AGGRESSIVE',
+    } : undefined;
+
+    this.raceIntroManager.setMode(this.activeGameMode, this.track);
+    this.raceIntroManager.startIntro(
+      this.playerShipGroup,
+      this.localAIRacers,
+      0,
+      rival
+    );
+  }
+
+  public skipIntro() {
+    this.raceIntroManager?.skip();
   }
 
   public clearAIRacers() {
@@ -3796,6 +3928,24 @@ export class GameEngine {
 
   private updateAIRacers(dt: number) {
     if (!this.isAIRaceActive || this.localAIRacers.length === 0) return;
+
+    // While cinematic intro is running and controls are locked, pin AI ships to starting grid slots
+    if (this.raceIntroManager && this.raceIntroManager.isControlsLocked) {
+      for (const ai of this.localAIRacers) {
+        const slot = this.raceIntroManager.getGridSlot(ai.id);
+        if (slot && slot.worldPos.lengthSq() > 0) {
+          ai.group.position.copy(slot.worldPos);
+          ai.t = slot.splineT;
+          ai.currentLateral = slot.lateralOffset;
+          ai.speed = 0;
+          const sample = this.track.getSampleAt(ai.t);
+          _botRotMatrix.makeBasis(sample.binormal, sample.normal, _botNegTangent.copy(sample.tangent).negate());
+          ai.group.quaternion.setFromRotationMatrix(_botRotMatrix);
+        }
+      }
+      return;
+    }
+
     const trackLen = this.track.totalLength || 4600;
     const time = Date.now() * 0.003;
 
@@ -4577,6 +4727,9 @@ export class GameEngine {
     }
     if (this.collisionSystem) {
       this.collisionSystem.dispose();
+    }
+    if (this.extendedPathManager) {
+      this.extendedPathManager.dispose();
     }
     if (this.asteroidInstancedMesh) {
       this.scene.remove(this.asteroidInstancedMesh);

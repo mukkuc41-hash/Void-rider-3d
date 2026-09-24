@@ -433,20 +433,22 @@ export class CosmicTrack {
   public trackGraph: TrackGraph;
   public trackManager: TrackManager;
 
-  constructor(trackId: TrackId = 'neon_orbit') {
+  constructor(trackId: TrackId = 'neon_orbit', customPoints?: [number, number, number][]) {
     this.id = trackId;
 
-    let rawPoints: [number, number, number][] = NEON_ORBIT_POINTS;
-    if (trackId === 'asteroid_run') {
-      rawPoints = ASTEROID_RUN_POINTS;
-    } else if (trackId === 'void_rift' || trackId === 'nebula_rift') {
-      rawPoints = VOID_RIFT_POINTS;
-    } else if (trackId === 'cosmic_ring') {
-      rawPoints = COSMIC_RING_POINTS;
-    } else if (trackId === 'quantum_highway') {
-      rawPoints = QUANTUM_HIGHWAY_POINTS;
-    } else {
-      rawPoints = NEON_ORBIT_POINTS;
+    let rawPoints: [number, number, number][] = customPoints || NEON_ORBIT_POINTS;
+    if (!customPoints) {
+      if (trackId === 'asteroid_run') {
+        rawPoints = ASTEROID_RUN_POINTS;
+      } else if (trackId === 'void_rift' || trackId === 'nebula_rift') {
+        rawPoints = VOID_RIFT_POINTS;
+      } else if (trackId === 'cosmic_ring') {
+        rawPoints = COSMIC_RING_POINTS;
+      } else if (trackId === 'quantum_highway') {
+        rawPoints = QUANTUM_HIGHWAY_POINTS;
+      } else {
+        rawPoints = NEON_ORBIT_POINTS;
+      }
     }
 
     const vectors = rawPoints.map(p => new THREE.Vector3(p[0], p[1], p[2]));

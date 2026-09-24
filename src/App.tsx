@@ -36,6 +36,7 @@ import {
   MissileTelemetry,
   ActiveShieldTelemetry,
   MinimapTelemetry,
+  AIDebugTelemetry,
 } from './types';
 import { DEFAULT_BEAM_CUSTOMIZATION, DEFAULT_BEAM_UPGRADES } from './game/beamSystem';
 import { ActiveJunctionTelemetry, BranchRouteDirection } from './game/junctionSystem';
@@ -43,6 +44,7 @@ import { MainMenu } from './components/MainMenu';
 import { LobbyView } from './components/LobbyView';
 import { GarageView } from './components/GarageView';
 import { RaceHUD } from './components/RaceHUD';
+import { AIDebugOverlay } from './components/AIDebugOverlay';
 import { ResultsModal } from './components/ResultsModal';
 import { GameOverModal } from './components/GameOverModal';
 import { PauseModal } from './components/PauseModal';
@@ -60,6 +62,10 @@ import { CollisionEventFeedback, PlayerCollisionConfig } from './types';
 import { ModeHUDTelemetry } from './game/modeManager';
 import { SingularityTelemetry } from './game/blackHoleSystem';
 import { championshipManager } from './game/championshipManager';
+import { CinematicIntroOverlay } from './components/CinematicIntroOverlay';
+import { IntroHUDTelemetry } from './game/cinematicIntro/cinematicTypes';
+import { CinematicEventHUD } from './components/CinematicEventHUD';
+import { ActiveCinematicState, ExtendedPathTelemetry } from './game/extendedPath/extendedPathTypes';
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -105,6 +111,7 @@ export default function App() {
   const [currentLapMs, setCurrentLapMs] = useState<number>(0);
   const [bestLapMs, setBestLapMs] = useState<number>(0);
   const [earnedCredits, setEarnedCredits] = useState<number>(0);
+  const [introTelemetry, setIntroTelemetry] = useState<IntroHUDTelemetry | null>(null);
 
   // Camera & Video Settings
   const [cameraMode, setCameraMode] = useState<CameraMode>('CHASE_NEAR');
@@ -158,6 +165,12 @@ export default function App() {
   const [missileTelemetry, setMissileTelemetry] = useState<MissileTelemetry | null>(null);
   const [activeShieldTelemetry, setActiveShieldTelemetry] = useState<ActiveShieldTelemetry | null>(null);
   const [minimapTelemetry, setMinimapTelemetry] = useState<MinimapTelemetry | null>(null);
+  const [aiDebugTelemetry, setAiDebugTelemetry] = useState<AIDebugTelemetry | null>(null);
+  const [isAIDebugOpen, setIsAIDebugOpen] = useState<boolean>(false);
+
+  // Extended Path & In-Race Cinematic Telemetry
+  const [cinematicState, setCinematicState] = useState<ActiveCinematicState | null>(null);
+  const [pathTelemetry, setPathTelemetry] = useState<ExtendedPathTelemetry | null>(null);
 
   // Keyboard & Mouse input tracking
   const keysPressed = useRef<{ [key: string]: boolean }>({});
@@ -260,6 +273,10 @@ export default function App() {
       onMissileTelemetry: telemetry => setMissileTelemetry(telemetry),
       onActiveShieldTelemetry: telemetry => setActiveShieldTelemetry(telemetry),
       onMinimapTelemetry: telemetry => setMinimapTelemetry(telemetry),
+      onAIDebugTelemetry: telemetry => setAiDebugTelemetry(telemetry),
+      onIntroTelemetry: telemetry => setIntroTelemetry(telemetry),
+      onCinematicStateUpdate: state => setCinematicState(state),
+      onPathTelemetryUpdate: tel => setPathTelemetry(tel),
     });
 
     setCollisionConfig(engine.getCollisionConfig());
@@ -421,6 +438,13 @@ export default function App() {
       if (e.code === 'KeyN') {
         if (engineRef.current && appState === 'RACING') {
           engineRef.current.toggleMinimapMode();
+        }
+      }
+
+      if (e.code === 'KeyO') {
+        if (engineRef.current) {
+          const nextDebug = engineRef.current.toggleAIDebug();
+          setIsAIDebugOpen(nextDebug);
         }
       }
 
@@ -1118,6 +1142,43 @@ export default function App() {
             if (engineRef.current) {
               engineRef.current.input.recover = true;
             }
+          }}
+          isAIRaceActive={isAIRaceActive}
+          isAIDebugOpen={isAIDebugOpen}
+          isIntroActive={introTelemetry?.isActive ?? false}
+          onToggleAIDebug={() => {
+            if (engineRef.current) {
+              const next = engineRef.current.toggleAIDebug();
+              setIsAIDebugOpen(next);
+            }
+          }}
+        />
+      )}
+
+      {/* Mode-Specific 9-Phase Cinematic Introduction Overlay for All 20 Game Modes */}
+      {appState === 'RACING' && introTelemetry && introTelemetry.isActive && (
+        <CinematicIntroOverlay
+          telemetry={introTelemetry}
+          onSkip={() => engineRef.current?.skipIntro()}
+        />
+      )}
+
+      {/* Extended Path In-Race Cinematic Events & Sector HUD */}
+      {appState === 'RACING' && (
+        <CinematicEventHUD
+          cinematicState={cinematicState}
+          pathTelemetry={pathTelemetry}
+          isRacing={appState === 'RACING'}
+        />
+      )}
+
+      {/* AI Tactical Intelligence Telemetry HUD Overlay */}
+      {appState === 'RACING' && isAIRaceActive && isAIDebugOpen && (
+        <AIDebugOverlay
+          telemetry={aiDebugTelemetry}
+          onClose={() => {
+            engineRef.current?.toggleAIDebug(false);
+            setIsAIDebugOpen(false);
           }}
         />
       )}

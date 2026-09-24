@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export type CollisionCategory = 'PLAYER' | 'AI_PLAYER' | 'REMOTE_PLAYER';
+export type CollisionCategory = 'PLAYER' | 'AI_PLAYER' | 'AI_RACER' | 'REMOTE_PLAYER';
 
 export interface PlayerCollisionConfig {
   baseImpactForce: number;

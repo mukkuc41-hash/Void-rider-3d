@@ -8,7 +8,7 @@ import {
   AIRacerDebugInfo,
   AIDebugTelemetry,
 } from '../types';
-import { SamplePoint, TrackData, EnergyBarrier } from './trackData';
+import { SamplePoint, CosmicTrack, EnergyBarrier } from './trackData';
 import { sound } from './audio';
 import { MissileManager, MissileTargetCandidate } from './missileSystem';
 
@@ -251,16 +251,16 @@ export function createAIShieldMesh(colorHex: string = '#00f0ff'): THREE.Mesh {
 // ADVANCED AI RACING INTELLIGENCE ENGINE
 // ==========================================
 export class AIRacingIntelligenceSystem {
-  private track: TrackData;
+  private track: CosmicTrack;
   private scene: THREE.Scene;
   public isDebugActive: boolean = false;
 
-  constructor(track: TrackData, scene: THREE.Scene) {
+  constructor(track: CosmicTrack, scene: THREE.Scene) {
     this.track = track;
     this.scene = scene;
   }
 
-  public setTrack(newTrack: TrackData) {
+  public setTrack(newTrack: CosmicTrack) {
     this.track = newTrack;
   }
 
@@ -792,7 +792,7 @@ export class AIRacingIntelligenceSystem {
     combat: AIRacerCombatState,
     targetId: string,
     playerInfo: { position: THREE.Vector3; isDestroyed: boolean; shield: number; hull: number },
-    otherAIs: { id: string; name: string; position: THREE.Vector3; isDestroyed?: boolean; shield?: number; hull?: number; group: THREE.Group }[],
+    otherAIs: { id: string; name: string; position: THREE.Vector3; isDestroyed?: boolean; shield?: number; hull?: number; group?: THREE.Group }[],
     missileManager: MissileManager
   ): boolean {
     const aiPos = ai.group.position;

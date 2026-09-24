@@ -80,6 +80,7 @@ export type AIPersonality =
   | 'BALANCED'
   // Backward compatibility aliases
   | 'AGGRESSIVE'
+  | 'DEFENSIVE'
   | 'RISK_TAKER'
   | 'TECHNICAL';
 
