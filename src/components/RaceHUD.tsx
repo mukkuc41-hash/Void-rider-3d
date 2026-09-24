@@ -1094,14 +1094,14 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
                       RECHARGE
                     </span>
                     <span className="text-[8.5px] font-mono font-bold text-white leading-tight">
-                      {Math.ceil(activeShieldTelemetry.rechargeRemaining)}s
+                      {Math.ceil(activeShieldTelemetry.cooldownRemaining)}s
                     </span>
                   </div>
                 )}
 
                 {activeShieldTelemetry?.status === 'ACTIVE' && (
                   <div className="absolute top-1 right-1 px-0.5 rounded bg-slate-950/80 text-[6.5px] font-mono font-black text-cyan-300 animate-pulse">
-                    {(activeShieldTelemetry.activeTimeRemaining ?? 0).toFixed(1)}s
+                    {activeShieldTelemetry.activeRemaining.toFixed(1)}s
                   </div>
                 )}
 
