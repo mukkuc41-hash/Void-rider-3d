@@ -548,6 +548,10 @@ export class GameEngine {
           this.isRacing = true;
           this.raceStartTime = Date.now();
           this.lapStartTime = Date.now();
+          this.currentSpeed = 100;
+          this.input.throttle = 1;
+          this.prevSplineT = this.splineT;
+          this.updateShipTransform(0);
           sound.startEngine();
           sound.startCosmicMusic();
         },
@@ -1700,7 +1704,7 @@ export class GameEngine {
   private updatePhysics(dt: number) {
     if (!this.playerShipGroup) return;
 
-    if (this.raceIntroManager && this.raceIntroManager.isControlsLocked) {
+    if (this.raceIntroManager && this.raceIntroManager.isControlsLocked && !this.isRacing) {
       const slot = this.raceIntroManager.getGridSlot('player');
       if (slot && slot.worldPos.lengthSq() > 0) {
         this.playerShipGroup.position.copy(slot.worldPos);
@@ -2144,7 +2148,10 @@ export class GameEngine {
       const updatedPlayer = this.collisionSystem.getParticipant('player');
       if (updatedPlayer) {
         this.lateralOffset = updatedPlayer.lateralOffset;
-        this.currentSpeed = updatedPlayer.speed;
+        // Do not let a transient collision-state zero overwrite active race speed.
+        if (!(this.isRacing && !this.hasFinished && this.currentSpeed > 0 && updatedPlayer.speed <= 0)) {
+          this.currentSpeed = updatedPlayer.speed;
+        }
         this.collisionCooldown = updatedPlayer.collisionCooldown;
         this.playerCollisionAngularVelocity = updatedPlayer.angularVelocity;
         this.playerCollisionAngularDisplacement = updatedPlayer.angularDisplacement;
