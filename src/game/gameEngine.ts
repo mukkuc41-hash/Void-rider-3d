@@ -548,8 +548,6 @@ export class GameEngine {
           this.isRacing = true;
           this.raceStartTime = Date.now();
           this.lapStartTime = Date.now();
-          this.currentSpeed = 100;
-          this.input.throttle = 1;
           sound.startEngine();
           sound.startCosmicMusic();
         },
