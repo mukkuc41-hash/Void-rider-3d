@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { GameMode } from '../../types';
+import { RoutePreviewTelemetry } from '../fullRouteCinematic/routeCinematicTypes';
 
 export type IntroPhase =
   | 'STORY_OPENING'
   | 'WORLD_REVEAL'
+  | 'FULL_ROUTE_FLYTHROUGH'
   | 'PLAYER_REVEAL'
   | 'TRAVEL_TO_GRID'
   | 'STARTING_GRID'
@@ -174,4 +176,5 @@ export interface IntroHUDTelemetry {
   rivalPersonality?: string;
   canSkip: boolean;
   launchProgress: number; // 0 to 1 during GO launch
+  routePreview?: RoutePreviewTelemetry | null;
 }

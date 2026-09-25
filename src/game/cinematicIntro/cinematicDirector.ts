@@ -12,6 +12,9 @@ import { CountdownManager } from './countdownManager';
 import { RaceStartManager } from './raceStartManager';
 import { CosmicTrack } from '../trackData';
 import { sound } from '../audio';
+import { RoutePreviewManager } from '../fullRouteCinematic/routePreviewManager';
+import { getExtendedPathConfig } from '../extendedPath/modePathConfigs';
+import { RoutePreviewTelemetry } from '../fullRouteCinematic/routeCinematicTypes';
 
 export interface CinematicDirectorCallbacks {
   onPhaseChange?: (phase: IntroPhase) => void;
@@ -32,6 +35,8 @@ export class CinematicDirector {
   public startingGridManager: StartingGridManager;
   public countdownManager: CountdownManager;
   public raceStartManager: RaceStartManager;
+  public routePreviewManager: RoutePreviewManager;
+  private latestRoutePreviewTelemetry: RoutePreviewTelemetry | null = null;
 
   private currentPhase: IntroPhase = 'STORY_OPENING';
   private phaseTimer: number = 0;
@@ -70,10 +75,30 @@ export class CinematicDirector {
       this.cinematicCamera,
       this.startingGridManager
     );
+
+    const pathConfig = getExtendedPathConfig(this.config.modeId);
+    this.routePreviewManager = new RoutePreviewManager(
+      this.camera,
+      this.scene,
+      this.track,
+      pathConfig,
+      {
+        onTelemetryUpdate: telem => {
+          this.latestRoutePreviewTelemetry = telem;
+        },
+        onPreviewComplete: () => {
+          if (this.currentPhase === 'FULL_ROUTE_FLYTHROUGH') {
+            this.setPhase('PLAYER_REVEAL');
+          }
+        },
+      }
+    );
   }
 
   public setConfig(config: ModeIntroConfig) {
     this.config = config;
+    const pathConfig = getExtendedPathConfig(this.config.modeId);
+    this.routePreviewManager.setPath(this.track, pathConfig);
   }
 
   public startIntro(
@@ -104,10 +129,15 @@ export class CinematicDirector {
   public skip() {
     if (!this.isIntroActive || !this.canSkip) return;
 
+    if (this.currentPhase === 'FULL_ROUTE_FLYTHROUGH') {
+      this.routePreviewManager.skipPreview();
+    }
+
     // Immediately skip to COUNTDOWN phase
     if (
       this.currentPhase === 'STORY_OPENING' ||
       this.currentPhase === 'WORLD_REVEAL' ||
+      this.currentPhase === 'FULL_ROUTE_FLYTHROUGH' ||
       this.currentPhase === 'PLAYER_REVEAL' ||
       this.currentPhase === 'TRAVEL_TO_GRID' ||
       this.currentPhase === 'STARTING_GRID' ||
@@ -132,6 +162,10 @@ export class CinematicDirector {
 
       case 'WORLD_REVEAL':
         // StoryIntroManager continues scene 1
+        break;
+
+      case 'FULL_ROUTE_FLYTHROUGH':
+        this.routePreviewManager.startPreview();
         break;
 
       case 'PLAYER_REVEAL': {
@@ -320,6 +354,14 @@ export class CinematicDirector {
         this.cinematicCamera.update(dt);
 
         if (this.phaseTimer >= 2.5 || res.isFinished) {
+          this.setPhase('FULL_ROUTE_FLYTHROUGH');
+        }
+        break;
+      }
+
+      case 'FULL_ROUTE_FLYTHROUGH': {
+        const active = this.routePreviewManager.update(dt);
+        if (!active) {
           this.setPhase('PLAYER_REVEAL');
         }
         break;
@@ -409,6 +451,7 @@ export class CinematicDirector {
       rivalPersonality: this.rivalInfo?.personality,
       canSkip: this.canSkip,
       launchProgress: this.currentPhase === 'RACE_START' || this.currentPhase === 'GAMEPLAY_TRANSITION' ? Math.min(1.0, this.phaseTimer / 1.0) : 0,
+      routePreview: this.latestRoutePreviewTelemetry,
     };
 
     this.callbacks.onTelemetryUpdate?.(telem);
@@ -428,6 +471,7 @@ export class CinematicDirector {
 
   public cleanup() {
     this.isIntroActive = false;
+    this.routePreviewManager.cleanup();
     this.startingGridManager.cleanup();
     this.countdownManager.reset();
     this.raceStartManager.reset();

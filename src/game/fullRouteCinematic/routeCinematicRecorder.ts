@@ -1,18 +1,35 @@
-import { RouteShotDefinition, RoutePreviewTelemetry } from './routeCinematicTypes';
+import { RouteShotDefinition, RoutePreviewTelemetry, RouteDiagramData } from './routeCinematicTypes';
 import { ExtendedPathConfig } from '../extendedPath/extendedPathTypes';
+import { CosmicTrack } from '../trackData';
+import { RouteDiagramGenerator } from './routeDiagramGenerator';
 
 export class RouteCinematicRecorder {
+  private track: CosmicTrack;
   private pathConfig: ExtendedPathConfig;
   private totalDuration: number = 0;
+  private diagramData: RouteDiagramData | null = null;
 
-  constructor(pathConfig: ExtendedPathConfig, shots: RouteShotDefinition[]) {
+  constructor(track: CosmicTrack, pathConfig: ExtendedPathConfig, shots: RouteShotDefinition[]) {
+    this.track = track;
     this.pathConfig = pathConfig;
     this.totalDuration = shots.reduce((acc, s) => acc + s.durationSec, 0);
+    this.regenerateDiagram();
   }
 
-  public setConfig(pathConfig: ExtendedPathConfig, shots: RouteShotDefinition[]) {
+  public setConfig(track: CosmicTrack, pathConfig: ExtendedPathConfig, shots: RouteShotDefinition[]) {
+    this.track = track;
     this.pathConfig = pathConfig;
     this.totalDuration = shots.reduce((acc, s) => acc + s.durationSec, 0);
+    this.regenerateDiagram();
+  }
+
+  private regenerateDiagram() {
+    try {
+      this.diagramData = RouteDiagramGenerator.generate(this.track, this.pathConfig);
+    } catch (err) {
+      console.warn('Failed to generate route diagram:', err);
+      this.diagramData = null;
+    }
   }
 
   public computeTelemetry(
@@ -38,6 +55,14 @@ export class RouteCinematicRecorder {
     const progress01 = Math.min(1.0, overallElapsedSec / Math.max(1, this.totalDuration));
     const timeRemainingSec = Math.max(0, this.totalDuration - overallElapsedSec);
 
+    const diagramWithCamera: RouteDiagramData | undefined = this.diagramData
+      ? {
+          ...this.diagramData,
+          cameraT: currentSplineT,
+          currentSectorName: activeSectorName,
+        }
+      : undefined;
+
     return {
       isActive: true,
       shotId: currentShot.id,
@@ -52,7 +77,8 @@ export class RouteCinematicRecorder {
       totalSectors: this.pathConfig.sectors.length,
       highlightText: currentShot.highlightActionText,
       isScaleReveal: currentShot.isScaleReveal,
-      estimatedTrackLengthKm: Math.round(this.pathConfig.totalDistanceUnits / 100) / 10,
+      estimatedTrackLengthKm: this.pathConfig.totalEquivalentKm || Math.round(this.pathConfig.targetSplineLength / 100) / 10,
+      diagramData: diagramWithCamera,
     };
   }
 }

@@ -12,6 +12,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { IntroHUDTelemetry } from '../game/cinematicIntro/cinematicTypes';
+import { RouteMapOverlay } from './RouteMapOverlay';
 
 interface CinematicIntroOverlayProps {
   telemetry: IntroHUDTelemetry | null;
@@ -63,11 +64,13 @@ export const CinematicIntroOverlay: React.FC<CinematicIntroOverlayProps> = ({
   const isStoryPhase =
     phase === 'STORY_OPENING' ||
     phase === 'WORLD_REVEAL' ||
+    phase === 'FULL_ROUTE_FLYTHROUGH' ||
     phase === 'PLAYER_REVEAL' ||
     phase === 'TRAVEL_TO_GRID' ||
     phase === 'STARTING_GRID' ||
     phase === 'RACER_INTRO';
 
+  const isRoutePreviewPhase = phase === 'FULL_ROUTE_FLYTHROUGH';
   const isCountdownPhase = phase === 'COUNTDOWN';
   const isLaunchPhase = phase === 'RACE_START' || phase === 'GAMEPLAY_TRANSITION';
 
@@ -93,7 +96,7 @@ export const CinematicIntroOverlay: React.FC<CinematicIntroOverlayProps> = ({
       </div>
 
       {/* Top Left: Mission Dossier Card (During Story & Reveal Phases) */}
-      {isStoryPhase && (
+      {isStoryPhase && !isRoutePreviewPhase && (
         <div className="absolute top-20 left-6 sm:left-10 max-w-md animate-fadeIn z-20">
           <div className="bg-[#050c18]/90 border border-cyan-500/50 rounded-2xl p-4 shadow-[0_0_30px_rgba(0,240,255,0.25)] backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-cyan-500/30 pb-2 mb-2.5">
@@ -138,8 +141,75 @@ export const CinematicIntroOverlay: React.FC<CinematicIntroOverlayProps> = ({
         </div>
       )}
 
+      {/* Route Preview Telemetry Card (During FULL_ROUTE_FLYTHROUGH Phase) */}
+      {isRoutePreviewPhase && telemetry.routePreview && (
+        <div className="absolute top-20 left-6 sm:left-10 max-w-lg animate-fadeIn z-20">
+          <div className="bg-[#050c18]/95 border-2 border-cyan-400/80 rounded-2xl p-4 shadow-[0_0_40px_rgba(0,240,255,0.35)] backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-cyan-500/30 pb-2 mb-3">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-cyan-400 animate-pulse" />
+                <span className="text-[10px] font-mono font-black text-cyan-300 tracking-widest uppercase">
+                  FULL 3D ROUTE TRAILER // PROCEDURAL TOPOLOGY
+                </span>
+              </div>
+              <span className="text-[9px] font-mono text-amber-400 font-bold">
+                {telemetry.routePreview.estimatedTrackLengthKm} KM ROUTE
+              </span>
+            </div>
+
+            <div className="space-y-2 text-left">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider">
+                  SHOT {telemetry.routePreview.shotIndex < 10 ? `0${telemetry.routePreview.shotIndex}` : telemetry.routePreview.shotIndex} / {telemetry.routePreview.totalShots}
+                </span>
+                <span className="text-[9px] font-mono text-slate-400 uppercase">
+                  {Math.round(telemetry.routePreview.progress01 * 100)}% PREVIEW
+                </span>
+              </div>
+
+              <div className="text-sm sm:text-base font-ui font-black text-white tracking-wide uppercase drop-shadow-[0_0_12px_rgba(0,240,255,0.6)]">
+                {telemetry.routePreview.shotName}
+              </div>
+
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-slate-400">ACTIVE SECTOR:</span>
+                <span className="text-cyan-300 font-bold">
+                  [{telemetry.routePreview.activeSectorIndex}/{telemetry.routePreview.totalSectors}] {telemetry.routePreview.activeSectorName}
+                </span>
+              </div>
+
+              {telemetry.routePreview.isScaleReveal && (
+                <div className="px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-400/80 flex items-center gap-2 animate-pulse">
+                  <div className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+                    COMPLETE 3D ROUTE TOPOLOGY REVEAL
+                  </span>
+                </div>
+              )}
+
+              <div className="text-[10px] font-mono font-semibold text-emerald-400 uppercase tracking-wider pt-1 border-t border-cyan-500/20">
+                ACTION: {telemetry.routePreview.highlightText}
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-cyan-500/40">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-400 via-amber-400 to-cyan-300 transition-all duration-300"
+                  style={{ width: `${Math.max(3, telemetry.routePreview.progress01 * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top Right: Full Route Map Overlay (Supplemental Animated 3D Route Diagram) */}
+      {isRoutePreviewPhase && telemetry.routePreview && telemetry.routePreview.diagramData && (
+        <RouteMapOverlay diagramData={telemetry.routePreview.diagramData} />
+      )}
+
       {/* Top Right: Opening Hazard Warning Banner */}
-      {firstHazardWarning && isStoryPhase && (
+      {firstHazardWarning && isStoryPhase && !isRoutePreviewPhase && (
         <div className="absolute top-20 right-6 sm:right-10 max-w-xs animate-fadeIn z-20">
           <div className="bg-[#120509]/90 border border-rose-500/50 rounded-2xl p-3 shadow-[0_0_25px_rgba(244,63,94,0.3)] backdrop-blur-md text-right">
             <div className="flex items-center justify-end gap-1.5 text-rose-400 text-[10px] font-mono font-bold tracking-wider mb-1">

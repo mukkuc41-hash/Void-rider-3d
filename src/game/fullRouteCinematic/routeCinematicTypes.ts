@@ -40,6 +40,35 @@ export interface RouteHighlightMarker {
   scale: number;
 }
 
+export interface RouteDiagramMarker {
+  id: string;
+  type: 'START' | 'CHECKPOINT' | 'BRANCH' | 'HAZARD' | 'FINAL_SECTOR' | 'FINISH';
+  label: string;
+  x: number;
+  y: number;
+  t: number;
+  color: string;
+  subtext?: string;
+}
+
+export interface RouteDiagramBranch {
+  id: string;
+  name: string;
+  type: string;
+  points: { x: number; y: number }[];
+  color: string;
+  riskLevel?: string;
+}
+
+export interface RouteDiagramData {
+  points: { x: number; y: number }[];
+  markers: RouteDiagramMarker[];
+  branches: RouteDiagramBranch[];
+  cameraT: number;
+  currentSectorName: string;
+  totalKm: number;
+}
+
 export interface RoutePreviewTelemetry {
   isActive: boolean;
   shotId: RouteCinematicShotId;
@@ -55,6 +84,7 @@ export interface RoutePreviewTelemetry {
   highlightText: string;
   isScaleReveal: boolean;
   estimatedTrackLengthKm: number;
+  diagramData?: RouteDiagramData;
 }
 
 export interface FinishCinematicShot {

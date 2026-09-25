@@ -78,6 +78,7 @@ import {
 } from '../types';
 import { RaceIntroManager } from './cinematicIntro/raceIntroManager';
 import { IntroHUDTelemetry } from './cinematicIntro/cinematicTypes';
+import { FinishCinematicManager, FinishCinematicTelemetry } from './fullRouteCinematic/finishCinematicManager';
 
 export interface LocalAIRacer {
   id: string;
@@ -160,6 +161,7 @@ export interface GameEngineCallbacks {
   onPathTelemetryUpdate?: (telemetry: ExtendedPathTelemetry) => void;
   onCountdownTick?: (count: number) => void;
   onEngineReady?: () => void;
+  onFinishCinematicTelemetry?: (telemetry: FinishCinematicTelemetry | null) => void;
 }
 
 // Preallocated math objects for zero-allocation GC-free render loop
@@ -236,6 +238,7 @@ export class GameEngine {
   public aiDifficulty: AIDifficulty = 'NORMAL';
   public aiRacingSystem: AIRacingIntelligenceSystem;
   public raceIntroManager: RaceIntroManager;
+  public finishCinematicManager: FinishCinematicManager;
 
   // Collectibles & Power-Ups
   private creditsInstancedMesh: THREE.InstancedMesh | null = null;
@@ -560,6 +563,19 @@ export class GameEngine {
         },
       }
     );
+
+    // Initialize 20-Mode Unique Real-Time Finish Cinematic System
+    this.finishCinematicManager = new FinishCinematicManager(this.camera, this.scene, {
+      onTelemetryUpdate: telem => {
+        this.callbacks.onFinishCinematicTelemetry?.(telem);
+      },
+      onComplete: () => {
+        const now = Date.now();
+        const finalTime = Math.max(1000, now - this.raceStartTime);
+        this.callbacks.onRaceFinish(finalTime);
+      },
+    });
+    this.finishCinematicManager.setMode(this.activeGameMode);
 
     // Prewarm Shaders & Compile Scene Ahead of Time for Stutter-Free Start
     try {
@@ -1612,6 +1628,10 @@ export class GameEngine {
   }
 
   public resetToStart() {
+    // A reset/restart must always leave the simulation unpaused.
+    // Otherwise a previous pause state can survive into the next race,
+    // leaving the player completely frozen until the page is reloaded.
+    this.isPaused = false;
     this.splineT = 0;
     this.lateralOffset = 0;
     this.currentSpeed = 0;
@@ -1624,6 +1644,10 @@ export class GameEngine {
     this.isDestroyed = false;
     this.respawnTimer = 0;
     this.invulnerableTimer = 0;
+    this.collisionCooldown = 0;
+    this.playerCollisionAngularVelocity = 0;
+    this.playerCollisionAngularDisplacement = 0;
+    this.playerCollisionRecoveryTimer = 0;
     this.checkpointsPassedThisLap.clear();
     this.junctionManager.clearLapJunctions();
     this.latestValidCheckpoint = {
@@ -1641,6 +1665,7 @@ export class GameEngine {
     // Reset missile weapon and active shield cooldowns
     this.missileManager?.reset();
     this.activeShieldManager?.reset();
+    this.finishCinematicManager?.stop();
 
     if (this.playerShipGroup) {
       this.playerShipGroup.visible = true;
@@ -1666,6 +1691,9 @@ export class GameEngine {
   }
 
   public startRace() {
+    // Starting a race is a hard simulation-state boundary.
+    // Clear any stale pause state left by the previous race/session.
+    this.isPaused = false;
     this.isRacing = true;
     this.hasFinished = false;
     this.raceStartTime = Date.now();
@@ -1692,9 +1720,11 @@ export class GameEngine {
   }
 
   public stopRace() {
+    this.isPaused = false;
     this.isRacing = false;
     this.isAIRaceActive = false;
     this.raceIntroManager?.cleanup();
+    this.finishCinematicManager?.stop();
     this.clearAIRacers();
     this.isWrongWay = false;
     sound.stopEngine();
@@ -2614,13 +2644,17 @@ export class GameEngine {
         if (this.currentLap >= this.totalLaps) {
           this.hasFinished = true;
           this.currentLap = this.totalLaps;
-          const finalTime = now - this.raceStartTime;
           sound.playFinish();
           if (this.activeGameMode === 'VOID_CHAMPIONSHIP') {
             const playerRank = this.getPlayerRank();
             championshipManager.recordStageFinish(playerRank);
           }
-          this.callbacks.onRaceFinish(finalTime);
+          if (this.playerShipGroup && this.finishCinematicManager) {
+            this.finishCinematicManager.start(this.playerShipGroup.position, this.playerShipGroup.quaternion);
+          } else {
+            const finalTime = now - this.raceStartTime;
+            this.callbacks.onRaceFinish(finalTime);
+          }
         } else {
           this.currentLap++;
           this.callbacks.onLapUpdate(this.currentLap, this.totalLaps);
@@ -2792,6 +2826,16 @@ export class GameEngine {
     }
 
     if (!this.playerShipGroup) return;
+
+    // 20-Mode Unique Real-Time Finish Cinematic Authority
+    if (this.finishCinematicManager && this.finishCinematicManager.isActive()) {
+      const active = this.finishCinematicManager.update(
+        dt,
+        this.playerShipGroup.position,
+        this.playerShipGroup.quaternion
+      );
+      if (active) return;
+    }
 
     const sample = this.track.getSampleAt(this.splineT);
 
@@ -3586,6 +3630,8 @@ export class GameEngine {
   }
 
   public restartGame() {
+    // Restart must be independent of the previous pause/game-over state.
+    this.isPaused = false;
     this.sessionCredits = 0;
     this.hullHealth = 100;
     this.hitCount = 0;
@@ -3632,6 +3678,10 @@ export class GameEngine {
 
     if (this.hazardManager) {
       this.hazardManager.initForMode(mode, difficulty, this.track?.curve || null);
+    }
+
+    if (this.finishCinematicManager) {
+      this.finishCinematicManager.setMode(mode);
     }
 
     if (mode === 'SINGULARITY_RUN') {
@@ -3721,6 +3771,10 @@ export class GameEngine {
 
   public skipIntro() {
     this.raceIntroManager?.skip();
+  }
+
+  public skipFinishCinematic() {
+    this.finishCinematicManager?.skip();
   }
 
   public clearAIRacers() {

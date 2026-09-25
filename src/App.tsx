@@ -66,6 +66,8 @@ import { CinematicIntroOverlay } from './components/CinematicIntroOverlay';
 import { IntroHUDTelemetry } from './game/cinematicIntro/cinematicTypes';
 import { CinematicEventHUD } from './components/CinematicEventHUD';
 import { ActiveCinematicState, ExtendedPathTelemetry } from './game/extendedPath/extendedPathTypes';
+import { FinishCinematicOverlay } from './components/FinishCinematicOverlay';
+import { FinishCinematicTelemetry } from './game/fullRouteCinematic/finishCinematicManager';
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -112,6 +114,7 @@ export default function App() {
   const [bestLapMs, setBestLapMs] = useState<number>(0);
   const [earnedCredits, setEarnedCredits] = useState<number>(0);
   const [introTelemetry, setIntroTelemetry] = useState<IntroHUDTelemetry | null>(null);
+  const [finishTelemetry, setFinishTelemetry] = useState<FinishCinematicTelemetry | null>(null);
 
   // Camera & Video Settings
   const [cameraMode, setCameraMode] = useState<CameraMode>('CHASE_NEAR');
@@ -277,6 +280,7 @@ export default function App() {
       onIntroTelemetry: telemetry => setIntroTelemetry(telemetry),
       onCinematicStateUpdate: state => setCinematicState(state),
       onPathTelemetryUpdate: tel => setPathTelemetry(tel),
+      onFinishCinematicTelemetry: telemetry => setFinishTelemetry(telemetry),
     });
 
     setCollisionConfig(engine.getCollisionConfig());
@@ -1160,6 +1164,14 @@ export default function App() {
         <CinematicIntroOverlay
           telemetry={introTelemetry}
           onSkip={() => engineRef.current?.skipIntro()}
+        />
+      )}
+
+      {/* 20-Mode Unique Real-Time Finish Cinematic Overlay */}
+      {finishTelemetry && finishTelemetry.isActive && (
+        <FinishCinematicOverlay
+          telemetry={finishTelemetry}
+          onContinue={() => engineRef.current?.skipFinishCinematic()}
         />
       )}
 

@@ -43,13 +43,13 @@ export class RouteRevealController {
     const sectorCount = config.sectors.length;
     config.sectors.forEach((sec, idx) => {
       const sample = track.getSampleAt(sec.startT);
-      const gateGroup = this.createSectorGateMesh(sec.name, sec.environmentType, sample);
+      const gateGroup = this.createSectorGateMesh(sec.name, sec.environment, sample);
       this.ribbonGroup.add(gateGroup);
 
       const labelSprite = this.createSectorLabelSprite(
         `SECTOR 0${idx + 1}`,
         sec.name,
-        sec.environmentType
+        sec.environment
       );
       labelSprite.position.copy(sample.point).addScaledVector(sample.normal, 18);
       this.ribbonGroup.add(labelSprite);
@@ -58,7 +58,7 @@ export class RouteRevealController {
 
     // 3. Highlight Branch Junctions
     config.branches.forEach((br, idx) => {
-      const junctionSample = track.getSampleAt(br.junctionStartT);
+      const junctionSample = track.getSampleAt(br.entryT);
       const branchSprite = this.createSectorLabelSprite(
         'ALT ROUTE JUNCTION',
         br.name,
