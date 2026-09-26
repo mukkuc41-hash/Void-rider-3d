@@ -10,6 +10,7 @@ export type IntroPhase =
   | 'TRAVEL_TO_GRID'
   | 'STARTING_GRID'
   | 'RACER_INTRO'
+  | 'CAMERA_BLEND'
   | 'COUNTDOWN'
   | 'RACE_START'
   | 'GAMEPLAY_TRANSITION'
@@ -177,4 +178,10 @@ export interface IntroHUDTelemetry {
   canSkip: boolean;
   launchProgress: number; // 0 to 1 during GO launch
   routePreview?: RoutePreviewTelemetry | null;
+  lightState?: 'OFF' | 'RED' | 'YELLOW' | 'RED_YELLOW' | 'GREEN' | 'GO';
+  trafficLights?: {
+    red: boolean;
+    yellow: boolean;
+    green: boolean;
+  };
 }

@@ -11,3 +11,4 @@ export * from './RoutePreviewManager';
 export * from './RouteCameraPath';
 export * from './RouteRevealController';
 export * from './RouteMapOverlay';
+export * from '../countdown';
