@@ -12,7 +12,7 @@ interface AIRaceModalProps {
 export const AIRaceModal: React.FC<AIRaceModalProps> = ({ isOpen, onClose, onStartAIRace }) => {
   const [difficulty, setDifficulty] = useState<AIDifficulty>('NORMAL');
   const [trackId, setTrackId] = useState<TrackId>('circuit_alpha');
-  const [botCount, setBotCount] = useState<number>(5);
+  const [botCount, setBotCount] = useState<number>(4);
   const [laps, setLaps] = useState<number>(2);
 
   if (!isOpen) return null;
@@ -178,20 +178,20 @@ export const AIRaceModal: React.FC<AIRaceModalProps> = ({ isOpen, onClose, onSta
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800">
               <div className="flex justify-between items-center text-xs font-mono mb-2">
-                <span className="text-slate-300">AI OPPONENT COUNT</span>
-                <span className="text-cyan-400 font-bold">{botCount} RACERS</span>
+                <span className="text-slate-300">TOTAL RACERS</span>
+                <span className="text-cyan-400 font-bold">{botCount + 1} RACERS (1 Player + {botCount} AI)</span>
               </div>
               <input
                 type="range"
                 min={1}
-                max={5}
+                max={4}
                 value={botCount}
                 onChange={e => setBotCount(parseInt(e.target.value))}
                 className="w-full accent-cyan-400 bg-slate-800 h-2 rounded-lg cursor-pointer"
               />
               <div className="flex justify-between text-[10px] font-mono text-slate-400 mt-1">
-                <span>1 Duel</span>
-                <span>5 Full Grid</span>
+                <span>1v1 Duel (2 Racers)</span>
+                <span>Standard (5 Racers)</span>
               </div>
             </div>
 

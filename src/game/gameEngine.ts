@@ -549,6 +549,7 @@ export class GameEngine {
         },
         onRaceStart: () => {
           this.isRacing = true;
+          this.isPaused = false;
           this.raceStartTime = Date.now();
           this.lapStartTime = Date.now();
           this.currentSpeed = 100;
@@ -560,6 +561,13 @@ export class GameEngine {
         },
         onTelemetryUpdate: telem => {
           this.callbacks.onIntroTelemetry?.(telem);
+        },
+        onIntroComplete: () => {
+          this.raceIntroManager.cleanup();
+          this.callbacks.onIntroTelemetry?.(null);
+          if (!this.isRacing) {
+            this.startRace();
+          }
         },
       }
     );
@@ -1628,10 +1636,6 @@ export class GameEngine {
   }
 
   public resetToStart() {
-    // A reset/restart must always leave the simulation unpaused.
-    // Otherwise a previous pause state can survive into the next race,
-    // leaving the player completely frozen until the page is reloaded.
-    this.isPaused = false;
     this.splineT = 0;
     this.lateralOffset = 0;
     this.currentSpeed = 0;
@@ -1644,10 +1648,6 @@ export class GameEngine {
     this.isDestroyed = false;
     this.respawnTimer = 0;
     this.invulnerableTimer = 0;
-    this.collisionCooldown = 0;
-    this.playerCollisionAngularVelocity = 0;
-    this.playerCollisionAngularDisplacement = 0;
-    this.playerCollisionRecoveryTimer = 0;
     this.checkpointsPassedThisLap.clear();
     this.junctionManager.clearLapJunctions();
     this.latestValidCheckpoint = {
@@ -1691,10 +1691,8 @@ export class GameEngine {
   }
 
   public startRace() {
-    // Starting a race is a hard simulation-state boundary.
-    // Clear any stale pause state left by the previous race/session.
-    this.isPaused = false;
     this.isRacing = true;
+    this.isPaused = false;
     this.hasFinished = false;
     this.raceStartTime = Date.now();
     this.lapStartTime = Date.now();
@@ -1706,7 +1704,7 @@ export class GameEngine {
     this.respawnTimer = 0;
     this.invulnerableTimer = 0;
     this.checkpointsPassedThisLap.clear();
-    this.junctionManager.clearLapJunctions();
+    this.junctionManager?.clearLapJunctions();
     this.isWrongWay = false;
     this.wrongWayTimer = 0;
     this.driftChargeTime = 0;
@@ -1719,14 +1717,84 @@ export class GameEngine {
     sound.startCosmicMusic();
   }
 
-  public stopRace() {
+  public resetRaceState() {
+    this.isRacing = false;
     this.isPaused = false;
+    this.hasFinished = false;
+    this.finishLineCooldownTimer = 0;
+    this.raceStartTime = 0;
+    this.lapStartTime = Date.now();
+    this.totalTimeElapsed = 0;
+    this.totalDistanceTraveled = 0;
+    this.currentLap = 1;
+    this.nextCheckpointIdx = 1;
+    this.checkpointsPassedThisLap.clear();
+    this.junctionManager?.clearLapJunctions();
+    this.currentLapTime = 0;
+    this.bestLapTime = 0;
+    this.splineT = 0;
+    this.prevSplineT = 0;
+    this.lateralOffset = 0;
+    this.currentSpeed = 0;
+    this.boostEnergy = 100;
+    this.isBoosting = false;
+    this.isDrifting = false;
+    this.shipRoll = 0;
+    this.cameraRoll = 0;
+    this.isWrongWay = false;
+    this.wrongWayTimer = 0;
+    this.driftChargeTime = 0;
+    this.isDestroyed = false;
+    this.respawnTimer = 0;
+    this.invulnerableTimer = 0;
+    this.hullHealth = 100;
+    this.sessionCredits = 0;
+    this.hitCount = 0;
+    this.maxSpeedReached = 0;
+    this.reachedMilestones.clear();
+    this.damageZones = { frontHull: 0, rearEngine: 0, leftWing: 0, rightWing: 0, shieldCore: 100 };
+    this.phaseShieldTimer = 0;
+    this.creditMagnetTimer = 0;
+    this.hyperBoostTimer = 0;
+    this.nitroBoostTimer = 0;
+    this.activePowerUpsList = [];
+    this.missileManager?.reset();
+    this.activeShieldManager?.reset();
+    this.raceIntroManager?.cleanup();
+    this.finishCinematicManager?.stop();
+    this.input = { throttle: 0, steer: 0, boost: false, drift: false, recover: false };
+    this.cameraShake = 0;
+    this.collisionFovPunch = 0;
+    this.camera.fov = 65;
+    this.camera.updateProjectionMatrix();
+
+    if (this.playerShipGroup) {
+      this.playerShipGroup.visible = true;
+    }
+
+    this.callbacks.onSpeedUpdate?.(0);
+    this.callbacks.onBoostUpdate?.(100);
+    this.callbacks.onLapUpdate?.(1, this.totalLaps);
+    this.callbacks.onCheckpointUpdate?.(0, this.track?.checkpoints?.length || 16);
+    this.callbacks.onHullUpdate?.(100);
+    this.callbacks.onPowerUpsUpdate?.([]);
+    this.callbacks.onDistanceUpdate?.(0);
+    this.callbacks.onWrongWayUpdate?.(false);
+    this.callbacks.onLapTimesUpdate?.(0, 0);
+    this.callbacks.onDamageZonesUpdate?.(this.damageZones);
+    this.callbacks.onIntroTelemetry?.(null);
+  }
+
+  public stopRace() {
     this.isRacing = false;
     this.isAIRaceActive = false;
+    this.isPaused = false;
     this.raceIntroManager?.cleanup();
     this.finishCinematicManager?.stop();
     this.clearAIRacers();
     this.isWrongWay = false;
+    this.callbacks.onIntroTelemetry?.(null);
+    this.callbacks.onCountdownTick?.(0);
     sound.stopEngine();
     sound.stopCosmicMusic();
   }
@@ -2840,20 +2908,8 @@ export class GameEngine {
     const sample = this.track.getSampleAt(this.splineT);
 
     // Mode-Specific 9-Phase Cinematic Introduction Camera Authority
-    if (this.raceIntroManager && this.raceIntroManager.latestTelemetry?.isActive) {
-      const behindDist = 14;
-      const heightOff = 5.2;
-      const shipPos = this.playerShipGroup.position;
-      const defaultCamPos = shipPos
-        .clone()
-        .add(sample.tangent.clone().multiplyScalar(-behindDist))
-        .add(sample.normal.clone().multiplyScalar(heightOff));
-      const defaultLook = shipPos.clone().add(sample.tangent.clone().multiplyScalar(25));
-
-      const introRes = this.raceIntroManager.update(dt, defaultCamPos, defaultLook, 65);
-      if (introRes.isIntroActive && introRes.phase !== 'COMPLETE') {
-        return; // Cinematic camera has authority
-      }
+    if (this.raceIntroManager && this.raceIntroManager.isIntroActive) {
+      return; // Cinematic camera has authority
     }
 
     let targetCamPos: THREE.Vector3;
@@ -3630,8 +3686,6 @@ export class GameEngine {
   }
 
   public restartGame() {
-    // Restart must be independent of the previous pause/game-over state.
-    this.isPaused = false;
     this.sessionCredits = 0;
     this.hullHealth = 100;
     this.hitCount = 0;
@@ -3713,60 +3767,155 @@ export class GameEngine {
     return rank;
   }
 
+  private isInitializingRace: boolean = false;
+
+  public validateRaceStartState(expectedBotCount: number): { isValid: boolean; message: string } {
+    if (!this.track || !this.track.curve || this.track.totalLength <= 0) {
+      this.setTrack(this.trackId || 'circuit_alpha');
+    }
+
+    if (!this.playerShipGroup) {
+      this.setPlayerShip(
+        this.localShipId,
+        this.localColor,
+        this.localSecondaryColor,
+        this.localDecal,
+        this.localUpgrades,
+        this.localThrusterColor,
+        this.localCockpitSkin
+      );
+    }
+    if (this.playerShipGroup) {
+      this.playerShipGroup.visible = true;
+    }
+
+    if (this.localAIRacers.length !== expectedBotCount) {
+      this.initAIRacers({
+        mode: this.activeGameMode,
+        trackId: this.trackId,
+        difficulty: this.aiDifficulty,
+        botCount: expectedBotCount,
+        laps: this.totalLaps,
+      });
+    }
+
+    // Verify all racers have valid positions
+    if (this.playerShipGroup && isNaN(this.playerShipGroup.position.x)) {
+      this.resetToStart();
+    }
+    for (const ai of this.localAIRacers) {
+      if (isNaN(ai.group.position.x) || isNaN(ai.t)) {
+        const sample = this.track.getSampleAt(0);
+        ai.group.position.copy(sample.point);
+        ai.t = 0;
+      }
+    }
+
+    this.snapCameraToShip();
+    return { isValid: true, message: 'Race state verified successfully.' };
+  }
+
   public startAIRace(config: AIRaceConfig) {
-    if (config.mode === 'VOID_CHAMPIONSHIP') {
-      const stage = championshipManager.getCurrentStage();
-      this.activeDifficulty = stage.difficulty;
-      this.totalLaps = stage.laps;
-      this.setGameMode('VOID_CHAMPIONSHIP', stage.difficulty);
-      this.setTrack(stage.trackId);
-    } else {
-      this.totalLaps = config.laps || 2;
-      if (config.mode) {
-        this.setGameMode(config.mode, this.activeDifficulty);
+    if (this.isInitializingRace) return;
+    this.isInitializingRace = true;
+
+    try {
+      // 1. Completely reset previous race state
+      this.resetRaceState();
+
+      // 2. Resolve Track, Laps & Difficulty
+      if (config.mode === 'VOID_CHAMPIONSHIP') {
+        const stage = championshipManager.getCurrentStage();
+        this.activeDifficulty = stage.difficulty;
+        this.totalLaps = stage.laps;
+        this.setGameMode('VOID_CHAMPIONSHIP', stage.difficulty);
+        this.setTrack(stage.trackId);
+      } else {
+        this.totalLaps = config.laps || 2;
+        if (config.mode) {
+          this.setGameMode(config.mode, this.activeDifficulty);
+        }
+        this.setTrack(config.trackId || 'circuit_alpha');
       }
-      this.setTrack(config.trackId);
-    }
 
-    // Mode-specific bot configurations
-    const adjustedConfig = { ...config };
-    if (config.mode === 'QUANTUM_TIME_TRIAL') {
-      adjustedConfig.botCount = 0; // Pure solo time attack
-    } else if (config.mode === 'RIVAL_DUEL') {
-      adjustedConfig.botCount = 1; // 1v1 duel against Zer0
-      adjustedConfig.difficulty = 'ELITE';
-    } else if (config.mode === 'SURVIVAL_ELIMINATION') {
-      adjustedConfig.botCount = 5; // 6 total racers
-    }
+      // 3. Determine Mode-Specific Bot Count
+      // Default standard racing modes have 5 total racers: 1 player + 4 AI racers
+      const getModeDefaultBotCount = (mode?: GameMode): number => {
+        switch (mode) {
+          case 'QUANTUM_TIME_TRIAL': return 0; // Pure solo time attack (1 racer)
+          case 'RIVAL_DUEL': return 1;          // 1v1 duel against Zer0 (2 racers)
+          case 'GRAVITY_FREE': return 2;        // Freestyle stunt (3 racers)
+          case 'COSMIC_TREASURE_HUNT': return 2;// Radar search (3 racers)
+          case 'DEBRIS_SURVIVAL': return 3;     // Endless debris (4 racers)
+          case 'ENERGY_HEIST': return 3;        // Energy core collection (4 racers)
+          case 'RING_RUNNER': return 3;         // Rotating ring precision (4 racers)
+          case 'RELAY_RACE': return 3;          // Squad relay (4 racers)
+          default: return 4;                    // Standard 5 total racers (1 player + 4 AI)
+        }
+      };
 
-    this.initAIRacers(adjustedConfig);
-    this.resetToStart();
-    this.isAIRaceActive = true;
-    this.isRacing = false;
+      const targetBotCount =
+        config.botCount !== undefined ? config.botCount : getModeDefaultBotCount(config.mode || this.activeGameMode);
 
-    // Re-init mode entities with the active track spline
-    if (this.activeGameMode !== 'SINGULARITY_RUN') {
-      const diffProfile = getDifficultyProfile(this.activeGameMode, this.activeDifficulty);
-      if (!this.modeEntitySystem) {
-        this.modeEntitySystem = new ModeEntitySystem(this.scene, this.modeManager);
+      const adjustedConfig: AIRaceConfig = {
+        ...config,
+        botCount: targetBotCount,
+      };
+
+      if (config.mode === 'QUANTUM_TIME_TRIAL') {
+        adjustedConfig.botCount = 0;
+      } else if (config.mode === 'RIVAL_DUEL') {
+        adjustedConfig.botCount = 1;
+        adjustedConfig.difficulty = 'ELITE';
       }
-      this.modeEntitySystem.initModeEntities(this.activeGameMode, this.track?.curve || null, diffProfile.hazardDensity);
+
+      // 4. Spawn Player and AI Racers
+      this.initAIRacers(adjustedConfig);
+      this.resetToStart();
+      this.isAIRaceActive = true;
+      this.isRacing = false;
+      this.isPaused = false;
+
+      // 5. Notify HUD & Ranking of Initial Racer Count
+      const totalRacers = 1 + this.localAIRacers.length;
+      this.callbacks.onRankUpdate?.(1, totalRacers);
+      this.callbacks.onLapUpdate?.(1, this.totalLaps);
+      this.callbacks.onCountdownTick?.(3);
+
+      // 6. Re-init mode entities with active track spline
+      if (this.activeGameMode !== 'SINGULARITY_RUN') {
+        const diffProfile = getDifficultyProfile(this.activeGameMode, this.activeDifficulty);
+        if (!this.modeEntitySystem) {
+          this.modeEntitySystem = new ModeEntitySystem(this.scene, this.modeManager);
+        }
+        this.modeEntitySystem.initModeEntities(this.activeGameMode, this.track?.curve || null, diffProfile.hazardDensity);
+      }
+
+      // 7. Validate Race Start State
+      this.validateRaceStartState(adjustedConfig.botCount);
+
+      // 8. Launch Mode-Specific Cinematic Introduction & Starting Sequence
+      const rival = this.localAIRacers.length > 0 ? {
+        name: this.localAIRacers[0].name,
+        shipId: this.localAIRacers[0].shipId,
+        personality: this.localAIRacers[0].personality || 'AGGRESSIVE',
+      } : undefined;
+
+      try {
+        this.raceIntroManager.setMode(this.activeGameMode, this.track);
+        this.raceIntroManager.startIntro(
+          this.playerShipGroup,
+          this.localAIRacers,
+          0,
+          rival
+        );
+      } catch (introErr) {
+        console.warn('[VOID-RIDER Engine] Non-critical intro visual error, proceeding to countdown:', introErr);
+        this.startRace();
+      }
+    } finally {
+      this.isInitializingRace = false;
     }
-
-    // Launch Mode-Specific 9-Phase Cinematic Introduction System
-    const rival = this.localAIRacers.length > 0 ? {
-      name: this.localAIRacers[0].name,
-      shipId: this.localAIRacers[0].shipId,
-      personality: this.localAIRacers[0].personality || 'AGGRESSIVE',
-    } : undefined;
-
-    this.raceIntroManager.setMode(this.activeGameMode, this.track);
-    this.raceIntroManager.startIntro(
-      this.playerShipGroup,
-      this.localAIRacers,
-      0,
-      rival
-    );
   }
 
   public skipIntro() {
@@ -3824,7 +3973,7 @@ export class GameEngine {
       { name: 'Titan-X', shipId: 'apex_phantom', color: '#39ff14', secondary: '#ffffff', baseSpeed: 270, personality: 'BALANCED' },
     ];
 
-    const count = Math.min(config.botCount || 5, botRoster.length);
+    const count = Math.min(config.botCount !== undefined ? config.botCount : 4, botRoster.length);
     const normDiff = normalizeAIDifficulty(config.difficulty);
 
     for (let i = 0; i < count; i++) {
@@ -3845,6 +3994,15 @@ export class GameEngine {
       const rankStr = rankNum === 1 ? '1ST' : rankNum === 2 ? '2ND' : rankNum === 3 ? '3RD' : `${rankNum}TH`;
       const nameplate = this.createNameplateSprite(p.name, rankStr, p.color, p.personality);
       shipGroup.add(nameplate);
+
+      // Immediately set physical position and rotation on track
+      const sample = this.track.getSampleAt(startGridT);
+      shipGroup.position
+        .copy(sample.point)
+        .addScaledVector(sample.binormal, initialLaneX)
+        .addScaledVector(sample.normal, 1.0);
+      _botRotMatrix.makeBasis(sample.binormal, sample.normal, _botNegTangent.copy(sample.tangent).negate());
+      shipGroup.quaternion.setFromRotationMatrix(_botRotMatrix);
 
       const aiMass =
         p.shipId === 'vortex_nemesis'
@@ -3902,6 +4060,9 @@ export class GameEngine {
         combat,
       });
     }
+
+    const totalRacers = 1 + this.localAIRacers.length;
+    this.callbacks.onRankUpdate?.(1, totalRacers);
   }
 
   private createNameplateSprite(
@@ -4285,6 +4446,7 @@ export class GameEngine {
       const dt = isNaN(rawDt) || !isFinite(rawDt) ? 0.016 : Math.min(Math.max(0, rawDt), 0.1);
 
       if (!this.isPaused) {
+        this.updateIntroCinematic(dt);
         this.updatePhysics(dt);
         this.updateAIRacers(dt);
         this.updatePowerUps(dt);
@@ -4330,6 +4492,31 @@ export class GameEngine {
       console.warn('[VOID-RIDER Engine] Transient frame anomaly caught and safely recovered:', frameErr);
     }
   };
+
+  private updateIntroCinematic(dt: number) {
+    if (!this.raceIntroManager) return;
+    if (this.raceIntroManager.isIntroActive) {
+      const behindDist = 14;
+      const heightOff = 5.2;
+      const shipPos = this.playerShipGroup?.position || new THREE.Vector3();
+      const sample = this.track ? this.track.getSampleAt(this.splineT) : null;
+      const defaultCamPos = shipPos.clone();
+      const defaultLook = shipPos.clone();
+      if (sample) {
+        defaultCamPos
+          .add(sample.tangent.clone().multiplyScalar(-behindDist))
+          .add(sample.normal.clone().multiplyScalar(heightOff));
+        defaultLook.add(sample.tangent.clone().multiplyScalar(25));
+      }
+
+      const introRes = this.raceIntroManager.update(dt, defaultCamPos, defaultLook, 65);
+      if (!introRes.isIntroActive || introRes.phase === 'COMPLETE') {
+        if (!this.isRacing) {
+          this.startRace();
+        }
+      }
+    }
+  }
 
   private updateJunctions(dt: number) {
     if (!this.junctionManager) return;

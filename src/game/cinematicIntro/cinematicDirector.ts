@@ -15,7 +15,6 @@ import { sound } from '../audio';
 import { RoutePreviewManager } from '../fullRouteCinematic/routePreviewManager';
 import { getExtendedPathConfig } from '../extendedPath/modePathConfigs';
 import { RoutePreviewTelemetry } from '../fullRouteCinematic/routeCinematicTypes';
-import { RaceCountdownManager, RaceCountdownTelemetry } from '../countdown/RaceCountdownManager';
 
 export interface CinematicDirectorCallbacks {
   onPhaseChange?: (phase: IntroPhase) => void;
@@ -35,11 +34,9 @@ export class CinematicDirector {
   public storyIntroManager: StoryIntroManager;
   public startingGridManager: StartingGridManager;
   public countdownManager: CountdownManager;
-  public raceCountdownManager: RaceCountdownManager;
   public raceStartManager: RaceStartManager;
   public routePreviewManager: RoutePreviewManager;
   private latestRoutePreviewTelemetry: RoutePreviewTelemetry | null = null;
-  private latestCountdownTelemetry: RaceCountdownTelemetry | null = null;
 
   private currentPhase: IntroPhase = 'STORY_OPENING';
   private phaseTimer: number = 0;
@@ -79,27 +76,6 @@ export class CinematicDirector {
       this.startingGridManager
     );
 
-    this.raceCountdownManager = new RaceCountdownManager(
-      this.config.modeId,
-      this.track,
-      this.scene,
-      this.camera,
-      {
-        onCountdownTick: count => {
-          this.callbacks.onCountdownTick?.(count);
-        },
-        onRaceStart: () => {
-          this.setPhase('RACE_START');
-        },
-        onTelemetryUpdate: telem => {
-          this.latestCountdownTelemetry = telem;
-        },
-        onCameraShake: intensity => {
-          this.cinematicCamera.triggerShake(intensity);
-        },
-      }
-    );
-
     const pathConfig = getExtendedPathConfig(this.config.modeId);
     this.routePreviewManager = new RoutePreviewManager(
       this.camera,
@@ -119,9 +95,44 @@ export class CinematicDirector {
     );
   }
 
+  public get isIntroRunning(): boolean {
+    return this.isIntroActive;
+  }
+
+  public buildTelemetry(): IntroHUDTelemetry {
+    return {
+      isActive: this.isIntroActive,
+      phase: this.currentPhase,
+      phaseTime: this.phaseTimer,
+      phaseDuration: 3.0,
+      overallTime: this.overallTimer,
+      totalDuration: this.config.openingCinematic.totalDurationSec,
+      missionName: this.config.missionName,
+      locationName: this.config.locationName,
+      objectiveText: this.config.objectiveText,
+      currentTransmission: this.activeTransmission,
+      countdownNumber: this.countdownManager.getCurrentCount(),
+      countdownStyle: this.config.countdownStyle,
+      countdownEffects: this.config.countdownEffects,
+      firstHazardWarning: {
+        name: this.config.firstHazard.name,
+        warningText: this.config.firstHazard.warningText,
+        color: this.config.firstHazard.color,
+      },
+      rivalName: this.rivalInfo?.name,
+      rivalShipId: this.rivalInfo?.shipId,
+      rivalPersonality: this.rivalInfo?.personality,
+      canSkip: this.canSkip,
+      launchProgress:
+        this.currentPhase === 'RACE_START' || this.currentPhase === 'GAMEPLAY_TRANSITION'
+          ? Math.min(1.0, this.phaseTimer / 1.0)
+          : 0,
+      routePreview: this.latestRoutePreviewTelemetry,
+    };
+  }
+
   public setConfig(config: ModeIntroConfig) {
     this.config = config;
-    this.raceCountdownManager.setMode(this.config.modeId);
     const pathConfig = getExtendedPathConfig(this.config.modeId);
     this.routePreviewManager.setPath(this.track, pathConfig);
   }
@@ -140,37 +151,35 @@ export class CinematicDirector {
 
     const sample = this.track.getSampleAt(startT);
 
-    // Build 3D starting gate and physical starting lights
+    // Build 3D starting gate
     this.startingGridManager.buildStartingGridStructure(startT);
     this.startingGridManager.setupGridFormation('player', aiRacers, startT);
-    this.raceCountdownManager.setupStartingGate(startT);
 
     // Initialize story manager with origin around starting gate
     this.storyIntroManager.init(playerShipGroup, sample.point);
 
     // Begin in PHASE 1: STORY OPENING
     this.setPhase('STORY_OPENING');
+
+    const telem = this.buildTelemetry();
+    this.callbacks.onTelemetryUpdate?.(telem);
   }
 
   public skip() {
-    if (!this.isIntroActive || !this.canSkip) return;
+    if (!this.isIntroActive) return;
 
     if (this.currentPhase === 'FULL_ROUTE_FLYTHROUGH') {
       this.routePreviewManager.skipPreview();
     }
 
-    // Failsafe 48.19: Even if skipped, seamlessly return to start camera & execute full countdown sequence
+    // Immediately skip to COUNTDOWN phase
     if (
-      this.currentPhase === 'STORY_OPENING' ||
-      this.currentPhase === 'WORLD_REVEAL' ||
-      this.currentPhase === 'FULL_ROUTE_FLYTHROUGH' ||
-      this.currentPhase === 'PLAYER_REVEAL' ||
-      this.currentPhase === 'TRAVEL_TO_GRID' ||
-      this.currentPhase === 'STARTING_GRID' ||
-      this.currentPhase === 'RACER_INTRO'
+      this.currentPhase !== 'RACE_START' &&
+      this.currentPhase !== 'GAMEPLAY_TRANSITION' &&
+      this.currentPhase !== 'COMPLETE'
     ) {
       sound.playMenuClick?.();
-      this.setPhase('CAMERA_BLEND');
+      this.setPhase('COUNTDOWN');
     }
   }
 
@@ -289,14 +298,30 @@ export class CinematicDirector {
         break;
       }
 
-      case 'CAMERA_BLEND': {
-        // 48.13 Seamless camera blend from intro cut into gameplay chase camera
-        break;
-      }
-
       case 'COUNTDOWN': {
-        // 48.1 - 48.12 Complete 3D Countdown & Traffic Light Launch System
-        this.raceCountdownManager.startCountdownDirect();
+        // Settle camera just behind and above player on the grid
+        const tangent = startSample.tangent.clone().normalize();
+        const normal = startSample.normal.clone().normalize();
+        const camStart = startSample.point.clone().addScaledVector(tangent, -18).addScaledVector(normal, 6);
+        const camEnd = startSample.point.clone().addScaledVector(tangent, -15).addScaledVector(normal, 5);
+        const lookAt = startSample.point.clone().addScaledVector(tangent, 30).addScaledVector(normal, 2);
+
+        this.cinematicCamera.setCut({
+          startPos: camStart,
+          endPos: camEnd,
+          lookAtStart: lookAt,
+          lookAtEnd: lookAt,
+          fovStart: 62,
+          fovEnd: 60,
+          durationSec: 3.2,
+        });
+
+        this.countdownManager.start(count => {
+          this.callbacks.onCountdownTick?.(count);
+          if (count === 0) {
+            this.setPhase('RACE_START');
+          }
+        });
         break;
       }
 
@@ -371,7 +396,8 @@ export class CinematicDirector {
 
       case 'FULL_ROUTE_FLYTHROUGH': {
         const active = this.routePreviewManager.update(dt);
-        if (!active) {
+        if (!active || this.phaseTimer >= 3.5) {
+          if (active) this.routePreviewManager.skipPreview();
           this.setPhase('PLAYER_REVEAL');
         }
         break;
@@ -404,38 +430,14 @@ export class CinematicDirector {
       case 'RACER_INTRO': {
         this.cinematicCamera.update(dt);
         if (this.phaseTimer >= 1.6) {
-          this.setPhase('CAMERA_BLEND');
-        }
-        break;
-      }
-
-      case 'CAMERA_BLEND': {
-        // 48.13 Seamless camera blend from cinematic cut into gameplay chase camera
-        const blendFactor = Math.min(1.0, dt * 5.0);
-        this.camera.position.lerp(gameplayCamPos, blendFactor);
-        const curLook = new THREE.Vector3();
-        this.camera.getWorldDirection(curLook);
-        const targetDir = gameplayLookAt.clone().sub(this.camera.position).normalize();
-        curLook.lerp(targetDir, blendFactor);
-        this.camera.lookAt(this.camera.position.clone().add(curLook));
-        this.camera.fov += (gameplayFov - this.camera.fov) * blendFactor;
-        this.camera.updateProjectionMatrix();
-
-        if (this.phaseTimer >= 0.9 || this.camera.position.distanceTo(gameplayCamPos) < 0.35) {
           this.setPhase('COUNTDOWN');
         }
         break;
       }
 
       case 'COUNTDOWN': {
-        this.raceCountdownManager.update(dt, gameplayCamPos, gameplayLookAt, gameplayFov);
-        // Camera remains in gameplay chase position with slight anticipation shake
-        this.camera.position.copy(gameplayCamPos);
-        this.camera.lookAt(gameplayLookAt);
-        if (this.latestCountdownTelemetry?.cameraFovOffset) {
-          this.camera.fov = gameplayFov + this.latestCountdownTelemetry.cameraFovOffset;
-          this.camera.updateProjectionMatrix();
-        }
+        this.countdownManager.update(dt);
+        this.cinematicCamera.update(dt);
         break;
       }
 
@@ -460,27 +462,6 @@ export class CinematicDirector {
         break;
     }
 
-    // Build Traffic Light State for HUD
-    let lightState: 'OFF' | 'RED' | 'YELLOW' | 'RED_YELLOW' | 'GREEN' | 'GO' = 'OFF';
-    let trafficLights = { red: false, yellow: false, green: false };
-
-    if (this.latestCountdownTelemetry) {
-      lightState = this.latestCountdownTelemetry.lightState;
-      if (lightState === 'RED') {
-        trafficLights = { red: true, yellow: false, green: false };
-      } else if (lightState === 'YELLOW') {
-        trafficLights = { red: false, yellow: true, green: false };
-      } else if (lightState === 'RED_YELLOW') {
-        trafficLights = { red: true, yellow: true, green: false };
-      } else if (lightState === 'GREEN' || lightState === 'GO') {
-        trafficLights = { red: false, yellow: false, green: true };
-      }
-    }
-
-    const currentCount = this.latestCountdownTelemetry?.displayNumber !== undefined
-      ? this.latestCountdownTelemetry.displayNumber
-      : this.countdownManager.getCurrentCount();
-
     // Build Telemetry for React HUD
     const telem: IntroHUDTelemetry = {
       isActive: this.isIntroActive,
@@ -493,7 +474,7 @@ export class CinematicDirector {
       locationName: this.config.locationName,
       objectiveText: this.config.objectiveText,
       currentTransmission: this.activeTransmission,
-      countdownNumber: currentCount,
+      countdownNumber: this.countdownManager.getCurrentCount(),
       countdownStyle: this.config.countdownStyle,
       countdownEffects: this.config.countdownEffects,
       firstHazardWarning: {
@@ -507,8 +488,6 @@ export class CinematicDirector {
       canSkip: this.canSkip,
       launchProgress: this.currentPhase === 'RACE_START' || this.currentPhase === 'GAMEPLAY_TRANSITION' ? Math.min(1.0, this.phaseTimer / 1.0) : 0,
       routePreview: this.latestRoutePreviewTelemetry,
-      lightState,
-      trafficLights,
     };
 
     this.callbacks.onTelemetryUpdate?.(telem);
@@ -521,7 +500,7 @@ export class CinematicDirector {
     return {
       isIntroActive: this.isIntroActive,
       phase: this.currentPhase,
-      countdownNumber: currentCount,
+      countdownNumber: this.countdownManager.getCurrentCount(),
       isControlsLocked,
     };
   }
@@ -530,9 +509,7 @@ export class CinematicDirector {
     this.isIntroActive = false;
     this.routePreviewManager.cleanup();
     this.startingGridManager.cleanup();
-    this.raceCountdownManager.cleanup();
     this.countdownManager.reset();
     this.raceStartManager.reset();
   }
 }
-

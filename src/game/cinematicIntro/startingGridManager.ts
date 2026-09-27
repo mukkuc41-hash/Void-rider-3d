@@ -176,12 +176,16 @@ export class StartingGridManager {
     // Slot 0 is the Player (Pole Position or Row 1)
     const playerTargetLateral = formationType === 'SIDE_BY_SIDE' ? -colSpacingM / 2 : formationType === 'HIGHWAY_LANES' ? 0 : -3.5;
     const playerTargetT = startT;
+    const playerSample = this.track.getSampleAt(playerTargetT);
+    const playerWorldPos = playerSample.point.clone()
+      .addScaledVector(playerSample.binormal, playerTargetLateral)
+      .addScaledVector(playerSample.normal, 1.2);
 
     this.gridSlots.set('player', {
       racerId: 'player',
-      splineT: (startT - deltaTPerRow * 2 + 1.0) % 1.0, // approaches from behind
+      splineT: playerTargetT,
       lateralOffset: playerTargetLateral,
-      worldPos: new THREE.Vector3(),
+      worldPos: playerWorldPos,
       targetSplineT: playerTargetT,
       targetLateral: playerTargetLateral,
     });
@@ -229,14 +233,17 @@ export class StartingGridManager {
           break;
       }
 
-      const targetT = (startT - targetRow * deltaTPerRow + 1.0) % 1.0;
-      const initialT = (startT - (targetRow + 2.5) * deltaTPerRow + 1.0) % 1.0;
+      const targetT = (startT - (targetRow + 1) * deltaTPerRow + 1.0) % 1.0;
+      const aiSample = this.track.getSampleAt(targetT);
+      const aiWorldPos = aiSample.point.clone()
+        .addScaledVector(aiSample.binormal, targetLateral)
+        .addScaledVector(aiSample.normal, 1.2);
 
       this.gridSlots.set(ai.id, {
         racerId: ai.id,
-        splineT: initialT,
+        splineT: targetT,
         lateralOffset: targetLateral,
-        worldPos: new THREE.Vector3(),
+        worldPos: aiWorldPos,
         targetSplineT: targetT,
         targetLateral,
       });
@@ -275,7 +282,15 @@ export class StartingGridManager {
   }
 
   public getSlot(racerId: string): GridSlot | undefined {
-    return this.gridSlots.get(racerId);
+    const slot = this.gridSlots.get(racerId);
+    if (slot && slot.worldPos.lengthSq() === 0 && this.track) {
+      const sample = this.track.getSampleAt(slot.targetSplineT);
+      slot.worldPos
+        .copy(sample.point)
+        .addScaledVector(sample.binormal, slot.targetLateral)
+        .addScaledVector(sample.normal, 1.2);
+    }
+    return slot;
   }
 
   public getAllSlots(): Map<string, GridSlot> {

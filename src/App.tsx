@@ -281,6 +281,14 @@ export default function App() {
       onCinematicStateUpdate: state => setCinematicState(state),
       onPathTelemetryUpdate: tel => setPathTelemetry(tel),
       onFinishCinematicTelemetry: telemetry => setFinishTelemetry(telemetry),
+      onCountdownTick: count => {
+        setCountdown(count);
+        sound.playCountdownTick();
+        if (count === 0) {
+          sound.playCountdownGo();
+          setTimeout(() => setCountdown(null), 1200);
+        }
+      },
     });
 
     setCollisionConfig(engine.getCollisionConfig());
@@ -699,8 +707,18 @@ export default function App() {
     setAppState('RACING');
     setIsResultsOpen(false);
     setIsGameOverOpen(false);
+    setIsPauseOpen(false);
+    setCountdown(null);
+    setSpeed(0);
+    setBoost(100);
+    setCurrentLap(1);
+    setRank(1);
+    const expectedTotal = 1 + (config.botCount !== undefined ? config.botCount : 4);
+    setTotalPlayers(expectedTotal);
+    keysPressed.current = {};
 
     if (engineRef.current) {
+      engineRef.current.resumeGame();
       engineRef.current.startAIRace(config);
     }
   };
@@ -713,7 +731,7 @@ export default function App() {
     handleStartAIRace({
       trackId: stage.trackId,
       difficulty: aiDiff,
-      botCount: 5,
+      botCount: 4,
       laps: stage.laps,
       mode: 'VOID_CHAMPIONSHIP',
     });
@@ -742,6 +760,8 @@ export default function App() {
     setIsGameOverOpen(false);
     setIsResultsOpen(false);
     setAppState('MAIN_MENU');
+    setIntroTelemetry(null);
+    setCountdown(null);
 
     if (engineRef.current) {
       engineRef.current.resumeGame();

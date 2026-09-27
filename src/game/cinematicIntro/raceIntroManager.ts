@@ -16,6 +16,10 @@ export class RaceIntroManager {
   public latestTelemetry: IntroHUDTelemetry | null = null;
   public isControlsLocked: boolean = false;
 
+  public get isIntroActive(): boolean {
+    return this.director ? this.director.isIntroRunning : false;
+  }
+
   constructor(
     mode: GameMode,
     track: CosmicTrack,
@@ -57,6 +61,7 @@ export class RaceIntroManager {
   ) {
     this.isControlsLocked = true;
     this.director.startIntro(playerShipGroup, aiRacers, startT, rival);
+    this.latestTelemetry = this.director.buildTelemetry();
   }
 
   public skip() {

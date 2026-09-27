@@ -248,58 +248,53 @@ export const CinematicIntroOverlay: React.FC<CinematicIntroOverlayProps> = ({
         </div>
       )}
 
-      {/* Center Screen: MODE-SPECIFIC COUNTDOWN SYSTEM (PHASE 7 & TRAFFIC LIGHTS) */}
+      {/* Center Screen: MODE-SPECIFIC COUNTDOWN SYSTEM (PHASE 7) */}
       {isCountdownPhase && countdownNumber !== null && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-30">
-          {/* Synchronized 3-Bulb Traffic Light Gantry HUD (48.3, 48.5, 48.8, 48.9) */}
-          {telemetry.trafficLights && (
-            <div className="mb-8 flex items-center gap-5 px-7 py-3 rounded-full bg-black/85 border border-cyan-500/50 backdrop-blur-md shadow-[0_0_35px_rgba(0,0,0,0.9)] animate-fadeIn">
-              {/* Red Light (🔴) */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-30 gap-6">
+          {/* Starting Gantry Status Lights: RED -> YELLOW -> GREEN */}
+          <div className="flex items-center gap-4 px-6 py-2.5 rounded-2xl bg-black/90 border border-slate-700/80 shadow-[0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-md">
+            {/* RED LIGHT (Lit on 3) */}
+            <div className="flex flex-col items-center gap-1">
               <div
-                className={`w-8 h-8 rounded-full border-2 transition-all duration-150 flex items-center justify-center ${
-                  telemetry.trafficLights.red
-                    ? 'border-red-400 bg-red-600 shadow-[0_0_24px_#ff0033] scale-110'
-                    : 'border-red-950/80 bg-red-950/25 opacity-35'
+                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full border-2 transition-all duration-150 ${
+                  countdownNumber === 3
+                    ? 'bg-rose-500 border-rose-300 shadow-[0_0_25px_#ff0055] scale-110'
+                    : 'bg-rose-950/40 border-rose-900/60 opacity-40'
                 }`}
-              >
-                <div
-                  className={`w-3 h-3 rounded-full transition-opacity duration-150 ${
-                    telemetry.trafficLights.red ? 'bg-white opacity-95 animate-ping' : 'opacity-0'
-                  }`}
-                />
-              </div>
-
-              {/* Yellow Light (🟡) */}
-              <div
-                className={`w-8 h-8 rounded-full border-2 transition-all duration-150 flex items-center justify-center ${
-                  telemetry.trafficLights.yellow
-                    ? 'border-yellow-300 bg-yellow-500 shadow-[0_0_24px_#ffbb00] scale-110 animate-pulse'
-                    : 'border-yellow-950/80 bg-yellow-950/25 opacity-35'
-                }`}
-              >
-                <div
-                  className={`w-3 h-3 rounded-full transition-opacity duration-150 ${
-                    telemetry.trafficLights.yellow ? 'bg-white opacity-95 animate-ping' : 'opacity-0'
-                  }`}
-                />
-              </div>
-
-              {/* Green Light (🟢) */}
-              <div
-                className={`w-8 h-8 rounded-full border-2 transition-all duration-150 flex items-center justify-center ${
-                  telemetry.trafficLights.green
-                    ? 'border-emerald-300 bg-emerald-500 shadow-[0_0_30px_#00ff66] scale-125'
-                    : 'border-emerald-950/80 bg-emerald-950/25 opacity-35'
-                }`}
-              >
-                <div
-                  className={`w-3.5 h-3.5 rounded-full transition-opacity duration-150 ${
-                    telemetry.trafficLights.green ? 'bg-white opacity-95 animate-ping' : 'opacity-0'
-                  }`}
-                />
-              </div>
+              />
+              <span className={`text-[9px] font-mono font-bold ${countdownNumber === 3 ? 'text-rose-400' : 'text-slate-600'}`}>
+                RED
+              </span>
             </div>
-          )}
+
+            {/* YELLOW LIGHT (Lit on 2 and 1) */}
+            <div className="flex flex-col items-center gap-1">
+              <div
+                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full border-2 transition-all duration-150 ${
+                  countdownNumber === 2 || countdownNumber === 1
+                    ? 'bg-amber-400 border-amber-200 shadow-[0_0_25px_#ffaa00] scale-110'
+                    : 'bg-amber-950/40 border-amber-900/60 opacity-40'
+                }`}
+              />
+              <span className={`text-[9px] font-mono font-bold ${countdownNumber === 2 || countdownNumber === 1 ? 'text-amber-400' : 'text-slate-600'}`}>
+                YELLOW
+              </span>
+            </div>
+
+            {/* GREEN LIGHT (Lit on 0 / GO) */}
+            <div className="flex flex-col items-center gap-1">
+              <div
+                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full border-2 transition-all duration-150 ${
+                  countdownNumber === 0
+                    ? 'bg-emerald-400 border-emerald-200 shadow-[0_0_35px_#39ff14] scale-125 animate-pulse'
+                    : 'bg-emerald-950/40 border-emerald-900/60 opacity-40'
+                }`}
+              />
+              <span className={`text-[9px] font-mono font-bold ${countdownNumber === 0 ? 'text-emerald-400' : 'text-slate-600'}`}>
+                GREEN
+              </span>
+            </div>
+          </div>
 
           {renderModeCountdown(countdownNumber, countdownStyle, countdownEffects)}
         </div>
@@ -309,8 +304,8 @@ export const CinematicIntroOverlay: React.FC<CinematicIntroOverlayProps> = ({
       {isLaunchPhase && (
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-30">
           <div className="relative flex flex-col items-center animate-ping">
-            <div className="text-8xl sm:text-[150px] font-ui font-black tracking-widest text-emerald-400 drop-shadow-[0_0_70px_#39ff14]">
-              GO!
+            <div className="text-8xl sm:text-[140px] font-ui font-black tracking-widest text-emerald-400 drop-shadow-[0_0_60px_#39ff14]">
+              ENGAGE!
             </div>
             <div className="mt-2 text-sm sm:text-lg font-mono font-bold tracking-widest text-cyan-300 uppercase">
               RACE CLOCK ACTIVE // BOOST OVERDRIVE RELEASED
