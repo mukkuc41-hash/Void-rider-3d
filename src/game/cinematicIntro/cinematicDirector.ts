@@ -44,6 +44,10 @@ export class CinematicDirector {
   private isIntroActive: boolean = false;
   private canSkip: boolean = false;
 
+  // Full-course cinematic is allowed to use the complete pre-race window.
+  // The route preview itself is time-stretched to this maximum duration.
+  private static readonly FULL_ROUTE_MAX_DURATION_SEC = 120.0;
+
   private callbacks: CinematicDirectorCallbacks = {};
   private activeTransmission: StoryTransmission | null = null;
   private rivalInfo?: { name: string; shipId: string; personality: string };
@@ -87,9 +91,9 @@ export class CinematicDirector {
           this.latestRoutePreviewTelemetry = telem;
         },
         onPreviewComplete: () => {
-          if (this.currentPhase === 'FULL_ROUTE_FLYTHROUGH') {
-            this.setPhase('PLAYER_REVEAL');
-          }
+          // The route preview normally completes when all of its shots are done.
+          // Do not let that shorter internal duration bypass the requested
+          // maximum pre-race cinematic window; update() owns the transition.
         },
       }
     );
@@ -395,8 +399,13 @@ export class CinematicDirector {
       }
 
       case 'FULL_ROUTE_FLYTHROUGH': {
+        // The route cinematic owns its complete 120-second shot timeline.
+        // Pass real frame time through unchanged so the route director can
+        // progress naturally from the main route through junctions,
+        // shortcuts, hazards, checkpoints, final sector, finish, and return.
         const active = this.routePreviewManager.update(dt);
-        if (!active || this.phaseTimer >= 3.5) {
+
+        if (!active || this.phaseTimer >= CinematicDirector.FULL_ROUTE_MAX_DURATION_SEC) {
           if (active) this.routePreviewManager.skipPreview();
           this.setPhase('PLAYER_REVEAL');
         }

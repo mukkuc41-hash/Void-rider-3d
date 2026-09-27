@@ -1805,7 +1805,10 @@ export class GameEngine {
     if (this.raceIntroManager && this.raceIntroManager.isControlsLocked && !this.isRacing) {
       const slot = this.raceIntroManager.getGridSlot('player');
       if (slot && slot.worldPos.lengthSq() > 0) {
-        this.playerShipGroup.position.copy(slot.worldPos);
+        const gridSample = this.track.getSampleAt(slot.splineT);
+        this.playerShipGroup.position.copy(slot.worldPos).add(
+          gridSample.normal.clone().multiplyScalar(1.6)
+        );
         this.splineT = slot.splineT;
         this.lateralOffset = slot.lateralOffset;
         this.currentSpeed = 0;
@@ -4154,11 +4157,17 @@ export class GameEngine {
       for (const ai of this.localAIRacers) {
         const slot = this.raceIntroManager.getGridSlot(ai.id);
         if (slot && slot.worldPos.lengthSq() > 0) {
-          ai.group.position.copy(slot.worldPos);
+          // Grid slots are authored on/near the route surface. Keep cinematic ships
+          // at the same hover height used by the normal ship transform so they do
+          // not appear buried below the route during the intro.
+          const gridSample = this.track.getSampleAt(slot.splineT);
+          ai.group.position.copy(slot.worldPos).add(
+            gridSample.normal.clone().multiplyScalar(1.6)
+          );
           ai.t = slot.splineT;
           ai.currentLateral = slot.lateralOffset;
           ai.speed = 0;
-          const sample = this.track.getSampleAt(ai.t);
+          const sample = gridSample;
           _botRotMatrix.makeBasis(sample.binormal, sample.normal, _botNegTangent.copy(sample.tangent).negate());
           ai.group.quaternion.setFromRotationMatrix(_botRotMatrix);
         }
@@ -4509,7 +4518,87 @@ export class GameEngine {
         defaultLook.add(sample.tangent.clone().multiplyScalar(25));
       }
 
+      // Let the existing cinematic systems keep camera authority when they have
+      // already updated the camera (full-route preview, hero shots, countdown, etc.).
+      // We only use the route-framing block below as a fallback when the intro
+      // manager did not move the camera this frame. This prevents two camera
+      // controllers from fighting and producing the visible glitching/snapping.
+      const cameraPosBeforeIntro = this.camera.position.clone();
+      const cameraQuatBeforeIntro = this.camera.quaternion.clone();
       const introRes = this.raceIntroManager.update(dt, defaultCamPos, defaultLook, 65);
+      const introCameraOwnsView =
+        cameraPosBeforeIntro.distanceToSquared(this.camera.position) > 0.000001 ||
+        1 - Math.abs(cameraQuatBeforeIntro.dot(this.camera.quaternion)) > 0.000001;
+
+      // Use the exact gameplay route data for cinematic framing. The main spline
+      // and any generated junction route instances are sampled directly; no fake
+      // cinematic path is created.
+      if (introRes.isIntroActive && this.track && !introCameraOwnsView) {
+        const routePoints: THREE.Vector3[] = [];
+        const routeSamples = 512;
+        const addPoint = (p: THREE.Vector3 | undefined) => {
+          if (p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z)) {
+            routePoints.push(p.clone());
+          }
+        };
+
+        for (let i = 0; i < routeSamples; i++) {
+          addPoint(this.track.getSampleAt(i / (routeSamples - 1)).point);
+        }
+
+        // Include every available generated branch/shortcut route so the camera
+        // framing contains the complete playable route network.
+        const junctions: any = this.junctionManager?.junctions;
+        if (junctions && typeof junctions.forEach === 'function') {
+          junctions.forEach((junction: any) => {
+            const routeInstances = junction?.routeInstances;
+            if (!routeInstances || typeof routeInstances.forEach !== 'function') return;
+            routeInstances.forEach((route: any) => {
+              if (!route?.getSampleAt) return;
+              for (let i = 0; i < 96; i++) {
+                const routeSample = route.getSampleAt(i / 95);
+                addPoint(routeSample?.point);
+              }
+            });
+          });
+        }
+
+        if (routePoints.length > 1) {
+          const routeBox = new THREE.Box3().setFromPoints(routePoints);
+          const routeCenter = routeBox.getCenter(new THREE.Vector3());
+          const routeSphere = routeBox.getBoundingSphere(new THREE.Sphere());
+
+          // Bounding-sphere fitting is important for long diagonal/curved routes:
+          // using only max X/Y/Z can still crop the route at the corners.
+          const routeRadius = Math.max(routeSphere.radius * 1.22, 160);
+          const aspect = Math.max(this.camera.aspect || 1, 0.5);
+          const verticalFov = THREE.MathUtils.degToRad(72);
+          const horizontalFov = 2 * Math.atan(Math.tan(verticalFov * 0.5) * aspect);
+          const limitingFov = Math.min(verticalFov, horizontalFov);
+          const fitDistance = (routeRadius / Math.sin(Math.max(limitingFov * 0.5, 0.2))) * 1.12;
+          const phaseText = String(introRes.phase || '').toUpperCase();
+
+          let direction: THREE.Vector3;
+          if (phaseText.includes('SIDE') || phaseText.includes('ORBIT')) {
+            direction = new THREE.Vector3(1, 0.42, 0.35);
+          } else if (phaseText.includes('GRID') || phaseText.includes('OVERVIEW') || phaseText.includes('WIDE')) {
+            direction = new THREE.Vector3(0.15, 1, 0.85);
+          } else {
+            direction = new THREE.Vector3(-0.68, 0.55, 0.72);
+          }
+          direction.normalize();
+
+          // Keep the complete route visible while still allowing different
+          // cinematic camera styles during the existing intro phases.
+          const camPos = routeCenter.clone().add(direction.multiplyScalar(fitDistance));
+          this.camera.position.lerp(camPos, Math.min(1, dt * 2.4));
+          this.camera.lookAt(routeCenter);
+          this.camera.fov = 72;
+          this.camera.far = Math.max(this.camera.far, fitDistance * 3.5 + routeRadius * 2);
+          this.camera.updateProjectionMatrix();
+        }
+      }
+
       if (!introRes.isIntroActive || introRes.phase === 'COMPLETE') {
         if (!this.isRacing) {
           this.startRace();

@@ -8,7 +8,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_1_ESTABLISHING',
     index: 1,
     name: 'SECTOR ALPHA // ESTABLISHING ORBIT',
-    durationSec: 3.5,
+    durationSec: 9.68,
     startSplineT: 0.0,
     endSplineT: 0.06,
     altitudeOffset: 120,
@@ -23,7 +23,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_2_APPROACH_START',
     index: 2,
     name: 'LAUNCH PADDOCK // DESCENT APPROACH',
-    durationSec: 3.2,
+    durationSec: 8.85,
     startSplineT: 0.98,
     endSplineT: 0.04,
     altitudeOffset: 45,
@@ -38,7 +38,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_3_LOW_TRACK',
     index: 3,
     name: 'SECTOR 01 // LOW-ALTITUDE SPEED RUN',
-    durationSec: 3.8,
+    durationSec: 10.51,
     startSplineT: 0.05,
     endSplineT: 0.18,
     altitudeOffset: 5.5,
@@ -53,7 +53,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_4_HIGH_SPEED',
     index: 4,
     name: 'SECTOR 02 // ACCELERATION CORRIDOR',
-    durationSec: 3.6,
+    durationSec: 9.95,
     startSplineT: 0.18,
     endSplineT: 0.32,
     altitudeOffset: 14,
@@ -68,10 +68,10 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_5_SCALE_REVEAL',
     index: 5,
     name: 'GLOBAL MACRO REVEAL // COMPLETE 3D ROUTE',
-    durationSec: 4.8,
+    durationSec: 13.27,
     startSplineT: 0.30,
     endSplineT: 0.40,
-    altitudeOffset: 650, // Pull camera extremely far away
+    altitudeOffset: 650, // Minimum height; actual whole-route framing is bounds-driven
     lookAheadT: 0.15,
     fovStart: 85,
     fovEnd: 72,
@@ -83,7 +83,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_6_CORNER_DIVE',
     index: 6,
     name: 'SECTOR 03 // TECHNICAL APEX DIVE',
-    durationSec: 3.4,
+    durationSec: 9.40,
     startSplineT: 0.38,
     endSplineT: 0.50,
     altitudeOffset: 22,
@@ -98,7 +98,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_7_TUNNEL_RUN',
     index: 7,
     name: 'SECTOR 04 // TECHNICAL CORRIDOR RUN',
-    durationSec: 3.6,
+    durationSec: 9.95,
     startSplineT: 0.50,
     endSplineT: 0.60,
     altitudeOffset: 4.2,
@@ -113,7 +113,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_8_BRANCH_JUNCTION',
     index: 8,
     name: 'SECTOR 04 // TACTICAL BRANCH JUNCTION',
-    durationSec: 3.8,
+    durationSec: 10.51,
     startSplineT: 0.60,
     endSplineT: 0.70,
     altitudeOffset: 35,
@@ -128,7 +128,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_9_SET_PIECE_ORBIT',
     index: 9,
     name: 'MAJOR SET PIECE // MONOLITHIC ORBIT',
-    durationSec: 4.0,
+    durationSec: 11.06,
     startSplineT: 0.70,
     endSplineT: 0.80,
     altitudeOffset: 65,
@@ -143,7 +143,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_10_FINAL_ACCEL',
     index: 10,
     name: 'FINAL SECTOR // SLIPSTREAM ACCELERATION',
-    durationSec: 3.5,
+    durationSec: 9.68,
     startSplineT: 0.80,
     endSplineT: 0.90,
     altitudeOffset: 12,
@@ -158,7 +158,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_11_FINISH_APPROACH',
     index: 11,
     name: 'FINISH SECTOR // VICTORY ARCH APPROACH',
-    durationSec: 3.2,
+    durationSec: 8.85,
     startSplineT: 0.90,
     endSplineT: 0.98,
     altitudeOffset: 28,
@@ -173,7 +173,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     id: 'SHOT_12_RETURN_START',
     index: 12,
     name: 'RETURN TO GRID // RACERS FORMATION',
-    durationSec: 3.0,
+    durationSec: 8.29,
     startSplineT: 0.98,
     endSplineT: 1.0,
     altitudeOffset: 16,
@@ -190,6 +190,9 @@ export class RouteCameraPath {
   private track: CosmicTrack;
   private pathConfig: ExtendedPathConfig;
   private trackCenter: THREE.Vector3 = new THREE.Vector3();
+  private routeBoundsRadius: number = 500;
+  private routeBoundsMin: THREE.Vector3 = new THREE.Vector3();
+  private routeBoundsMax: THREE.Vector3 = new THREE.Vector3();
 
   constructor(track: CosmicTrack, pathConfig: ExtendedPathConfig) {
     this.track = track;
@@ -204,13 +207,33 @@ export class RouteCameraPath {
   }
 
   private computeTrackCenter() {
-    let sum = new THREE.Vector3();
-    const count = 32;
-    for (let i = 0; i < count; i++) {
-      const sample = this.track.getSampleAt(i / count);
-      sum.add(sample.point);
+    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+
+    // Sample the real main route densely enough for a stable whole-course frame.
+    const sampleCount = 256;
+    for (let i = 0; i < sampleCount; i++) {
+      const sample = this.track.getSampleAt(i / sampleCount);
+      min.min(sample.point);
+      max.max(sample.point);
     }
-    this.trackCenter.copy(sum.divideScalar(count));
+
+    // Include every configured branch/shortcut in the framing bounds.
+    for (const branch of this.pathConfig.branches || []) {
+      const branchSamples = 32;
+      for (let i = 0; i <= branchSamples; i++) {
+        const point = branch.curve.getPoint(i / branchSamples);
+        min.min(point);
+        max.max(point);
+      }
+    }
+
+    this.routeBoundsMin.copy(min);
+    this.routeBoundsMax.copy(max);
+    this.trackCenter.copy(min).add(max).multiplyScalar(0.5);
+
+    const size = new THREE.Vector3().subVectors(max, min);
+    this.routeBoundsRadius = Math.max(100, size.length() * 0.5);
   }
 
   public sampleShotPose(
@@ -234,10 +257,13 @@ export class RouteCameraPath {
 
     if (shot.isScaleReveal) {
       // SHOT 5: Complete Route Scale Reveal
-      // Camera pulls hundreds of meters high, rotating slowly around the entire track center
+      // Frame the actual main route AND all configured shortcut curves.
+      // The distance is derived from the route bounds instead of a fixed
+      // radius, so long/short tracks both remain completely visible.
       const angle = shotProgress * Math.PI * 0.6 + 0.4;
-      const radius = 550 + Math.sin(shotProgress * Math.PI) * 150;
-      const height = shot.altitudeOffset + Math.sin(shotProgress * Math.PI) * 120;
+      const radius = this.routeBoundsRadius * (1.15 + Math.sin(shotProgress * Math.PI) * 0.12);
+      const height = Math.max(shot.altitudeOffset, this.routeBoundsRadius * 0.75)
+        + Math.sin(shotProgress * Math.PI) * this.routeBoundsRadius * 0.18;
 
       pos.set(
         this.trackCenter.x + Math.cos(angle) * radius,

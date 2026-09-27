@@ -69,7 +69,16 @@ export class RouteRevealController {
       this.markerSprites.push(branchSprite);
     });
 
-    // 4. Highlight Checkpoint Rings
+    // 4. Highlight configured hazard zones on the real route.
+    config.hazards.forEach(hazard => {
+      const midT = (hazard.startT + hazard.endT) * 0.5;
+      const mid = track.getSampleAt(midT);
+      const hazardGroup = this.createHazardMarker(hazard.name, hazard.hazardType, mid);
+      this.ribbonGroup.add(hazardGroup);
+      this.markerSprites.push(hazardGroup.userData.labelSprite as THREE.Sprite);
+    });
+
+    // 5. Highlight Checkpoint Rings
     for (let i = 0; i < 8; i++) {
       const t = i / 8;
       const sample = track.getSampleAt(t);
@@ -86,6 +95,39 @@ export class RouteRevealController {
       this.ribbonGroup.add(ring);
       this.checkpointRings.push(ring);
     }
+
+    // 6. Explicit finish-line marker so the final cinematic shot has a
+    // visible destination before the camera returns to the starting grid.
+    const finishSample = track.getSampleAt(0.98);
+    const finish = this.createSectorGateMesh('FINISH', 'FINISH_GATE', finishSample);
+    finish.scale.setScalar(1.25);
+    this.ribbonGroup.add(finish);
+  }
+
+  private createHazardMarker(
+    name: string,
+    hazardType: string,
+    sample: { point: THREE.Vector3; tangent: THREE.Vector3; normal: THREE.Vector3; binormal: THREE.Vector3 }
+  ): THREE.Group {
+    const group = new THREE.Group();
+    group.position.copy(sample.point).addScaledVector(sample.normal, 4);
+    group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), sample.tangent);
+
+    const ringGeo = new THREE.TorusGeometry(14, 0.5, 8, 32);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xff4d4d,
+      transparent: true,
+      opacity: 0.75,
+      wireframe: true,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    group.add(ring);
+
+    const labelSprite = this.createSectorLabelSprite('HAZARD', name, hazardType);
+    labelSprite.position.copy(sample.point).addScaledVector(sample.normal, 18);
+    group.add(labelSprite);
+    group.userData.labelSprite = labelSprite;
+    return group;
   }
 
   private createSectorGateMesh(

@@ -28,6 +28,8 @@ export class FullRouteCinematicDirector {
   public revealController: RouteRevealController;
   public recorder: RouteCinematicRecorder;
 
+  // ROUTE_12_SHOTS is authored to total exactly 120 seconds.
+  // Keep the director on real elapsed time; do not compress or stretch it here.
   private shots: RouteShotDefinition[] = ROUTE_12_SHOTS;
   private currentShotIdx: number = 0;
   private shotElapsedSec: number = 0;
