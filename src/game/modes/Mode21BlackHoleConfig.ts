@@ -10,7 +10,8 @@ export type BlackHoleSubmodeId =
   | 'EVENT_HORIZON_RUN'
   | 'BLACK_HOLE_MAZE'
   | 'SINGULARITY_RIVAL'
-  | 'FINAL_SINGULARITY';
+  | 'FINAL_COLLAPSE'
+  | 'FINAL_SINGULARITY'; // legacy alias
 
 export interface BlackHoleSectorConfig {
   sector: number;
@@ -256,18 +257,18 @@ export const MODE21_BLACK_HOLE_CONFIGS: Record<
     escapeRouteRequired: true,
   },
 
-  FINAL_SINGULARITY: {
+  FINAL_COLLAPSE: {
     modeNumber: 21,
     modeName: 'BLACK HOLE',
     parentMode: 'QUANTUM LAUNCH PRO',
-    submodeId: 'FINAL_SINGULARITY',
+    submodeId: 'FINAL_COLLAPSE',
     submodeNumber: 10,
-    displayName: '10 — THE FINAL SINGULARITY',
-    objective: 'Survive exactly five minutes, then reach the evacuation tower before the route disappears.',
-    trackTheme: 'Five-minute collapsing universe',
+    displayName: '10 — THE FINAL COLLAPSE',
+    objective: 'Survive exactly five minutes, then reach the emergency evacuation tower and sealed safe zone before the final collapse.',
+    trackTheme: 'Five-minute collapsing universe and emergency evacuation route',
     trackLengthMeters: 18000,
     minimumSectors: 6,
-    sectors: baseSectors(['Countdown Sector', 'Tidal Sector', 'Collapse Sector', 'Planetary Drift', 'Evacuation Route', 'Tower Approach'], 1.65),
+    sectors: baseSectors(['Countdown Sector', 'Tidal Sector', 'Collapse Sector', 'Planetary Drift', 'Evacuation Route', 'Tower Approach'], 1.65).map((s, i) => i === 5 ? { ...s, safeRoute: 'EMERGENCY-TOWER-BASEMENT', riskyRoute: 'COLLAPSE-FRONT' } : s),
     dangerStates: ['SAFE', 'WARNING', 'DANGER', 'CRITICAL', 'COLLAPSE'],
     blackHoleRadius: 1450,
     eventHorizonRadius: 760,
@@ -284,6 +285,12 @@ export function getMode21BlackHoleConfig(
 ): Mode21BlackHoleConfig {
   return MODE21_BLACK_HOLE_CONFIGS[submodeId];
 }
+
+// Backward-compatible alias for older Mode 21 callers. Non-enumerable so the mode still exposes exactly 10 submodes.
+Object.defineProperty(MODE21_BLACK_HOLE_CONFIGS, 'FINAL_SINGULARITY', {
+  value: MODE21_BLACK_HOLE_CONFIGS.FINAL_COLLAPSE,
+  enumerable: false,
+});
 
 export const MODE21_BLACK_HOLE_SUBMODES = Object.values(
   MODE21_BLACK_HOLE_CONFIGS,

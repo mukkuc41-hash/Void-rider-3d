@@ -447,7 +447,7 @@ export class ModeManager {
 
       case 'BLACK_HOLE': {
         // Mode 21 uses one main mode with ten Quantum Launch Pro submodes.
-        // Submode 10 is the mandatory five-minute Final Singularity.
+        // Submode 10 is the mandatory five-minute Final Collapse.
         const submodeNames = [
           '01 — SINGULARITY DESCENT',
           '02 — GRAVITY SLINGSHOT',
@@ -458,7 +458,7 @@ export class ModeManager {
           '07 — EVENT HORIZON RUN',
           '08 — THE BLACK-HOLE MAZE',
           '09 — SINGULARITY RIVAL',
-          '10 — THE FINAL SINGULARITY',
+          '10 — THE FINAL COLLAPSE',
         ];
 
         if (this.blackHoleSubmode === 10) {
@@ -473,9 +473,9 @@ export class ModeManager {
           mode: 'BLACK_HOLE',
           modeName: `21 — BLACK HOLE // ${submodeNames[Math.max(0, Math.min(9, this.blackHoleSubmode - 1))]}`,
           objectiveText: this.blackHoleSubmode === 10
-            ? 'FIVE MINUTES TO THE END // REACH THE EVACUATION TOWER BEFORE SINGULARITY COLLAPSE'
+            ? 'REACH THE SAFE ZONE // ENTER THE EVACUATION TOWER BEFORE THE FINAL COLLAPSE'
             : 'QUANTUM LAUNCH PRO // SURVIVE THE SINGULARITY & REACH THE ESCAPE ROUTE',
-          primaryMetricLabel: this.blackHoleSubmode === 10 ? 'TIME TO SINGULARITY' : 'GRAVITY FIELD',
+          primaryMetricLabel: this.blackHoleSubmode === 10 ? 'TIME TO FINAL COLLAPSE' : 'GRAVITY FIELD',
           primaryMetricValue: this.blackHoleSubmode === 10
             ? `${Math.floor(this.finalSingularityCountdown / 60)}:${Math.floor(this.finalSingularityCountdown % 60).toString().padStart(2, '0')}`
             : `${Math.min(100, Math.floor(this.modeTimer * 1.5))}%`,

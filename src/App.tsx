@@ -68,6 +68,7 @@ import { CinematicEventHUD } from './components/CinematicEventHUD';
 import { ActiveCinematicState, ExtendedPathTelemetry } from './game/extendedPath/extendedPathTypes';
 import { FinishCinematicOverlay } from './components/FinishCinematicOverlay';
 import { FinishCinematicTelemetry } from './game/fullRouteCinematic/finishCinematicManager';
+import { BlackHoleCinematicTelemetry } from './game/blackHoleCinematicManager';
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -115,6 +116,7 @@ export default function App() {
   const [earnedCredits, setEarnedCredits] = useState<number>(0);
   const [introTelemetry, setIntroTelemetry] = useState<IntroHUDTelemetry | null>(null);
   const [finishTelemetry, setFinishTelemetry] = useState<FinishCinematicTelemetry | null>(null);
+  const [blackHoleCinematicTelemetry, setBlackHoleCinematicTelemetry] = useState<BlackHoleCinematicTelemetry | null>(null);
 
   // Camera & Video Settings
   const [cameraMode, setCameraMode] = useState<CameraMode>('CHASE_NEAR');
@@ -281,6 +283,7 @@ export default function App() {
       onCinematicStateUpdate: state => setCinematicState(state),
       onPathTelemetryUpdate: tel => setPathTelemetry(tel),
       onFinishCinematicTelemetry: telemetry => setFinishTelemetry(telemetry),
+      onBlackHoleCinematicTelemetry: telemetry => setBlackHoleCinematicTelemetry(telemetry),
       onCountdownTick: count => {
         setCountdown(count);
         sound.playCountdownTick();
@@ -700,7 +703,7 @@ export default function App() {
     }
   };
 
-  const handleStartAIRace = (config: AIRaceConfig) => {
+  const handleStartAIRace = (config: AIRaceConfig & { blackHoleSubmode?: string }) => {
     sound.playMenuClick();
     setIsAIRaceModalOpen(false);
     setIsAIRaceActive(true);
@@ -1195,6 +1198,30 @@ export default function App() {
         />
       )}
 
+      {/* Mode 21 — Black Hole / Quantum Launch Pro cinematic telemetry */}
+      {gameMode === 'BLACK_HOLE' && blackHoleCinematicTelemetry && (
+        <div className="pointer-events-none fixed inset-x-0 top-3 z-[60] flex justify-center px-3">
+          <div className="w-full max-w-xl rounded-2xl border border-purple-400/40 bg-black/70 px-4 py-3 text-center shadow-[0_0_30px_rgba(168,85,247,0.22)] backdrop-blur-md">
+            <div className="text-[11px] font-mono font-bold uppercase tracking-[0.22em] text-purple-300">
+              {blackHoleCinematicTelemetry.title}
+            </div>
+            {blackHoleCinematicTelemetry.subtitle && (
+              <div className="mt-1 text-xs text-white/75">{blackHoleCinematicTelemetry.subtitle}</div>
+            )}
+            {blackHoleCinematicTelemetry.warning && (
+              <div className="mt-2 text-xs font-bold uppercase tracking-wider text-red-300">
+                {blackHoleCinematicTelemetry.warning}
+              </div>
+            )}
+            {blackHoleCinematicTelemetry.finalCountdown !== null && (
+              <div className="mt-2 font-mono text-lg font-black text-white">
+                {Math.floor(blackHoleCinematicTelemetry.finalCountdown / 60)}:{Math.floor(blackHoleCinematicTelemetry.finalCountdown % 60).toString().padStart(2, '0')}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Extended Path In-Race Cinematic Events & Sector HUD */}
       {appState === 'RACING' && (
         <CinematicEventHUD
@@ -1367,6 +1394,9 @@ export default function App() {
               trackId: config.trackId,
               botCount: config.botCount,
               laps: config.laps,
+              ...(config.blackHoleSubmode
+                ? { blackHoleSubmode: config.blackHoleSubmode }
+                : {}),
             });
           }}
           onSelectMode={mode => {

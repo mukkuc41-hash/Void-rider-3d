@@ -15,7 +15,7 @@ export type GameState =
   | 'SPACE_HUB';
 
 export type GameMode =
-  // 20 UNIQUE GAME MODES
+  // 21 UNIQUE GAME MODES
   | 'SINGULARITY_RUN'       // 01 — The only Black Hole mode
   | 'NEON_CIRCUIT'          // 02 — 3-lane neon megacity racing
   | 'ASTEROID_RUN'          // 03 — Dense asteroid field weaving
@@ -149,6 +149,7 @@ export interface AIRaceConfig {
   laps: number;
   botCount: number;
   mode?: GameMode;
+  blackHoleSubmode?: BlackHoleSubmodeId;
 }
 
 export type { EnergyBarrier } from './game/trackData';
@@ -836,7 +837,8 @@ export type BlackHoleSubmodeId =
   | 'EVENT_HORIZON_RUN'
   | 'BLACK_HOLE_MAZE'
   | 'SINGULARITY_RIVAL'
-  | 'FINAL_SINGULARITY';
+  | 'FINAL_COLLAPSE';
+
 
 export type BlackHoleDangerState =
   | 'SAFE'

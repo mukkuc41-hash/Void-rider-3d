@@ -1381,6 +1381,13 @@ export class JunctionManager {
   public junctions: Map<string, JunctionZoneInstance> = new Map();
   public junctionMeshGroup: THREE.Group = new THREE.Group();
   public currentTrackId: TrackId = 'circuit_alpha';
+
+  // Mode 21 / Submode 10 — THE FINAL COLLAPSE.
+  // Disabled by default so Modes 01–20 and other Mode 21 submodes keep the
+  // existing junction configuration untouched.
+  public finalCollapseMode = false;
+  public readonly finalCollapseJunctionId = 'final_collapse_tower_access';
+  private finalCollapseShelterGroup: THREE.Group | null = null;
   public mainTrack: CosmicTrack;
 
   // Active state for local player
@@ -1425,7 +1432,19 @@ export class JunctionManager {
       this.junctionMeshGroup.remove(this.junctionMeshGroup.children[0]);
     }
 
-    const configs = TRACK_JUNCTIONS_CONFIG[trackId] || TRACK_JUNCTIONS_CONFIG.circuit_alpha;
+    if (this.finalCollapseShelter) {
+      this.junctionMeshGroup.remove(this.finalCollapseShelter);
+      this.finalCollapseShelter = null;
+    }
+
+    const configs = [...(TRACK_JUNCTIONS_CONFIG[trackId] || TRACK_JUNCTIONS_CONFIG.circuit_alpha)];
+
+    // Mode 21 / Submode 10 is an additive evacuation junction. It is injected
+    // only when explicitly enabled by GameEngine, so no existing mode changes.
+    if (this.finalCollapseMode) {
+      configs.push(this.createFinalCollapseJunctionConfig(trackId));
+    }
+
     configs.forEach(cfg => {
       const jInst = new JunctionZoneInstance(cfg, this.mainTrack);
       this.junctions.set(cfg.id, jInst);
@@ -1435,7 +1454,260 @@ export class JunctionManager {
       jInst.routeInstances.forEach(routeInst => {
         this.junctionMeshGroup.add(routeInst.meshGroup);
       });
+
+      if (cfg.id === this.finalCollapseJunctionId) {
+        this.finalCollapseShelter = this.buildFinalCollapseShelter(jInst);
+        this.junctionMeshGroup.add(this.finalCollapseShelter);
+      }
     });
+  }
+
+  /**
+   * Enable/disable the real Final Collapse evacuation route.
+   *
+   * This method intentionally rebuilds only the junction layer. The main
+   * CosmicTrack, player movement, AI systems, and other modes remain intact.
+   */
+  public setFinalCollapseMode(active: boolean): void {
+    if (this.finalCollapseMode === active) return;
+
+    this.finalCollapseMode = active;
+    this.isSelectionLocked = false;
+    this.activeJunctionTelemetry = null;
+    this.playerRouteProgress = {
+      isInBranch: false,
+      activeJunctionId: null,
+      activeRouteId: null,
+      progress: 0,
+      transitionBlend: 0,
+      branchRouteInstance: null,
+      entrySpeed: 0,
+      validatedCheckpointIndices: new Set<number>(),
+    };
+
+    this.initJunctions(this.currentTrackId);
+  }
+
+  /**
+   * Dedicated Mode 21 / Submode 10 junction.
+   *
+   * The shelter branch is intentionally wide, low-risk, non-divergent and
+   * physically continuous with the main track. The final 1.5% of the branch
+   * passes through the visible tower entrance so the existing GameEngine
+   * completion check can finish the race while the player is physically inside.
+   */
+  private createFinalCollapseJunctionConfig(trackId: TrackId): JunctionZoneConfig {
+    return {
+      id: this.finalCollapseJunctionId,
+      name: 'EMERGENCY EVACUATION TOWER',
+      trackId,
+      approachT: 0.78,
+      junctionStartT: 0.84,
+      junctionEndT: 0.995,
+      defaultRouteId: 'bh10_shelter',
+      bannerText: 'FINAL COLLAPSE // TOWER BASEMENT ACCESS',
+      routes: [
+        {
+          id: 'bh10_shelter',
+          name: 'TOWER BASEMENT ACCESS',
+          direction: 'CENTER',
+          subtitle: 'Physical Emergency Shelter Corridor',
+          detail: 'Wide continuous evacuation lane leading directly through the blast-door entrance and into the sealed basement safe zone.',
+          themeColor: '#22c55e',
+          isShortcut: false,
+          riskLevel: 'LOW',
+          hasBoostPads: true,
+          boostPadFractions: [0.30, 0.62],
+          hasObstacles: false,
+          lengthMultiplier: 1.0,
+          width: 30,
+          lateralDivergence: 0,
+          elevationOffset: 0,
+          requiredCheckpointIndices: [],
+          entryJunctionId: this.finalCollapseJunctionId,
+          difficulty: 'EASY',
+          hasShortcut: false,
+          description: 'Guaranteed forward evacuation corridor into the tower basement.',
+          boostPadCount: 2,
+          obstacleCount: 0,
+        },
+      ],
+    };
+  }
+
+  /**
+   * Build the visible physical evacuation tower + basement entry around the
+   * final collapse branch endpoint. This is visual/playable world geometry:
+   * the player is still driven by the real branch curve and is not teleported.
+   */
+  private buildFinalCollapseShelter(junction: JunctionZoneInstance): THREE.Group {
+    const group = new THREE.Group();
+    const s = junction.exitSample;
+
+    const rot = new THREE.Matrix4();
+    rot.makeBasis(s.binormal, s.normal, s.tangent.clone().negate());
+    group.position.copy(s.point);
+    group.quaternion.setFromRotationMatrix(rot);
+
+    const towerMat = new THREE.MeshStandardMaterial({
+      color: 0x07121c,
+      metalness: 0.9,
+      roughness: 0.22,
+      emissive: 0x062b38,
+      emissiveIntensity: 0.85,
+    });
+
+    const armorMat = new THREE.MeshStandardMaterial({
+      color: 0x152532,
+      metalness: 0.95,
+      roughness: 0.18,
+      emissive: 0x0a4352,
+      emissiveIntensity: 1.1,
+    });
+
+    const cyanMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+    const greenMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+    const warningMat = new THREE.MeshBasicMaterial({ color: 0xff5b35 });
+
+    // Main evacuation tower body.
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(62, 92, 84),
+      towerMat
+    );
+    body.position.set(0, 44, -48);
+    group.add(body);
+
+    // Shoulder structures make the tower read as a large space facility.
+    const shoulderGeo = new THREE.BoxGeometry(20, 54, 100);
+    const leftShoulder = new THREE.Mesh(shoulderGeo, armorMat);
+    leftShoulder.position.set(-39, 27, -44);
+    const rightShoulder = leftShoulder.clone();
+    rightShoulder.position.x = 39;
+    group.add(leftShoulder, rightShoulder);
+
+    // Large physical blast-door frame around the road entrance.
+    const doorPillarGeo = new THREE.BoxGeometry(4.5, 22, 9);
+    const leftPillar = new THREE.Mesh(doorPillarGeo, armorMat);
+    leftPillar.position.set(-17, 11, -4);
+    const rightPillar = leftPillar.clone();
+    rightPillar.position.x = 17;
+
+    const doorHeader = new THREE.Mesh(
+      new THREE.BoxGeometry(39, 4.5, 9),
+      armorMat
+    );
+    doorHeader.position.set(0, 21.5, -4);
+
+    const doorGlow = new THREE.Mesh(
+      new THREE.BoxGeometry(28, 15, 0.7),
+      new THREE.MeshBasicMaterial({
+        color: 0x08202b,
+        transparent: true,
+        opacity: 0.82,
+      })
+    );
+    doorGlow.position.set(0, 11, 0.3);
+
+    group.add(leftPillar, rightPillar, doorHeader, doorGlow);
+
+    // Two sliding-door slabs are offset to the sides, leaving the playable
+    // center opening clear. Later gameEngine logic can animate them.
+    const slabGeo = new THREE.BoxGeometry(12, 15, 1.5);
+    const leftSlab = new THREE.Mesh(slabGeo, new THREE.MeshStandardMaterial({
+      color: 0x1c2934,
+      metalness: 0.95,
+      roughness: 0.2,
+      emissive: 0x103745,
+      emissiveIntensity: 0.8,
+    }));
+    leftSlab.position.set(-10, 11, -0.1);
+    const rightSlab = leftSlab.clone();
+    rightSlab.position.x = 10;
+    group.add(leftSlab, rightSlab);
+
+    // Visible emergency lighting rails.
+    const lightRailGeo = new THREE.BoxGeometry(1.0, 1.0, 76);
+    [-27, -21, 21, 27].forEach(x => {
+      const rail = new THREE.Mesh(lightRailGeo, cyanMat);
+      rail.position.set(x, 24, -42);
+      group.add(rail);
+    });
+
+    // Green safe-zone guide rails continue into the basement.
+    const basementRailGeo = new THREE.BoxGeometry(0.9, 0.9, 92);
+    [-14, 14].forEach(x => {
+      const rail = new THREE.Mesh(basementRailGeo, greenMat);
+      rail.position.set(x, 3.8, -55);
+      group.add(rail);
+    });
+
+    // Emergency beacon mast.
+    const mast = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.4, 1.8, 34, 12),
+      armorMat
+    );
+    mast.position.set(0, 98, -50);
+    group.add(mast);
+
+    const beacon = new THREE.Mesh(
+      new THREE.SphereGeometry(4.2, 20, 20),
+      warningMat
+    );
+    beacon.position.set(0, 116, -50);
+    group.add(beacon);
+
+    // Basement ceiling strips make the physical interior readable at speed.
+    const ceilingStripGeo = new THREE.BoxGeometry(2.0, 0.7, 88);
+    [-10, 10].forEach(x => {
+      const strip = new THREE.Mesh(ceilingStripGeo, cyanMat);
+      strip.position.set(x, 11.5, -52);
+      group.add(strip);
+    });
+
+    // Tower sign board.
+    const signCanvas = document.createElement('canvas');
+    signCanvas.width = 1024;
+    signCanvas.height = 256;
+    const ctx = signCanvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#061018';
+      ctx.fillRect(0, 0, signCanvas.width, signCanvas.height);
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(8, 8, signCanvas.width - 16, signCanvas.height - 16);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 72px Arial';
+      ctx.fillStyle = '#67e8f9';
+      ctx.fillText('EVACUATION TOWER', signCanvas.width / 2, 92);
+      ctx.font = 'bold 42px Arial';
+      ctx.fillStyle = '#22c55e';
+      ctx.fillText('BASEMENT SAFE ZONE', signCanvas.width / 2, 166);
+    }
+
+    const signTexture = new THREE.CanvasTexture(signCanvas);
+    signTexture.needsUpdate = true;
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(42, 10.5),
+      new THREE.MeshBasicMaterial({
+        map: signTexture,
+        transparent: true,
+        side: THREE.DoubleSide,
+      })
+    );
+    sign.position.set(0, 44, 0.8);
+    group.add(sign);
+
+    // Navigation ring just before the entrance.
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(20, 1.0, 14, 64),
+      new THREE.MeshBasicMaterial({ color: 0x22c55e })
+    );
+    ring.position.set(0, 10, 16);
+    ring.rotation.x = Math.PI / 2;
+    group.add(ring);
+
+    return group;
   }
 
   /**

@@ -244,20 +244,20 @@ export const BLACK_HOLE_SUBMODE_PATHS: Record<BlackHoleSubmodeId, ExtendedPathCo
     [hazard('bh09_r1', 'RIVAL COMBAT', 0.20, 0.42, 0.58, 'RIVAL IN RANGE', '#ef4444', 'DRONE_MINES'), hazard('bh09_r2', 'SLINGSHOT DUEL', 0.42, 0.70, 0.9, 'SLINGSHOT WINDOW // OVERTAKE', '#a855f7'), hazard('bh09_r3', 'FINAL GRAVITY GATE', 0.70, 0.95, 1.0, 'ESCAPE VECTOR // HOLD LEAD', '#f43f5e')],
     'RIVAL DEFEATED // ESCAPE VECTOR OPEN', 0.87, 12.8,
   ),
-  FINAL_SINGULARITY: route(
-    '21.10 — THE FINAL SINGULARITY', 'QUANTUM LAUNCH PRO // FIVE MINUTES TO THE END', points(168), makeStandardSectors(['FIVE-MINUTE RACE', 'SINGULARITY ACTIVATION', 'COLLAPSING TRACK', 'SPAGHETTIFICATION ZONE', 'PLANETARY COLLISION ZONE', 'EMERGENCY ROUTE'], [760, 790, 820, 860, 900, 980], [0.32, 0.68, 0.88, 0.94, 0.98, 1.0]),
-    [branch('bh10_safe', 'EMERGENCY SAFE-ZONE ROUTE', 'SAFE_ROUTE', 0.64, 0.90, 2300, -5, 'LOW', 'Fair guaranteed escape route toward the evacuation tower.', '#22c55e', [180, 80, -5000]), branch('bh10_fast', 'COLLAPSING EXPRESS', 'HIGH_SPEED_ROUTE', 0.70, 0.91, 1450, 22, 'MEDIUM', 'Faster route that requires immediate commitment.', '#f59e0b', [650, 60, -5400])],
+  FINAL_COLLAPSE: route(
+    '21.10 — THE FINAL COLLAPSE', 'QUANTUM LAUNCH PRO // SEVEN MINUTES UNTIL THE VOID', points(168), makeStandardSectors(['STAGE 1 — RACE', 'STAGE 2 — GRAVITY WARNING', 'STAGE 3 — SPAGHETTIFICATION', 'STAGE 4 — DESTRUCTION FRONT', 'STAGE 5 — FINAL EVACUATION', 'EVACUATION TOWER'], [760, 790, 820, 860, 900, 980], [0.32, 0.68, 0.88, 0.94, 0.98, 1.0]),
+    [branch('bh10_safe', 'EMERGENCY SAFE-ZONE ROUTE', 'SAFE_ROUTE', 0.64, 0.90, 2300, -5, 'LOW', 'Fair guaranteed escape route toward the evacuation tower.', '#22c55e', [180, 80, -5000]), branch('bh10_fast', 'COLLAPSING EXPRESS', 'HIGH_SPEED_ROUTE', 0.70, 0.91, 1450, 22, 'MEDIUM', 'Faster route that requires immediate commitment.', '#f59e0b', [650, 60, -5400]), branch('bh10_shelter', 'TOWER BASEMENT ACCESS', 'SAFE_ROUTE', 0.90, 0.995, 820, -2, 'LOW', 'Physical shelter corridor leading into the sealed basement.', '#22c55e', [0, 20, -6500])],
     [
       cinematic('bh10_zero', '00:00 — SINGULARITY ACTIVATION', 'THE END HAS BEGUN', 0.58, 3.2, 'SHOT_09_MASSIVE_SCALE_REVEAL'),
       cinematic('bh10_planet', 'PLANETARY COLLISION EVENT', 'DISTANT SYSTEMS ARE FALLING', 0.72, 3.0, 'SHOT_10_FINALE_CAMERA'),
       cinematic('bh10_tower', 'EVACUATION TOWER', 'BASEMENT SAFE-ZONE AHEAD', 0.90, 2.8, 'SHOT_03_WIDE_ENVIRONMENT_REVEAL'),
     ],
     [
-      hazard('bh10_h1', 'COUNTDOWN PRESSURE', 0.00, 0.58, 0.42, '05:00 — MAINTAIN RACE SPEED', '#60a5fa'),
-      hazard('bh10_h2', 'SINGULARITY ACTIVATION', 0.58, 0.70, 0.9, '00:00 — SINGULARITY ACTIVE', '#c026d3'),
-      hazard('bh10_h3', 'TRACK COLLAPSE', 0.64, 0.84, 1.0, 'TRACK DISINTEGRATING // FOLLOW SAFE ROUTE', '#ef4444', 'COLLAPSE'),
-      hazard('bh10_h4', 'PLANETARY DEBRIS', 0.72, 0.90, 1.0, 'COLLISION EVENT // EMERGENCY ROUTE', '#f97316', 'ASTEROID_SWARM'),
-      hazard('bh10_h5', 'TOWER APPROACH', 0.88, 0.98, 0.85, 'EVACUATION TOWER // BASEMENT ENTRY', '#22c55e'),
+      hazard('bh10_h1', 'COUNTDOWN PRESSURE', 0.00, 0.58, 0.42, '07:00–06:00 — STAGE 1 // MAINTAIN RACE SPEED', '#60a5fa'),
+      hazard('bh10_h2', 'SINGULARITY ACTIVATION', 0.58, 0.70, 0.9, '06:00–05:00 — STAGE 2 // GRAVITY WARNING', '#c026d3'),
+      hazard('bh10_h3', 'TRACK COLLAPSE', 0.64, 0.84, 1.0, '05:00–02:00 — STAGE 3 // TRACK DISINTEGRATING', '#ef4444', 'COLLAPSE'),
+      hazard('bh10_h4', 'PLANETARY DEBRIS', 0.72, 0.90, 1.0, '02:00–01:00 — STAGE 4 // EMERGENCY ROUTE', '#f97316', 'ASTEROID_SWARM'),
+      hazard('bh10_h5', 'TOWER APPROACH', 0.88, 0.98, 0.85, '01:00–00:00 — STAGE 5 // EVACUATION TOWER', '#22c55e'), hazard('bh10_h6', 'BASEMENT SHELTER', 0.90, 1.0, 0.55, '00:00 — FINAL COLLAPSE // REACH THE SAFE ZONE', '#22c55e'),
     ],
     'YOU SURVIVED THE SINGULARITY', 0.90, 14.5,
   ),
@@ -267,4 +267,7 @@ export function getBlackHolePath(submode: BlackHoleSubmodeId): ExtendedPathConfi
   return BLACK_HOLE_SUBMODE_PATHS[submode];
 }
 
-export const FINAL_SINGULARITY_COUNTDOWN_SECONDS = 300;
+export const FINAL_COLLAPSE_COUNTDOWN_SECONDS = 420;
+
+// Backward-compatible alias for existing Mode 21 integration code.
+export const FINAL_SINGULARITY_COUNTDOWN_SECONDS = FINAL_COLLAPSE_COUNTDOWN_SECONDS;

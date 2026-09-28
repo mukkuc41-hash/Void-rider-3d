@@ -573,19 +573,21 @@ export const GAME_MODE_CONFIGS: Record<GameMode, GameModeConfig> = {
 /**
  * Mode-Specific Validator
  * Ensures only authorized mechanics, hazards, and systems operate in each mode.
- * Strictly enforces that black-hole systems are ONLY permitted in Mode 01 (SINGULARITY_RUN).
+ * Allows black-hole systems in the original SINGULARITY_RUN mode and
+ * in Mode 21 (BLACK_HOLE / Quantum Launch Pro).
  */
 export class ModeValidator {
   public static isBlackHoleAllowed(mode: GameMode): boolean {
-    return mode === 'SINGULARITY_RUN';
+    return mode === 'SINGULARITY_RUN' || mode === 'BLACK_HOLE';
   }
 
   public static isSystemAllowed(mode: GameMode, systemName: string): boolean {
     const config = GAME_MODE_CONFIGS[mode];
     if (!config) return true;
-    // Black hole systems are exclusively restricted to SINGULARITY_RUN
+    // Black-hole systems are allowed in the original SINGULARITY_RUN mode
+    // and in Mode 21, where the ten Quantum Launch Pro submodes run.
     if (systemName.toLowerCase().includes('blackhole') || systemName.toLowerCase().includes('singularity')) {
-      return mode === 'SINGULARITY_RUN';
+      return mode === 'SINGULARITY_RUN' || mode === 'BLACK_HOLE';
     }
     return config.allowedSystems.includes(systemName);
   }

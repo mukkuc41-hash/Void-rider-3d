@@ -19,7 +19,7 @@ export type BlackHoleSubmodeId =
   | 'EVENT_HORIZON_RUN'
   | 'BLACK_HOLE_MAZE'
   | 'SINGULARITY_RIVAL'
-  | 'FINAL_SINGULARITY';
+  | 'FINAL_COLLAPSE';
 
 export type BlackHoleDangerState =
   | 'SAFE'
@@ -196,10 +196,10 @@ export const BLACK_HOLE_SUBMODES: readonly BlackHoleSubmodeConfig[] = [
     dangerProfile: { gravityStrength: 1.3, eventHorizonRadius: 140, tidalForce: 1.35, distortionStrength: 0.9, captureStrength: 1.0 },
   },
   {
-    id: 'FINAL_SINGULARITY',
+    id: 'FINAL_COLLAPSE',
     number: 10,
-    name: 'The Final Singularity',
-    subtitle: 'FIVE MINUTES TO THE END',
+    name: 'THE FINAL COLLAPSE',
+    subtitle: '5 MINUTES UNTIL THE VOID',
     objective: 'Race for five minutes, survive the singularity collapse, and reach the sealed emergency safe zone.',
     environment: 'Massive planetary system, orbital highways, stations, asteroid fields and an emergency evacuation tower.',
     pathSectors: ['Five-Minute Race', 'Singularity Activation', 'Collapsing Track', 'Spaghettification Zone', 'Planetary Collision Zone', 'Emergency Route', 'Tower Entrance', 'Tower Basement', 'Safe Zone'],
@@ -235,4 +235,7 @@ export function getBlackHoleDangerState(distanceToHorizon: number, horizonRadius
   return 'COLLAPSE';
 }
 
-export const FINAL_SINGULARITY_DURATION_SECONDS = 300;
+export const FINAL_COLLAPSE_DURATION_SECONDS = 300;
+
+// Backward-compatible alias for existing Mode 21 integration code.
+export const FINAL_SINGULARITY_DURATION_SECONDS = FINAL_COLLAPSE_DURATION_SECONDS;

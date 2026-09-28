@@ -460,3 +460,316 @@ export class BlackHoleManager {
     }
   }
 }
+
+
+/**
+ * Final Collapse support for Mode 21 / Submode 10 (THE FINAL COLLAPSE).
+ *
+ * This controller is intentionally additive: the existing Singularity Run
+ * systems above are preserved unchanged. It provides the state/timing and
+ * non-destructive collapse-front data needed by the Mode 21 integration.
+ */
+export type FinalCollapsePhase =
+  | 'FIVE_MINUTE_RACE'
+  | 'SINGULARITY_FAILURE'
+  | 'CRITICAL_GRAVITATIONAL_INSTABILITY'
+  | 'EVACUATION_PROTOCOL'
+  | 'TRACK_COLLAPSE'
+  | 'SPAGHETTIFICATION'
+  | 'PLANETARY_COLLISION'
+  | 'DESTRUCTION_FRONT'
+  | 'EMERGENCY_ROUTE'
+  | 'TOWER_ENTRY'
+  | 'TOWER_SEALED'
+  | 'FINAL_COLLAPSE'
+  | 'SURVIVED';
+
+export interface FinalCollapseTelemetry {
+  phase: FinalCollapsePhase;
+  raceTimeRemaining: number;
+  collapseProgress: number;
+  destructionFrontDistance: number;
+  safeZoneActive: boolean;
+  towerEntryActive: boolean;
+  towerSealed: boolean;
+  objective: string;
+  warning: string | null;
+}
+
+export interface FinalCollapsePhysicalState {
+  towerRoot: THREE.Group | null;
+  towerEntrance: THREE.Mesh | null;
+  blastDoor: THREE.Mesh | null;
+  collapseFront: THREE.Mesh | null;
+  safeZoneCenter: THREE.Vector3;
+  safeZoneRadius: number;
+  towerEntryRadius: number;
+  towerSealed: boolean;
+}
+
+export class FinalCollapseManager {
+  public phase: FinalCollapsePhase = 'FIVE_MINUTE_RACE';
+  public elapsed = 0;
+  public readonly raceDuration = 300;
+  public collapseProgress = 0;
+  public destructionFrontDistance = Number.POSITIVE_INFINITY;
+  public safeZoneActive = false;
+  public towerEntryActive = false;
+  public towerSealed = false;
+
+  private phaseTimer = 0;
+  private physicalState: FinalCollapsePhysicalState = {
+    towerRoot: null,
+    towerEntrance: null,
+    blastDoor: null,
+    collapseFront: null,
+    safeZoneCenter: new THREE.Vector3(0, 0, -900),
+    safeZoneRadius: 18,
+    towerEntryRadius: 28,
+    towerSealed: false,
+  };
+
+
+  /**
+   * Creates the physical Final Collapse shelter once. This is deliberately
+   * disabled until Submode 10 explicitly calls initializePhysicalShelter().
+   */
+  public initializePhysicalShelter(scene: THREE.Scene, safeZoneCenter: THREE.Vector3): void {
+    this.disposePhysicalShelter(scene);
+
+    const root = new THREE.Group();
+    root.name = 'FinalCollapse_EvacuationTower';
+    root.position.copy(safeZoneCenter);
+
+    const towerMat = new THREE.MeshStandardMaterial({
+      color: 0x17243a,
+      emissive: 0x07101c,
+      metalness: 0.85,
+      roughness: 0.3,
+    });
+    const frameMat = new THREE.MeshStandardMaterial({
+      color: 0x2e8ca8,
+      emissive: 0x063746,
+      metalness: 0.9,
+      roughness: 0.2,
+    });
+
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(34, 42, 120, 12), towerMat);
+    tower.position.y = 60;
+    root.add(tower);
+
+    const entrance = new THREE.Mesh(new THREE.BoxGeometry(34, 12, 20), frameMat);
+    entrance.position.set(0, 6, 34);
+    root.add(entrance);
+
+    const basement = new THREE.Mesh(new THREE.BoxGeometry(28, 10, 34), towerMat);
+    basement.position.set(0, 5, 20);
+    root.add(basement);
+
+    const doorMat = new THREE.MeshStandardMaterial({
+      color: 0x10151e,
+      emissive: 0x2a0610,
+      metalness: 0.95,
+      roughness: 0.22,
+    });
+    const blastDoor = new THREE.Mesh(new THREE.BoxGeometry(30, 9, 2.5), doorMat);
+    blastDoor.position.set(0, 5, 30);
+    root.add(blastDoor);
+
+    const beacon = new THREE.Mesh(
+      new THREE.CylinderGeometry(3, 3, 18, 16),
+      new THREE.MeshBasicMaterial({ color: 0x00eaff })
+    );
+    beacon.position.y = 129;
+    root.add(beacon);
+
+    scene.add(root);
+
+    this.physicalState.towerRoot = root;
+    this.physicalState.towerEntrance = entrance;
+    this.physicalState.blastDoor = blastDoor;
+    this.physicalState.safeZoneCenter.copy(safeZoneCenter);
+    this.physicalState.towerSealed = false;
+  }
+
+  /** Returns true while the player is physically inside the tower basement. */
+  public isPlayerInsideSafeZone(playerPosition: THREE.Vector3): boolean {
+    const c = this.physicalState.safeZoneCenter;
+    return Math.hypot(playerPosition.x - c.x, playerPosition.z - (c.z + 20)) <= this.physicalState.safeZoneRadius
+      && playerPosition.y >= -2 && playerPosition.y <= 18;
+  }
+
+  /** Closes the physical blast door after the player reaches the basement. */
+  public sealPhysicalShelter(): void {
+    this.physicalState.towerSealed = true;
+    const door = this.physicalState.blastDoor;
+    if (door) door.position.z = 30;
+  }
+
+  public getPhysicalState(): FinalCollapsePhysicalState {
+    return { ...this.physicalState };
+  }
+
+  public disposePhysicalShelter(scene: THREE.Scene): void {
+    const root = this.physicalState.towerRoot;
+    if (!root) return;
+    scene.remove(root);
+    root.traverse(object => {
+      const mesh = object as THREE.Mesh;
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) {
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        materials.forEach(material => material.dispose());
+      }
+    });
+    this.physicalState.towerRoot = null;
+    this.physicalState.towerEntrance = null;
+    this.physicalState.blastDoor = null;
+  }
+
+  public start() {
+    this.phase = 'FIVE_MINUTE_RACE';
+    this.elapsed = 0;
+    this.phaseTimer = 0;
+    this.collapseProgress = 0;
+    this.destructionFrontDistance = Number.POSITIVE_INFINITY;
+    this.safeZoneActive = false;
+    this.towerEntryActive = false;
+    this.towerSealed = false;
+    this.physicalState.towerSealed = false;
+  }
+
+  /**
+   * Advance the five-minute race clock. The catastrophe starts only when the
+   * full 300-second race window has elapsed; no early automatic destruction
+   * is introduced here.
+   */
+  public update(dt: number) {
+    if (this.phase === 'SURVIVED') return;
+
+    const delta = Math.max(0, dt);
+    this.elapsed += delta;
+    this.phaseTimer += delta;
+
+    if (this.phase === 'FIVE_MINUTE_RACE' && this.elapsed >= this.raceDuration) {
+      this.phase = 'SINGULARITY_FAILURE';
+      this.phaseTimer = 0;
+    }
+
+    if (this.phase !== 'FIVE_MINUTE_RACE') {
+      this.collapseProgress = THREE.MathUtils.clamp(
+        this.collapseProgress + delta / 120,
+        0,
+        1
+      );
+    }
+
+    if (this.phase === 'SINGULARITY_FAILURE' && this.phaseTimer >= 2) {
+      this.phase = 'CRITICAL_GRAVITATIONAL_INSTABILITY';
+      this.phaseTimer = 0;
+    } else if (this.phase === 'CRITICAL_GRAVITATIONAL_INSTABILITY' && this.phaseTimer >= 2) {
+      this.phase = 'EVACUATION_PROTOCOL';
+      this.phaseTimer = 0;
+    }
+  }
+
+  public beginTrackCollapse() {
+    this.phase = 'TRACK_COLLAPSE';
+    this.phaseTimer = 0;
+  }
+
+  public beginSpaghettification() {
+    this.phase = 'SPAGHETTIFICATION';
+    this.phaseTimer = 0;
+  }
+
+  public beginPlanetaryCollision() {
+    this.phase = 'PLANETARY_COLLISION';
+    this.phaseTimer = 0;
+  }
+
+  public beginDestructionFront(distance: number) {
+    this.phase = 'DESTRUCTION_FRONT';
+    this.phaseTimer = 0;
+    this.destructionFrontDistance = Math.max(0, distance);
+  }
+
+  public updateDestructionFront(distance: number) {
+    this.destructionFrontDistance = Math.max(0, distance);
+  }
+
+  public beginEmergencyRoute() {
+    this.phase = 'EMERGENCY_ROUTE';
+    this.phaseTimer = 0;
+    this.safeZoneActive = true;
+  }
+
+  public beginTowerEntry() {
+    this.phase = 'TOWER_ENTRY';
+    this.phaseTimer = 0;
+    this.safeZoneActive = true;
+    this.towerEntryActive = true;
+  }
+
+  public sealTower() {
+    this.phase = 'TOWER_SEALED';
+    this.phaseTimer = 0;
+    this.towerEntryActive = false;
+    this.towerSealed = true;
+    this.safeZoneActive = true;
+    this.sealPhysicalShelter();
+  }
+
+  public beginFinalCollapse() {
+    this.phase = 'FINAL_COLLAPSE';
+    this.phaseTimer = 0;
+    this.safeZoneActive = true;
+    this.towerEntryActive = false;
+    this.towerSealed = true;
+  }
+
+  public markSurvived() {
+    this.phase = 'SURVIVED';
+    this.phaseTimer = 0;
+    this.safeZoneActive = true;
+    this.towerEntryActive = false;
+    this.towerSealed = true;
+  }
+
+  public getTimeRemaining(): number {
+    return Math.max(0, this.raceDuration - this.elapsed);
+  }
+
+  public getObjective(): string {
+    if (this.phase === 'FIVE_MINUTE_RACE') return 'SURVIVE THE FIVE-MINUTE RACE';
+    if (this.phase === 'SINGULARITY_FAILURE') return 'PREPARE FOR SINGULARITY FAILURE';
+    if (this.phase === 'CRITICAL_GRAVITATIONAL_INSTABILITY') return 'ESCAPE THE GRAVITATIONAL INSTABILITY';
+    if (this.phase === 'EVACUATION_PROTOCOL') return 'ALL RACERS — EVACUATE';
+    if (this.phase === 'TOWER_ENTRY' || this.phase === 'EMERGENCY_ROUTE') return 'REACH THE SAFE ZONE';
+    if (this.phase === 'TOWER_SEALED' || this.phase === 'FINAL_COLLAPSE' || this.phase === 'SURVIVED') return 'SAFE ZONE SECURED';
+    return 'REACH THE SAFE ZONE';
+  }
+
+  public getWarning(): string | null {
+    if (this.phase === 'SINGULARITY_FAILURE') return 'SINGULARITY FAILURE';
+    if (this.phase === 'CRITICAL_GRAVITATIONAL_INSTABILITY') return 'CRITICAL GRAVITATIONAL INSTABILITY';
+    if (this.phase === 'EVACUATION_PROTOCOL') return 'EVACUATION PROTOCOL ACTIVATED';
+    if (this.phase === 'DESTRUCTION_FRONT') return 'DESTRUCTION FRONT APPROACHING';
+    if (this.phase === 'FINAL_COLLAPSE') return 'THE FINAL COLLAPSE';
+    return null;
+  }
+
+  public getTelemetry(): FinalCollapseTelemetry {
+    return {
+      phase: this.phase,
+      raceTimeRemaining: Math.floor(this.getTimeRemaining()),
+      collapseProgress: this.collapseProgress,
+      destructionFrontDistance: this.destructionFrontDistance,
+      safeZoneActive: this.safeZoneActive,
+      towerEntryActive: this.towerEntryActive,
+      towerSealed: this.towerSealed,
+      objective: this.getObjective(),
+      warning: this.getWarning(),
+    };
+  }
+}

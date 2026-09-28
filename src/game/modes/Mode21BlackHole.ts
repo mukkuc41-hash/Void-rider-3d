@@ -23,7 +23,7 @@ export interface BlackHoleMode21Descriptor {
   description: string;
   submodeCount: number;
   submodes: readonly BlackHoleSubmodeConfig[];
-  finalSubmodeId: 'FINAL_SINGULARITY';
+  finalSubmodeId: 'FINAL_COLLAPSE';
   finalCountdownSeconds: number;
 }
 
@@ -33,11 +33,11 @@ export const Mode21BlackHole: BlackHoleMode21Descriptor = {
   name: 'BLACK HOLE',
   subtitle: 'QUANTUM LAUNCH PRO',
   description:
-    'A ten-stage black-hole racing campaign featuring gravitational routes, dynamic track collapse, event-horizon hazards, tactical AI, emergency escapes, and a final five-minute singularity survival sequence.',
+    'A ten-submode black-hole racing campaign featuring gravitational routes, dynamic track collapse, event-horizon hazards, tactical AI, emergency escapes, and a final seven-minute five-stage singularity survival sequence.',
   submodeCount: BLACK_HOLE_SUBMODES.length,
   submodes: BLACK_HOLE_SUBMODES,
-  finalSubmodeId: 'FINAL_SINGULARITY',
-  finalCountdownSeconds: FINAL_SINGULARITY_DURATION_SECONDS,
+  finalSubmodeId: 'FINAL_COLLAPSE',
+  finalCountdownSeconds: 420,
 };
 
 export function getMode21BlackHoleSubmode(id: BlackHoleSubmodeId): BlackHoleSubmodeConfig {
@@ -52,6 +52,6 @@ export function getMode21BlackHoleSubmodeList(): readonly BlackHoleSubmodeConfig
   return Mode21BlackHole.submodes;
 }
 
-export function isMode21FinalSingularity(id: BlackHoleSubmodeId): boolean {
+export function isMode21FinalCollapse(id: BlackHoleSubmodeId): boolean {
   return id === Mode21BlackHole.finalSubmodeId;
 }

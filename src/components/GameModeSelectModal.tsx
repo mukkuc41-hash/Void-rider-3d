@@ -22,7 +22,7 @@ import {
   RotateCcw,
   Flag,
 } from 'lucide-react';
-import { GameMode, TrackId, AIDifficulty, GAME_MODE_CONFIGS } from '../types';
+import { GameMode, TrackId, AIDifficulty, GAME_MODE_CONFIGS, BlackHoleSubmodeId } from '../types';
 import { sound } from '../game/audio';
 
 export interface ModeLaunchConfig {
@@ -31,6 +31,7 @@ export interface ModeLaunchConfig {
   laps: number;
   difficulty: AIDifficulty;
   botCount: number;
+  blackHoleSubmode?: BlackHoleSubmodeId;
 }
 export type GameModeConfig = ModeLaunchConfig;
 
@@ -339,6 +340,94 @@ export const TWENTY_PROTOCOLS: ProtocolDef[] = [
     defaultLaps: 3,
     defaultTrack: 'circuit_alpha',
   },
+  {
+    id: 'BLACK_HOLE' as GameMode,
+    num: '21',
+    title: 'Black Hole',
+    subtitle: 'Quantum Launch Pro — THE FINAL COLLAPSE',
+    desc: 'Enter the event horizon through Quantum Launch Pro. Choose from ten Black-Hole submodes featuring gravity slingshots, collapsing routes, singularity hazards, alternate escape paths, and THE FINAL COLLAPSE sequence.',
+    badge: 'BLACK HOLE',
+    badgeColor: 'border-purple-500/70 bg-purple-950/80 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.45)]',
+    category: 'SINGULARITY',
+    icon: Orbit,
+    defaultBots: 4,
+    defaultLaps: 2,
+    defaultTrack: 'void_rift',
+    isBlackHole: true,
+  },
+];
+
+export const BLACK_HOLE_SUBMODES = [
+  {
+    id: 'SINGULARITY_DESCENT',
+    num: '01',
+    title: 'Singularity Descent',
+    subtitle: 'Controlled descent into the event horizon',
+    icon: Orbit,
+  },
+  {
+    id: 'GRAVITY_SLINGSHOT',
+    num: '02',
+    title: 'Gravity Slingshot',
+    subtitle: 'Use extreme gravity to accelerate around the singularity',
+    icon: Zap,
+  },
+  {
+    id: 'BLACK_HOLE_STORM',
+    num: '03',
+    title: 'Black-Hole Storm',
+    subtitle: 'Survive violent singularity pulses and gravity storms',
+    icon: Activity,
+  },
+  {
+    id: 'COLLAPSING_ORBIT',
+    num: '04',
+    title: 'Collapsing Orbit',
+    subtitle: 'Race while orbital track sections collapse',
+    icon: AlertTriangle,
+  },
+  {
+    id: 'BLACK_HOLE_TREASURE_HUNT',
+    num: '05',
+    title: 'Black-Hole Treasure Hunt',
+    subtitle: 'Locate and extract valuable relics near the singularity',
+    icon: Radar,
+  },
+  {
+    id: 'BLACK_HOLE_WARZONE',
+    num: '06',
+    title: 'Black-Hole Warzone',
+    subtitle: 'Combat race through a hostile black-hole sector',
+    icon: Crosshair,
+  },
+  {
+    id: 'EVENT_HORIZON_RUN',
+    num: '07',
+    title: 'Event Horizon Run',
+    subtitle: 'Push the limit along the edge of the event horizon',
+    icon: Flame,
+  },
+  {
+    id: 'BLACK_HOLE_MAZE',
+    num: '08',
+    title: 'The Black-Hole Maze',
+    subtitle: 'Navigate branching routes through distorted space',
+    icon: Compass,
+  },
+  {
+    id: 'SINGULARITY_RIVAL',
+    num: '09',
+    title: 'Singularity Rival',
+    subtitle: 'Race a rival pilot through the singularity zone',
+    icon: Target,
+  },
+  {
+    id: 'FINAL_COLLAPSE',
+    num: '10',
+    title: 'The Final Collapse',
+    subtitle: '5 MINUTES UNTIL THE VOID — survive the final collapse',
+    icon: Skull,
+  },
 ];
 
 interface SectorDef {
@@ -386,6 +475,10 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
   const [selectedSector, setSelectedSector] = useState<TrackId>('circuit_alpha');
   const [lapCount, setLapCount] = useState<number>(2);
   const [difficulty, setDifficulty] = useState<AIDifficulty>('STANDARD');
+  const [showBlackHoleSelector, setShowBlackHoleSelector] = useState<boolean>(false);
+  const [selectedBlackHoleSubmode, setSelectedBlackHoleSubmode] = useState<BlackHoleSubmodeId>(
+    'FINAL_COLLAPSE'
+  );
 
   const filteredProtocols = useMemo(() => {
     if (filterCategory === 'ALL') return TWENTY_PROTOCOLS;
@@ -405,6 +498,9 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
         laps: selectedMode === 'DEBRIS_SURVIVAL' ? 99 : lapCount,
         difficulty,
         botCount: activeDef.defaultBots,
+        ...(selectedMode === ('BLACK_HOLE' as GameMode)
+          ? { blackHoleSubmode: selectedBlackHoleSubmode }
+          : {}),
       });
     } else if (onSelectMode) {
       onSelectMode(selectedMode);
@@ -424,14 +520,14 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg sm:text-xl font-ui font-black uppercase tracking-wider text-white">
-                  VOID-RIDER 3D — 20 GAME MODES
+                  VOID-RIDER 3D — 21 GAME MODES
                 </h2>
                 <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold">
-                  20 PROTOCOLS
+                  21 PROTOCOLS
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                Mode 01 features the Black-Hole Singularity system. Modes 02–20 feature distinct non-black-hole gameplay.
+                Modes 01–20 remain unchanged. Mode 21 adds the Black Hole / Quantum Launch Pro experience with ten submodes.
               </p>
             </div>
           </div>
@@ -451,8 +547,8 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
         {/* Category Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto py-2.5 shrink-0 scrollbar-none border-b border-slate-800/80">
           {[
-            { id: 'ALL', label: 'ALL MODES (20)' },
-            { id: 'SINGULARITY', label: '01 BLACK HOLE (1)' },
+            { id: 'ALL', label: 'ALL MODES (21)' },
+            { id: 'SINGULARITY', label: 'BLACK HOLE (2)' },
             { id: 'CIRCUIT', label: 'CIRCUIT & SPEED (4)' },
             { id: 'SURVIVAL', label: 'COMBAT & SURVIVAL (5)' },
             { id: 'ANOMALY', label: 'ANOMALY HAZARDS (4)' },
@@ -475,7 +571,184 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
           ))}
         </div>
 
-        {/* Main Content Area: Split 2-Column on Desktop */}
+        {/* Dedicated Mode 21 — Black Hole / Quantum Launch Pro Selector */}
+        {showBlackHoleSelector && selectedMode === ('BLACK_HOLE' as GameMode) ? (
+          <div className="my-3 flex-1 overflow-y-auto pr-1">
+            <div className="rounded-2xl border border-purple-500/40 bg-purple-950/15 p-4 shadow-[0_0_30px_rgba(168,85,247,0.12)]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div>
+                  <div className="text-[10px] font-mono font-black tracking-[0.22em] text-purple-300">
+                    MODE 21 — BLACK HOLE
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-ui font-black uppercase tracking-wider text-white mt-1">
+                    QUANTUM LAUNCH PRO
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-purple-300/80 font-mono mt-1">
+                    Select one of the 10 Black-Hole submodes. These are submodes of Mode 21.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    sound.playMenuClick();
+                    setShowBlackHoleSelector(false);
+                  }}
+                  className="self-start sm:self-auto px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-700 text-[10px] font-mono font-bold text-slate-300 hover:text-white hover:border-slate-500 transition-colors"
+                >
+                  ← BACK TO 21 MODES
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                {BLACK_HOLE_SUBMODES.map(submode => {
+                  const SubmodeIcon = submode.icon;
+                  const isSelected = selectedBlackHoleSubmode === submode.id;
+
+                  return (
+                    <button
+                      key={submode.id}
+                      onClick={() => {
+                        sound.playMenuClick();
+                        setSelectedBlackHoleSubmode(submode.id);
+                      }}
+                      className={`text-left p-3 rounded-2xl border transition-all min-h-[108px] ${
+                        isSelected
+                          ? 'bg-purple-900/40 border-purple-400 shadow-[0_0_18px_rgba(168,85,247,0.32)]'
+                          : 'bg-[#060e1b]/80 border-slate-800 hover:border-purple-500/50 hover:bg-purple-950/20'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className={`text-[10px] font-mono font-black ${
+                          isSelected ? 'text-purple-300' : 'text-slate-500'
+                        }`}>
+                          {submode.num}
+                        </span>
+                        <SubmodeIcon className={`w-4 h-4 ${
+                          isSelected ? 'text-purple-300' : 'text-slate-500'
+                        }`} />
+                      </div>
+
+                      <div className="mt-2">
+                        <div className="text-[11px] font-ui font-black uppercase tracking-wide text-white leading-tight">
+                          {submode.title}
+                        </div>
+                        <div className="text-[9px] text-slate-400 font-mono leading-snug mt-1">
+                          {submode.subtitle}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div className="lg:col-span-7 rounded-2xl border border-purple-500/20 bg-[#050b14]/90 p-4">
+                  <div className="text-[10px] font-mono font-black text-purple-300">
+                    SELECTED SUBMODE
+                  </div>
+
+                  {(() => {
+                    const selectedSubmode = BLACK_HOLE_SUBMODES.find(
+                      submode => submode.id === selectedBlackHoleSubmode
+                    ) || BLACK_HOLE_SUBMODES[0];
+                    const SelectedIcon = selectedSubmode.icon;
+
+                    return (
+                      <div className="mt-2 flex items-start gap-3">
+                        <div className="w-11 h-11 rounded-xl bg-purple-900/70 border border-purple-400/60 flex items-center justify-center shrink-0">
+                          <SelectedIcon className="w-5 h-5 text-purple-300" />
+                        </div>
+                        <div>
+                          <div className="text-[9px] font-mono font-black text-purple-400">
+                            SUBMODE {selectedSubmode.num} / 10
+                          </div>
+                          <h4 className="text-base font-ui font-black uppercase tracking-wide text-white mt-0.5">
+                            {selectedSubmode.title}
+                          </h4>
+                          <p className="text-[10px] text-slate-400 font-mono mt-1">
+                            {selectedSubmode.subtitle}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="mt-3 p-3 rounded-xl bg-purple-950/25 border border-purple-500/30 text-[10px] text-purple-200 font-mono leading-relaxed">
+                    QUANTUM LAUNCH PRO: Gravity fields, event-horizon hazards,
+                    collapsing routes and emergency escape routing are active for Mode 21.
+                  </div>
+                </div>
+
+                <div className="lg:col-span-5 rounded-2xl border border-cyan-500/20 bg-[#050b14]/90 p-4">
+                  <div className="text-[10px] font-mono font-black text-cyan-300 mb-2">
+                    SUBMODE CONFIGURATION
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <div>
+                      <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        ORBITAL SECTOR
+                      </label>
+                      <select
+                        value={selectedSector}
+                        onChange={e => setSelectedSector(e.target.value as TrackId)}
+                        className="w-full bg-[#081220] border border-cyan-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono focus:border-cyan-400 focus:outline-none"
+                      >
+                        {SECTORS.map(sec => (
+                          <option key={sec.id} value={sec.id}>
+                            {sec.name} ({sec.difficulty})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                          DIFFICULTY
+                        </label>
+                        <select
+                          value={difficulty}
+                          onChange={e => setDifficulty(e.target.value as AIDifficulty)}
+                          className="w-full bg-[#081220] border border-cyan-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono focus:border-cyan-400 focus:outline-none"
+                        >
+                          <option value="RECRUIT">RECRUIT</option>
+                          <option value="STANDARD">STANDARD</option>
+                          <option value="ACE">ACE</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                          LAPS
+                        </label>
+                        <select
+                          value={lapCount}
+                          onChange={e => setLapCount(Number(e.target.value))}
+                          className="w-full bg-[#081220] border border-cyan-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono focus:border-cyan-400 focus:outline-none"
+                        >
+                          <option value="1">1 LAP (SPRINT)</option>
+                          <option value="2">2 LAPS (STANDARD)</option>
+                          <option value="3">3 LAPS (CHAMPIONSHIP)</option>
+                          <option value="5">5 LAPS (ENDURANCE)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleLaunch}
+                    className="w-full mt-4 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] font-ui font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>LAUNCH BLACK HOLE</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+        /* Main Content Area: Split 2-Column on Desktop */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 my-3 flex-1 overflow-y-auto pr-1">
           {/* Left Column: Scrollable List of Modes */}
           <div className="lg:col-span-7 space-y-2 max-h-[52vh] overflow-y-auto pr-1">
@@ -491,6 +764,11 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
                     setSelectedMode(proto.id);
                     setSelectedSector(proto.defaultTrack);
                     setLapCount(proto.defaultLaps);
+                    if (proto.id === ('BLACK_HOLE' as GameMode)) {
+                      setShowBlackHoleSelector(true);
+                    } else {
+                      setShowBlackHoleSelector(false);
+                    }
                   }}
                   className={`p-3 rounded-2xl border transition-all cursor-pointer text-left ${
                     isSelected
@@ -674,6 +952,7 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

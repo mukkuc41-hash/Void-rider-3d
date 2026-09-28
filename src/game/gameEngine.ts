@@ -35,7 +35,7 @@ import {
   GameMode,
 } from '../types';
 import { BeamSystem, DEFAULT_BEAM_CUSTOMIZATION, DEFAULT_BEAM_UPGRADES } from './beamSystem';
-import { BlackHoleManager, SingularityTelemetry } from './blackHoleSystem';
+import { BlackHoleManager, FinalCollapseManager, SingularityTelemetry } from './blackHoleSystem';
 import { ModeManager, ModeHUDTelemetry } from './modeManager';
 import { ModeEntitySystem } from './modeEntitySystem';
 import { Obstacle, SamplePoint } from './trackData';
@@ -79,6 +79,8 @@ import {
 import { RaceIntroManager } from './cinematicIntro/raceIntroManager';
 import { IntroHUDTelemetry } from './cinematicIntro/cinematicTypes';
 import { FinishCinematicManager, FinishCinematicTelemetry } from './fullRouteCinematic/finishCinematicManager';
+import { BlackHoleCinematicManager, BlackHoleCinematicTelemetry } from './blackHoleCinematicManager';
+import { BLACK_HOLE_SUBMODES } from './blackHoleSubmodes';
 
 export interface LocalAIRacer {
   id: string;
@@ -162,6 +164,7 @@ export interface GameEngineCallbacks {
   onCountdownTick?: (count: number) => void;
   onEngineReady?: () => void;
   onFinishCinematicTelemetry?: (telemetry: FinishCinematicTelemetry | null) => void;
+  onBlackHoleCinematicTelemetry?: (telemetry: BlackHoleCinematicTelemetry | null) => void;
 }
 
 // Preallocated math objects for zero-allocation GC-free render loop
@@ -293,6 +296,17 @@ export class GameEngine {
   public activeGameMode: GameMode = 'NEON_CIRCUIT';
   public modeManager: ModeManager = new ModeManager('NEON_CIRCUIT');
   public blackHoleManager: BlackHoleManager | null = null;
+  public blackHoleCinematicManager: BlackHoleCinematicManager | null = null;
+  // Physical/state controller for Mode 21 / Submode 10. It is driven by the
+  // cinematic event sequence below; it does not replace the existing 20 modes.
+  public finalCollapseManager: FinalCollapseManager;
+  // Mode 21 / Submode 10 catastrophe state. Kept local to GameEngine so the
+  // 00:00 event can activate the physical evacuation junction without
+  // changing the other Black Hole submodes.
+  private finalCollapseCatastropheActive = false;
+  private finalCollapseShelterEntered = false;
+  private finalCollapseRaceFinishSent = false;
+  private finalCollapseLastEvent = 'NONE';
   public modeEntitySystem: ModeEntitySystem | null = null;
   public extendedPathManager!: ExtendedPathManager;
 
@@ -523,6 +537,19 @@ export class GameEngine {
     if (this.track) {
       this.minimapManager.initTrack(this.track.curve, this.track.checkpoints, this.track.id || 'SECTOR ALPHA');
     }
+
+    // Initialize reusable Black Hole cinematic/event manager
+    this.blackHoleCinematicManager = new BlackHoleCinematicManager({
+      scene: this.scene,
+      blackHoleCenter: new THREE.Vector3(0, -40, 0),
+      finalCountdownSeconds: 420,
+    });
+
+    // Mode 21 / Submode 10 physical catastrophe controller.
+    // The cinematic manager remains the event/timing authority; this manager
+    // supplies the physical catastrophe phase and shelter state.
+    this.finalCollapseManager = new FinalCollapseManager();
+    this.finalCollapseManager.start();
 
     // Initialize Extended Procedural Path & Streaming Manager
     this.extendedPathManager = new ExtendedPathManager(this.scene);
@@ -1056,6 +1083,12 @@ export class GameEngine {
     const gates = this.track.checkpoints;
 
     gates.forEach((gate, idx) => {
+      // Do not render the logical Gate 0 as a finish line in Final Collapse.
+      // Its physical completion point is the dedicated tower basement route.
+      const isFinalCollapse =
+        this.activeGameMode === 'BLACK_HOLE' && this.modeManager.blackHoleSubmode === 10;
+      if (isFinalCollapse && idx === 0) return;
+
       const group = new THREE.Group();
       group.position.copy(gate.position);
       group.lookAt(gate.position.clone().add(gate.tangent));
@@ -1572,6 +1605,17 @@ export class GameEngine {
     if (this.junctionManager) {
       this.junctionManager.mainTrack = this.track;
       this.junctionManager.initJunctions(trackId);
+
+      // Mode 21 / Submode 10: enable the real evacuation tower + basement
+      // junction only for THE FINAL COLLAPSE. All other modes keep the
+      // existing junction configuration unchanged.
+      const isFinalCollapse =
+        this.activeGameMode === 'BLACK_HOLE' && this.modeManager.blackHoleSubmode === 10;
+      // The evacuation tower/branch becomes physical only when the Final
+      // Collapse countdown actually reaches 00:00.
+      this.junctionManager.setFinalCollapseMode(
+        isFinalCollapse && this.finalCollapseCatastropheActive
+      );
     }
     if (this.minimapManager) {
       this.minimapManager.initTrack(this.track.curve, this.track.checkpoints, this.track.id || 'SECTOR ALPHA');
@@ -1693,6 +1737,13 @@ export class GameEngine {
   public startRace() {
     this.isRacing = true;
     this.isPaused = false;
+
+    if (this.activeGameMode === 'BLACK_HOLE' && this.modeManager.blackHoleSubmode === 10) {
+      // The survival clock begins when actual player control begins, not during
+      // the preview/intro. This guarantees a complete 07:00 playable window.
+      this.finalCollapseManager?.start();
+      this.blackHoleCinematicManager?.startFinalFiveMinuteCountdown();
+    }
     this.hasFinished = false;
     this.raceStartTime = Date.now();
     this.lapStartTime = Date.now();
@@ -1720,6 +1771,10 @@ export class GameEngine {
   public resetRaceState() {
     this.isRacing = false;
     this.isPaused = false;
+
+    // Reset the physical Final Collapse state without creating any shelter
+    // geometry. The shelter is created only when Submode 10 reaches 00:00.
+    this.finalCollapseManager?.start();
     this.hasFinished = false;
     this.finishLineCooldownTimer = 0;
     this.raceStartTime = 0;
@@ -2312,6 +2367,21 @@ export class GameEngine {
     }
 
     if (this.junctionManager.playerRouteProgress.isInBranch) {
+      // Once the player actually commits to the Final Collapse shelter branch,
+      // switch the event layer to TOWER_ENTRY. The player remains fully
+      // controllable; the event is only the physical-entry state marker.
+      if (
+        this.activeGameMode === 'BLACK_HOLE' &&
+        this.modeManager.blackHoleSubmode === 10 &&
+        this.finalCollapseCatastropheActive &&
+        this.junctionManager.playerRouteProgress.activeRouteId === 'bh10_shelter' &&
+        this.blackHoleCinematicManager?.event === 'EVACUATION'
+      ) {
+        this.blackHoleCinematicManager.start('TOWER_ENTRY');
+        this.blackHoleCinematicManager.cameraOverride = false;
+        this.blackHoleCinematicManager.gameplayLocked = false;
+      }
+
       const branchUpdate = this.junctionManager.updateRouteProgress(dt, this.currentSpeed, (cpIndices) => {
         cpIndices.forEach(cpIdx => {
           this.checkpointsPassedThisLap.add(cpIdx);
@@ -2324,6 +2394,23 @@ export class GameEngine {
       });
 
       if (branchUpdate.finishedBranch) {
+        const completedRouteId = this.junctionManager.playerRouteProgress.activeRouteId;
+
+        // Final Collapse: reaching the end of the shelter branch means the
+        // player physically entered the basement corridor. Do not finish the
+        // race here; the shelter must seal, then the external collapse plays.
+        if (
+          this.activeGameMode === 'BLACK_HOLE' &&
+          this.modeManager.blackHoleSubmode === 10 &&
+          completedRouteId === 'bh10_shelter' &&
+          !this.finalCollapseShelterEntered
+        ) {
+          this.finalCollapseShelterEntered = true;
+          this.finalCollapseManager?.beginTowerEntry();
+          this.blackHoleCinematicManager?.completeEscape();
+          this.cameraShake = Math.max(this.cameraShake, 0.45);
+        }
+
         // Rejoin main track smoothly at or past the junction exit
         const progressAdvance = (this.currentSpeed * dt) / this.track.totalLength;
         this.splineT = ((branchUpdate.rejoinSplineT + progressAdvance) % 1.0 + 1.0) % 1.0;
@@ -2449,6 +2536,159 @@ export class GameEngine {
     // Update Active Game Mode Telemetry
     const modeTelemetry = this.modeManager.update(dt, speedKmH, this.isBoosting, this.isDrifting);
     this.callbacks.onModeTelemetry?.(modeTelemetry);
+
+    // Mode 21 — Black Hole cinematic/event layer.
+    //
+    // The BlackHoleCinematicManager owns the timed presentation sequence.
+    // FinalCollapseManager owns the physical catastrophe phase/state.
+    // JunctionManager owns the actual playable evacuation route/tower.
+    //
+    // Keeping these three responsibilities separate prevents the 00:00 event
+    // from becoming a HUD-only transition and preserves Modes 01–20.
+    if (this.activeGameMode === 'BLACK_HOLE' && this.blackHoleCinematicManager) {
+      const blackHoleCinematic = this.blackHoleCinematicManager.update(dt);
+      const isFinalCollapse = this.modeManager.blackHoleSubmode === 10;
+
+      if (isFinalCollapse) {
+        const event = blackHoleCinematic.event;
+
+        // Keep the physical phase clock alive after the race countdown. Its
+        // own 300-second fallback cannot fire once we have moved past the
+        // opening phase; the cinematic event remains authoritative at 00:00.
+        this.finalCollapseManager?.update(dt);
+
+        // Detect every event transition exactly once. This is the key bridge
+        // between the timed cinematic sequence and the actual game systems.
+        if (event !== this.finalCollapseLastEvent) {
+          switch (event) {
+            case 'FINAL_SINGULARITY_WARNING':
+              this.finalCollapseManager?.beginTrackCollapse();
+              this.cameraShake = Math.max(this.cameraShake, 0.65);
+              break;
+
+            case 'SPAGHETTIFICATION':
+              this.finalCollapseManager?.beginSpaghettification();
+              this.cameraShake = Math.max(this.cameraShake, 0.85);
+              break;
+
+            case 'PLANETARY_COLLISION':
+              this.finalCollapseManager?.beginPlanetaryCollision();
+              this.cameraShake = Math.max(this.cameraShake, 1.0);
+              break;
+
+            case 'DESTRUCTION_FRONT':
+              this.finalCollapseManager?.beginDestructionFront(
+                blackHoleCinematic.destructionFrontDistance ?? 2500
+              );
+              this.cameraShake = Math.max(this.cameraShake, 1.1);
+              break;
+
+            case 'EVACUATION':
+              this.finalCollapseManager?.beginEmergencyRoute();
+
+              // This rebuild is intentional: it injects only the dedicated
+              // Submode-10 tower/basement junction. Other modes are untouched.
+              if (!this.finalCollapseCatastropheActive) {
+                this.finalCollapseCatastropheActive = true;
+                this.junctionManager.setFinalCollapseMode(true);
+
+                // Preserve the current position as the latest valid recovery
+                // point so catastrophe respawns never send the player backwards.
+                if (this.playerShipGroup) {
+                  this.latestValidCheckpoint = {
+                    idx: Math.max(0, this.nextCheckpointIdx - 1),
+                    t: this.splineT,
+                    pos: this.playerShipGroup.position.clone(),
+                  };
+                }
+              }
+
+              this.blackHoleCinematicManager.activateEscapeRoute();
+              this.cameraShake = Math.max(this.cameraShake, 1.0);
+              break;
+
+            case 'TOWER_ENTRY':
+              this.finalCollapseManager?.beginTowerEntry();
+              this.blackHoleCinematicManager.setObjective('REACH THE SAFE ZONE');
+              this.cameraShake = Math.max(this.cameraShake, 0.6);
+              break;
+
+            case 'TOWER_SEALING':
+              // The player has already completed the physical shelter branch.
+              // Seal the physical catastrophe state only after that entry.
+              if (this.finalCollapseShelterEntered) {
+                this.finalCollapseManager?.sealTower();
+                this.blackHoleCinematicManager.setObjective('SHELTER SEALED');
+              }
+              break;
+
+            case 'FINAL_COLLAPSE':
+              // The player is now protected. From this point onward the
+              // external collapse is a presentation/aftermath sequence.
+              this.finalCollapseManager?.beginFinalCollapse();
+              this.blackHoleCinematicManager.setObjective('SHELTER SEALED');
+              this.cameraShake = Math.max(this.cameraShake, 1.35);
+              break;
+
+            case 'RESULTS':
+              this.finalCollapseManager?.markSurvived();
+              break;
+          }
+
+          this.finalCollapseLastEvent = event;
+        }
+
+        // Keep the destruction-front distance synchronized every frame.
+        if (event === 'DESTRUCTION_FRONT') {
+          const distance = blackHoleCinematic.destructionFrontDistance ?? 2500;
+          this.finalCollapseManager?.updateDestructionFront(distance);
+        }
+
+        // During evacuation/tower entry, commit the only valid Final Collapse
+        // branch as soon as the player reaches the real junction approach.
+        // The player still drives the ship into the branch; there is no
+        // teleportation.
+        if (
+          this.finalCollapseCatastropheActive &&
+          (event === 'EVACUATION' || event === 'TOWER_ENTRY') &&
+          this.junctionManager.activeJunctionTelemetry?.junctionId ===
+            this.junctionManager.finalCollapseJunctionId &&
+          !this.junctionManager.playerRouteProgress.isInBranch &&
+          this.junctionManager.playerRouteProgress.activeRouteId !== 'bh10_shelter'
+        ) {
+          this.junctionManager.selectRouteByDirection('CENTER');
+        }
+
+        // Physical basement entry is detected from completion of the actual
+        // branch curve. It cannot be triggered by the normal finish line.
+        if (
+          this.finalCollapseShelterEntered &&
+          event === 'TOWER_SEALING' &&
+          this.blackHoleCinematicManager.isEventComplete()
+        ) {
+          this.finalCollapseManager?.sealTower();
+          this.blackHoleCinematicManager.startFinalCollapse();
+        }
+
+        // Only the completed RESULTS event ends Submode 10.
+        if (
+          event === 'RESULTS' &&
+          this.blackHoleCinematicManager.isEventComplete() &&
+          !this.finalCollapseRaceFinishSent
+        ) {
+          this.finalCollapseRaceFinishSent = true;
+          this.finalCollapseManager?.markSurvived();
+          this.hasFinished = true;
+          this.currentLap = this.totalLaps;
+          const finalTime = Date.now() - this.raceStartTime;
+          sound.playFinish();
+          this.callbacks.onRaceFinish(finalTime);
+        }
+
+      }
+
+      this.callbacks.onBlackHoleCinematicTelemetry?.(blackHoleCinematic);
+    }
 
     // Mode 01: Singularity Run (Black Hole System)
     if (this.activeGameMode === 'SINGULARITY_RUN' && this.blackHoleManager) {
@@ -2683,6 +2923,17 @@ export class GameEngine {
           this.modeManager.recordRingPassed();
         }
       }
+    }
+
+    // Mode 21 / Submode 10 — THE FINAL COLLAPSE has no finish line.
+    // The physical TOWER BASEMENT ACCESS branch is the only completion point.
+    const isFinalCollapse =
+      this.activeGameMode === 'BLACK_HOLE' && this.modeManager.blackHoleSubmode === 10;
+    if (isFinalCollapse) {
+      // Final Collapse completion is handled by the physical shelter branch
+      // and the post-seal collapse sequence above. Never use Gate 0 as a
+      // finish line for this submode.
+      return;
     }
 
     // 2. Check Finish Line / Lap Completion (Gate 0 or Spline Loop Wrap)
@@ -3739,6 +3990,17 @@ export class GameEngine {
     this.activeDifficulty = difficulty;
     this.modeManager.setMode(mode);
 
+    if (this.blackHoleCinematicManager) {
+      if (mode === 'BLACK_HOLE') {
+        this.blackHoleCinematicManager.start('INTRO');
+        if (this.modeManager.blackHoleSubmode === 10) {
+          this.blackHoleCinematicManager.startFinalFiveMinuteCountdown();
+        }
+      } else {
+        this.blackHoleCinematicManager.stop();
+      }
+    }
+
     if (this.extendedPathManager) {
       this.extendedPathManager.setMode(mode);
       this.setTrack(this.trackId, this.extendedPathManager.activeConfig.controlPoints);
@@ -3838,6 +4100,11 @@ export class GameEngine {
     try {
       // 1. Completely reset previous race state
       this.resetRaceState();
+      this.finalCollapseCatastropheActive = false;
+      this.finalCollapseShelterEntered = false;
+      this.finalCollapseRaceFinishSent = false;
+      this.finalCollapseLastEvent = 'NONE';
+      this.finalCollapseManager?.start();
 
       // 2. Resolve Track, Laps & Difficulty
       if (config.mode === 'VOID_CHAMPIONSHIP') {
@@ -3850,6 +4117,20 @@ export class GameEngine {
         this.totalLaps = config.laps || 2;
         if (config.mode) {
           this.setGameMode(config.mode, this.activeDifficulty);
+
+          if (config.mode === 'BLACK_HOLE' && config.blackHoleSubmode) {
+            const selectedSubmode = BLACK_HOLE_SUBMODES.find(
+              submode => submode.id === config.blackHoleSubmode
+            );
+
+            if (selectedSubmode) {
+              this.modeManager.setBlackHoleSubmode(selectedSubmode.number);
+              if (selectedSubmode.number === 10) {
+                this.finalCollapseManager?.start();
+                this.blackHoleCinematicManager?.startFinalFiveMinuteCountdown();
+              }
+            }
+          }
         }
         this.setTrack(config.trackId || 'circuit_alpha');
       }
@@ -3918,6 +4199,9 @@ export class GameEngine {
       } : undefined;
 
       try {
+        if (this.activeGameMode === 'BLACK_HOLE' && this.blackHoleCinematicManager) {
+          this.blackHoleCinematicManager.start('PRE_RACE');
+        }
         this.raceIntroManager.setMode(this.activeGameMode, this.track);
         this.raceIntroManager.startIntro(
           this.playerShipGroup,
@@ -5077,6 +5361,10 @@ export class GameEngine {
     }
     if (this.extendedPathManager) {
       this.extendedPathManager.dispose();
+    }
+    if (this.blackHoleCinematicManager) {
+      this.blackHoleCinematicManager.dispose();
+      this.blackHoleCinematicManager = null;
     }
     if (this.asteroidInstancedMesh) {
       this.scene.remove(this.asteroidInstancedMesh);
