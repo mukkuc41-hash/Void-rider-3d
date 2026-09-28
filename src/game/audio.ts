@@ -11,6 +11,18 @@ class SoundSystem {
   private boostGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
   private musicInterval: any = null;
+  private cinematicMusicBuffer: AudioBuffer | null = null;
+  private spaceAmbienceBuffer: AudioBuffer | null = null;
+  private launchBuffer: AudioBuffer | null = null;
+  private cinematicMusicSource: AudioBufferSourceNode | null = null;
+  private spaceAmbienceSource: AudioBufferSourceNode | null = null;
+  private cinematicMusicGain: GainNode | null = null;
+  private spaceAmbienceGain: GainNode | null = null;
+  private cinematicMasterGain: GainNode | null = null;
+  private cinematicMusicAudio: HTMLAudioElement | null = null;
+  private spaceAmbienceAudio: HTMLAudioElement | null = null;
+  private isCinematicAudioActive: boolean = false;
+  private isLoadingCinematicBuffers: boolean = false;
 
   public sfxEnabled: boolean = true;
   public musicEnabled: boolean = true;
@@ -22,12 +34,24 @@ class SoundSystem {
   public setSFXVolume(val: number) {
     this.sfxVolume = Math.max(0, Math.min(1, val));
     this.volume = this.sfxVolume;
+    if (this.spaceAmbienceGain && this.ctx) {
+      this.spaceAmbienceGain.gain.setValueAtTime(this.sfxEnabled && !this.isMuted ? 0.45 * this.sfxVolume : 0, this.ctx.currentTime);
+    }
+    if (this.spaceAmbienceAudio) {
+      this.spaceAmbienceAudio.volume = this.sfxEnabled && !this.isMuted ? 0.45 * this.sfxVolume : 0;
+    }
   }
 
   public setMusicVolume(val: number) {
     this.musicVolume = Math.max(0, Math.min(1, val));
     if (this.musicGain && this.ctx) {
       this.musicGain.gain.setValueAtTime(this.musicEnabled && !this.isMuted ? 0.12 * this.musicVolume : 0, this.ctx.currentTime);
+    }
+    if (this.cinematicMusicGain && this.ctx) {
+      this.cinematicMusicGain.gain.setValueAtTime(this.musicEnabled && !this.isMuted ? 0.75 * this.musicVolume : 0, this.ctx.currentTime);
+    }
+    if (this.cinematicMusicAudio) {
+      this.cinematicMusicAudio.volume = this.musicEnabled && !this.isMuted ? 0.75 * this.musicVolume : 0;
     }
   }
 
@@ -37,6 +61,15 @@ class SoundSystem {
     this.musicEnabled = !muted;
     if (this.musicGain && this.ctx) {
       this.musicGain.gain.setValueAtTime(this.musicEnabled && !this.isMuted ? 0.12 * this.musicVolume : 0, this.ctx.currentTime);
+    }
+    if (this.cinematicMasterGain && this.ctx) {
+      this.cinematicMasterGain.gain.setValueAtTime(muted ? 0 : 1, this.ctx.currentTime);
+    }
+    if (this.cinematicMusicAudio) {
+      this.cinematicMusicAudio.muted = muted;
+    }
+    if (this.spaceAmbienceAudio) {
+      this.spaceAmbienceAudio.muted = muted;
     }
   }
 
@@ -995,6 +1028,230 @@ class SoundSystem {
     osc.stop(now + 0.36);
   }
 
+
+  /**
+   * Real audio player for the cinematic intro:
+   * Plays /audio/cinematic-music.wav and /audio/space-ambience.wav simultaneously.
+   * Smoothly fades in on cinematic start, and smoothly fades out on race launch.
+   */
+  public async preloadCinematicAudio() {
+    if (this.isLoadingCinematicBuffers) return;
+    this.isLoadingCinematicBuffers = true;
+
+    const loadBuffer = async (url: string): Promise<AudioBuffer | null> => {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) return null;
+        const ab = await resp.arrayBuffer();
+        this.initContext();
+        if (!this.ctx) return null;
+        return await this.ctx.decodeAudioData(ab);
+      } catch (err) {
+        console.warn(`[Audio] Failed loading ${url}:`, err);
+        return null;
+      }
+    };
+
+    try {
+      const [musicBuf, ambBuf, launchBuf] = await Promise.all([
+        loadBuffer('/audio/cinematic-music.wav'),
+        loadBuffer('/audio/space-ambience.wav'),
+        loadBuffer('/audio/launch.wav'),
+      ]);
+      if (musicBuf) this.cinematicMusicBuffer = musicBuf;
+      if (ambBuf) this.spaceAmbienceBuffer = ambBuf;
+      if (launchBuf) this.launchBuffer = launchBuf;
+
+      if (this.isCinematicAudioActive) {
+        this.playActiveCinematicTracks();
+      }
+    } catch (_) {
+    } finally {
+      this.isLoadingCinematicBuffers = false;
+    }
+  }
+
+  public startCinematicAudio() {
+    this.initContext();
+    this.isCinematicAudioActive = true;
+    if (this.isMuted) return;
+
+    if (!this.cinematicMusicBuffer || !this.spaceAmbienceBuffer || !this.launchBuffer) {
+      this.preloadCinematicAudio();
+    }
+
+    this.playActiveCinematicTracks();
+  }
+
+  private playActiveCinematicTracks() {
+    if (!this.isCinematicAudioActive || this.isMuted) return;
+    this.initContext();
+
+    try {
+      if (this.ctx) {
+        const now = this.ctx.currentTime;
+        if (!this.cinematicMasterGain) {
+          this.cinematicMasterGain = this.ctx.createGain();
+          this.cinematicMasterGain.connect(this.ctx.destination);
+        }
+        this.cinematicMasterGain.gain.cancelScheduledValues(now);
+        this.cinematicMasterGain.gain.setValueAtTime(0.001, now);
+        this.cinematicMasterGain.gain.linearRampToValueAtTime(1.0, now + 1.2);
+
+        // 1. Real Cinematic Music (/audio/cinematic-music.wav)
+        if (this.cinematicMusicBuffer && !this.cinematicMusicSource) {
+          this.cinematicMusicSource = this.ctx.createBufferSource();
+          this.cinematicMusicSource.buffer = this.cinematicMusicBuffer;
+          this.cinematicMusicSource.loop = true;
+
+          this.cinematicMusicGain = this.ctx.createGain();
+          const targetMusicVol = this.musicEnabled ? 0.75 * this.musicVolume : 0;
+          this.cinematicMusicGain.gain.setValueAtTime(targetMusicVol, now);
+
+          this.cinematicMusicSource.connect(this.cinematicMusicGain);
+          this.cinematicMusicGain.connect(this.cinematicMasterGain);
+          this.cinematicMusicSource.start(now);
+        }
+
+        // 2. Real Space Ambience (/audio/space-ambience.wav)
+        if (this.spaceAmbienceBuffer && !this.spaceAmbienceSource) {
+          this.spaceAmbienceSource = this.ctx.createBufferSource();
+          this.spaceAmbienceSource.buffer = this.spaceAmbienceBuffer;
+          this.spaceAmbienceSource.loop = true;
+
+          this.spaceAmbienceGain = this.ctx.createGain();
+          const targetAmbVol = this.sfxEnabled ? 0.45 * this.sfxVolume : 0;
+          this.spaceAmbienceGain.gain.setValueAtTime(targetAmbVol, now);
+
+          this.spaceAmbienceSource.connect(this.spaceAmbienceGain);
+          this.spaceAmbienceGain.connect(this.cinematicMasterGain);
+          this.spaceAmbienceSource.start(now);
+        }
+      }
+
+      // Audio element fallback in case buffer decode is still resolving or context suspended
+      if (!this.cinematicMusicBuffer && !this.cinematicMusicAudio) {
+        try {
+          this.cinematicMusicAudio = new Audio('/audio/cinematic-music.wav');
+          this.cinematicMusicAudio.loop = true;
+          this.cinematicMusicAudio.volume = this.musicEnabled && !this.isMuted ? 0.75 * this.musicVolume : 0;
+          this.cinematicMusicAudio.play().catch(() => {});
+        } catch (_) {}
+      }
+      if (!this.spaceAmbienceBuffer && !this.spaceAmbienceAudio) {
+        try {
+          this.spaceAmbienceAudio = new Audio('/audio/space-ambience.wav');
+          this.spaceAmbienceAudio.loop = true;
+          this.spaceAmbienceAudio.volume = this.sfxEnabled && !this.isMuted ? 0.45 * this.sfxVolume : 0;
+          this.spaceAmbienceAudio.play().catch(() => {});
+        } catch (_) {}
+      }
+    } catch (e) {
+      console.warn('[Audio] startCinematicAudio error:', e);
+    }
+  }
+
+  public stopCinematicAudio(fadeSeconds: number = 0.8) {
+    this.isCinematicAudioActive = false;
+
+    // Fade HTML5 audio fallbacks if active
+    if (this.cinematicMusicAudio) {
+      const el = this.cinematicMusicAudio;
+      this.cinematicMusicAudio = null;
+      let vol = el.volume;
+      const interval = setInterval(() => {
+        vol = Math.max(0, vol - 0.1);
+        el.volume = vol;
+        if (vol <= 0) {
+          clearInterval(interval);
+          el.pause();
+          el.currentTime = 0;
+        }
+      }, 50);
+    }
+    if (this.spaceAmbienceAudio) {
+      const el = this.spaceAmbienceAudio;
+      this.spaceAmbienceAudio = null;
+      let vol = el.volume;
+      const interval = setInterval(() => {
+        vol = Math.max(0, vol - 0.1);
+        el.volume = vol;
+        if (vol <= 0) {
+          clearInterval(interval);
+          el.pause();
+          el.currentTime = 0;
+        }
+      }, 50);
+    }
+
+    if (!this.ctx || !this.cinematicMasterGain) {
+      this.cleanupCinematicAudio();
+      return;
+    }
+
+    try {
+      const now = this.ctx.currentTime;
+      const duration = Math.max(0.05, fadeSeconds);
+      this.cinematicMasterGain.gain.cancelScheduledValues(now);
+      this.cinematicMasterGain.gain.setValueAtTime(Math.max(0.001, this.cinematicMasterGain.gain.value), now);
+      this.cinematicMasterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      const mSrc = this.cinematicMusicSource;
+      const aSrc = this.spaceAmbienceSource;
+      const master = this.cinematicMasterGain;
+      this.cinematicMusicSource = null;
+      this.spaceAmbienceSource = null;
+      this.cinematicMasterGain = null;
+
+      window.setTimeout(() => {
+        try { mSrc?.stop(); } catch (_) {}
+        try { aSrc?.stop(); } catch (_) {}
+        try { master?.disconnect(); } catch (_) {}
+      }, duration * 1000 + 80);
+    } catch (_) {
+      this.cleanupCinematicAudio();
+    }
+  }
+
+  private cleanupCinematicAudio() {
+    try { this.cinematicMusicSource?.stop(); } catch (_) {}
+    try { this.spaceAmbienceSource?.stop(); } catch (_) {}
+    try { this.cinematicMasterGain?.disconnect(); } catch (_) {}
+    this.cinematicMusicSource = null;
+    this.spaceAmbienceSource = null;
+    this.cinematicMasterGain = null;
+  }
+
+  public playLaunchSound() {
+    this.initContext();
+    if (!this.sfxEnabled || this.isMuted) return;
+
+    if (this.ctx && this.launchBuffer) {
+      try {
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.launchBuffer;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.9 * this.sfxVolume, this.ctx.currentTime);
+        src.connect(gain);
+        gain.connect(this.ctx.destination);
+        src.start();
+        return;
+      } catch (_) {}
+    }
+
+    try {
+      const audio = new Audio('/audio/launch.wav');
+      audio.volume = Math.max(0, Math.min(1, 0.9 * this.sfxVolume));
+      audio.play().catch(() => {});
+    } catch (_) {
+      this.playThrusterIgnition();
+    }
+  }
+
+  public playLaunch() {
+    this.playLaunchSound();
+  }
+
   public startCosmicMusic() {
     this.initContext();
     if (!this.ctx || this.musicInterval) return;
@@ -1463,3 +1720,6 @@ class SoundSystem {
 
 export const sound = new SoundSystem();
 export const soundSystem = sound;
+if (typeof window !== 'undefined') {
+  sound.preloadCinematicAudio().catch(() => {});
+}

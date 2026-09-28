@@ -1806,9 +1806,13 @@ export class GameEngine {
       const slot = this.raceIntroManager.getGridSlot('player');
       if (slot && slot.worldPos.lengthSq() > 0) {
         const gridSample = this.track.getSampleAt(slot.splineT);
-        this.playerShipGroup.position.copy(slot.worldPos).add(
-          gridSample.normal.clone().multiplyScalar(1.6)
-        );
+        // GridSlot.worldPos already includes the canonical 1.6m hover height.
+        // Do not add the normal offset a second time, or the ship floats above
+        // the route during the cinematic intro.
+        this.playerShipGroup.position.copy(slot.worldPos);
+        _shipNegTangent.copy(gridSample.tangent).negate();
+        _shipRotMatrix.makeBasis(gridSample.binormal, gridSample.normal, _shipNegTangent);
+        this.playerShipGroup.quaternion.setFromRotationMatrix(_shipRotMatrix);
         this.splineT = slot.splineT;
         this.lateralOffset = slot.lateralOffset;
         this.currentSpeed = 0;
@@ -2689,8 +2693,17 @@ export class GameEngine {
 
     if ((isPhysicallyAtFinish || isSplineLoopWrapped) && this.finishLineCooldownTimer <= 0 && !this.isWrongWay) {
       const now = Date.now();
+      // A finish-line crossing is only a valid lap completion after every
+      // intermediate checkpoint on the current lap has been completed.
+      // This prevents spawning/restarting at the finish line from instantly
+      // advancing or finishing the race.
+      const requiredCheckpointCount = Math.max(0, totalCps - 1);
+      const completedCheckpointCount = Array.from(this.checkpointsPassedThisLap)
+        .filter((idx) => idx > 0 && idx < totalCps).length;
+      const completedCurrentLap = completedCheckpointCount >= requiredCheckpointCount;
+
       // Ensure player has been racing on this lap for at least 2.5 seconds
-      if (now - this.lapStartTime > 2500) {
+      if (completedCurrentLap && now - this.lapStartTime > 2500) {
         sound.playCheckpoint();
         this.finishLineCooldownTimer = 3.5; // 3.5s cooldown debounce
         this.latestValidCheckpoint = {
@@ -4161,9 +4174,8 @@ export class GameEngine {
           // at the same hover height used by the normal ship transform so they do
           // not appear buried below the route during the intro.
           const gridSample = this.track.getSampleAt(slot.splineT);
-          ai.group.position.copy(slot.worldPos).add(
-            gridSample.normal.clone().multiplyScalar(1.6)
-          );
+          // GridSlot.worldPos already includes the canonical 1.6m hover height.
+          ai.group.position.copy(slot.worldPos);
           ai.t = slot.splineT;
           ai.currentLateral = slot.lateralOffset;
           ai.speed = 0;

@@ -23,6 +23,9 @@ export class StartingGridManager {
   private formationElapsed: number = 0;
   private formationDuration: number = 2.4;
   private isFormationComplete: boolean = false;
+  // Keep the cinematic grid at the same hover height used by normal gameplay.
+  // The game engine consumes GridSlot.worldPos directly while the intro is locked.
+  private readonly gridHoverHeight: number = 1.6;
   private cinematicCamera: CinematicCamera;
 
   constructor(
@@ -179,7 +182,7 @@ export class StartingGridManager {
     const playerSample = this.track.getSampleAt(playerTargetT);
     const playerWorldPos = playerSample.point.clone()
       .addScaledVector(playerSample.binormal, playerTargetLateral)
-      .addScaledVector(playerSample.normal, 1.2);
+      .addScaledVector(playerSample.normal, this.gridHoverHeight);
 
     this.gridSlots.set('player', {
       racerId: 'player',
@@ -237,7 +240,7 @@ export class StartingGridManager {
       const aiSample = this.track.getSampleAt(targetT);
       const aiWorldPos = aiSample.point.clone()
         .addScaledVector(aiSample.binormal, targetLateral)
-        .addScaledVector(aiSample.normal, 1.2);
+        .addScaledVector(aiSample.normal, this.gridHoverHeight);
 
       this.gridSlots.set(ai.id, {
         racerId: ai.id,
@@ -267,7 +270,7 @@ export class StartingGridManager {
         slot.worldPos
           .copy(sample.point)
           .addScaledVector(sample.binormal, slot.lateralOffset)
-          .addScaledVector(sample.normal, 1.2);
+          .addScaledVector(sample.normal, this.gridHoverHeight);
       });
 
       if (progress >= 1.0) {
@@ -288,7 +291,7 @@ export class StartingGridManager {
       slot.worldPos
         .copy(sample.point)
         .addScaledVector(sample.binormal, slot.targetLateral)
-        .addScaledVector(sample.normal, 1.2);
+        .addScaledVector(sample.normal, this.gridHoverHeight);
     }
     return slot;
   }

@@ -153,6 +153,9 @@ export class CinematicDirector {
     this.canSkip = false;
     this.rivalInfo = rival;
 
+    // Start the cinematic-only audio bed. It is faded out when the race launches.
+    sound.startCinematicAudio?.();
+
     const sample = this.track.getSampleAt(startT);
 
     // Build 3D starting gate
@@ -330,6 +333,10 @@ export class CinematicDirector {
       }
 
       case 'RACE_START':
+        // Hand audio back to gameplay as the launch begins.
+        sound.stopCinematicAudio?.(0.7);
+        sound.playLaunchSound?.();
+        sound.playThrusterIgnition?.();
         this.raceStartManager.triggerLaunch();
         this.callbacks.onRaceStart?.();
         break;
@@ -515,6 +522,7 @@ export class CinematicDirector {
   }
 
   public cleanup() {
+    sound.stopCinematicAudio?.(0.3);
     this.isIntroActive = false;
     this.routePreviewManager.cleanup();
     this.startingGridManager.cleanup();

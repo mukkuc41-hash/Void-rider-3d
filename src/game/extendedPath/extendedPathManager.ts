@@ -57,7 +57,7 @@ export class ExtendedPathManager {
 
   public setMode(mode: GameMode) {
     this.activeConfig = getExtendedPathConfig(mode);
-    this.curve = this.buildCurve(this.activeConfig.controlPoints);
+    this.curve = this.buildCurve(this.getRaceControlPoints());
 
     this.buildSegments();
     this.buildCheckpoints();
@@ -65,7 +65,29 @@ export class ExtendedPathManager {
     this.buildBranches();
 
     // Initialize subsystems
-    this.cinematicSystem.initTriggers(this.activeConfig.cinematicTriggers);
+    const authoredTriggers = this.activeConfig.cinematicTriggers || [];
+    const authoredT = new Set(authoredTriggers.map(t => Number(t.triggerT.toFixed(3))));
+    const extraShots = [
+      { t: 0.24, shotType: 'SHOT_02_SIDE_FLYBY' as const, title: 'EXTENDED ROUTE // SECTOR TRANSFER', subtitle: 'HIGH-SPEED TRAJECTORY LOCK', durationSec: 2.0 },
+      { t: 0.62, shotType: 'SHOT_06_ORBITING_PLAYER' as const, title: 'EXTENDED ROUTE // SET PIECE', subtitle: 'ENVIRONMENTAL SCALE REVEAL', durationSec: 2.2 },
+      { t: 0.76, shotType: 'SHOT_05_FRONT_OBSTACLE_REVEAL' as const, title: 'EXTENDED ROUTE // HAZARD GAUNTLET', subtitle: 'OBSTACLE FIELD AHEAD', durationSec: 2.0 },
+    ];
+    const cinematicTriggers = [
+      ...authoredTriggers,
+      ...extraShots.filter(s => !authoredT.has(Number(s.t.toFixed(3)))).map((s, i) => ({
+        id: `${this.activeConfig.modeId.toLowerCase()}_extended_cinematic_${i + 1}`,
+        title: s.title,
+        subtitle: s.subtitle,
+        triggerT: s.t,
+        durationSec: s.durationSec,
+        shotType: s.shotType,
+        fovDelta: s.shotType === 'SHOT_02_SIDE_FLYBY' ? 8 : 12,
+        timeScale: 1.0,
+        cameraOffset: [0, 4, -12] as [number, number, number],
+        lookAtOffset: [0, 1.5, 18] as [number, number, number],
+      })),
+    ].sort((a, b) => a.triggerT - b.triggerT);
+    this.cinematicSystem.initTriggers(cinematicTriggers);
     this.envManager.initEnvironment(this.activeConfig.environmentZones, this.curve);
 
     const isCollapsing = mode === 'COLLAPSING_TRACK';
@@ -73,9 +95,31 @@ export class ExtendedPathManager {
     this.streamingManager.initSegments(this.segments, this.curve, themeColor, isCollapsing);
   }
 
-  private buildCurve(points: [number, number, number][]): THREE.CatmullRomCurve3 {
+  /**
+   * Return the physical race geometry normalized to the configured target spline
+   * length. The mode files contain expanded geometry, but this final normalization
+   * makes the gameplay route length, checkpoint spacing, AI progress and HUD
+   * telemetry use the same distance source of truth.
+   */
+  public getRaceControlPoints(): [number, number, number][] {
+    const points = this.activeConfig.controlPoints.map(p => [p[0], p[1], p[2]] as [number, number, number]);
+    if (!this.activeConfig.targetSplineLength || points.length < 3) return points;
+
+    const rawCurve = this.buildCurveRaw(points);
+    const rawLength = rawCurve.getLength();
+    if (!Number.isFinite(rawLength) || rawLength <= 0) return points;
+
+    const scale = this.activeConfig.targetSplineLength / rawLength;
+    return points.map(([x, y, z]) => [x * scale, y * scale, z * scale]);
+  }
+
+  private buildCurveRaw(points: [number, number, number][]): THREE.CatmullRomCurve3 {
     const vPoints = points.map(p => new THREE.Vector3(p[0], p[1], p[2]));
     return new THREE.CatmullRomCurve3(vPoints, true, 'centripetal', 0.5);
+  }
+
+  private buildCurve(points: [number, number, number][]): THREE.CatmullRomCurve3 {
+    return this.buildCurveRaw(points);
   }
 
   private buildSegments() {
@@ -150,7 +194,9 @@ export class ExtendedPathManager {
 
   private buildCheckpoints() {
     this.checkpoints = [];
-    const count = 12;
+    // Longer routes receive proportionally more gates. Keep enough gates for
+    // meaningful progression without turning the course into a wall of arches.
+    const count = Math.max(16, Math.min(32, Math.round(this.activeConfig.targetSplineLength / 500)));
 
     for (let i = 0; i < count; i++) {
       const t = i / count;

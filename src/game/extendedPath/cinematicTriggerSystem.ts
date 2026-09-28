@@ -191,7 +191,7 @@ export class CinematicTriggerSystem {
       case 'SHOT_01_LOW_REAR_CHASE': {
         // Camera extremely low to the track, tightly following exhaust thrusters
         const dist = 7.0 - progress * 1.5;
-        const height = 1.1 + Math.sin(progress * Math.PI) * 0.4;
+        const height = 2.0 + Math.sin(progress * Math.PI) * 0.7;
         pos.copy(shipPos)
           .addScaledVector(forward, -dist)
           .addScaledVector(up, height);
@@ -202,7 +202,7 @@ export class CinematicTriggerSystem {
 
       case 'SHOT_02_SIDE_FLYBY': {
         // Dramatic side camera as the ship roars past
-        const sideOffset = 14.0 + Math.sin(progress * Math.PI * 0.5) * 4.0;
+        const sideOffset = 16.0 + Math.sin(progress * Math.PI * 0.5) * 5.0;
         const lead = (progress - 0.5) * 20.0;
         pos.copy(shipPos)
           .addScaledVector(right, sideOffset)
@@ -251,7 +251,7 @@ export class CinematicTriggerSystem {
       case 'SHOT_06_ORBITING_PLAYER': {
         // 180-degree dynamic sweep around player
         this.orbitAngle = progress * Math.PI * 1.2;
-        const orbitRadius = 12.0;
+        const orbitRadius = 15.0;
         const orbitX = Math.cos(this.orbitAngle) * orbitRadius;
         const orbitZ = Math.sin(this.orbitAngle) * orbitRadius;
         pos.copy(shipPos)

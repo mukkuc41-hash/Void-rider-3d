@@ -25,7 +25,7 @@ export const ROUTE_12_SHOTS: RouteShotDefinition[] = [
     name: 'LAUNCH PADDOCK // DESCENT APPROACH',
     durationSec: 8.85,
     startSplineT: 0.98,
-    endSplineT: 0.04,
+    endSplineT: 1.04,
     altitudeOffset: 45,
     lookAheadT: 0.05,
     fovStart: 68,
@@ -246,8 +246,13 @@ export class RouteCameraPath {
     currentSplineT: number;
     shake: number;
   } {
-    const tCurrent = (shot.startSplineT + (shot.endSplineT - shot.startSplineT) * shotProgress + 1.0) % 1.0;
-    const tLook = (tCurrent + shot.lookAheadT + 1.0) % 1.0;
+    // Interpolate spline progress in authored travel direction.  Values above 1.0
+    // intentionally wrap through the finish/start seam (e.g. 0.98 -> 1.04),
+    // instead of taking the long way around the course.
+    const rawCurrentT = shot.startSplineT + (shot.endSplineT - shot.startSplineT) * shotProgress;
+    const tCurrent = ((rawCurrentT % 1.0) + 1.0) % 1.0;
+    const rawLookT = rawCurrentT + shot.lookAheadT;
+    const tLook = ((rawLookT % 1.0) + 1.0) % 1.0;
 
     const currentSample = this.track.getSampleAt(tCurrent);
     const lookSample = this.track.getSampleAt(tLook);
@@ -277,14 +282,21 @@ export class RouteCameraPath {
       const normal = currentSample.normal.clone().normalize();
       const binormal = currentSample.binormal.clone().normalize();
 
-      // Camera offset along normal and binormal
-      const sideFactor = Math.sin(shotProgress * Math.PI) * (shot.index % 2 === 0 ? 12 : -12);
+      // Keep the cinematic camera in the route's local frame. This is important
+      // for climbing, descending, banked and inverted sections: world-Y offsets
+      // can put the camera inside the track or below it.
+      const sideSweep = Math.sin(shotProgress * Math.PI);
+      const sideFactor = sideSweep * (shot.index % 2 === 0 ? 12 : -12);
+      const safeAltitude = Math.max(2.5, shot.altitudeOffset);
+
       pos.copy(currentSample.point)
-        .addScaledVector(normal, shot.altitudeOffset)
+        .addScaledVector(normal, safeAltitude)
         .addScaledVector(binormal, sideFactor)
         .addScaledVector(tangent, -8);
 
-      lookAt.copy(lookSample.point).addScaledVector(normal, 2.0);
+      // Look slightly above the route surface in its local normal direction,
+      // keeping the ship/track visible even on vertical or inverted sections.
+      lookAt.copy(lookSample.point).addScaledVector(lookSample.normal, 2.5);
     }
 
     const fov = THREE.MathUtils.lerp(shot.fovStart, shot.fovEnd, shotProgress);

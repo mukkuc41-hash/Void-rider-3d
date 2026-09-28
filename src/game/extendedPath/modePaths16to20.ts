@@ -13,31 +13,31 @@ export const MODE_PATH_16_RIVAL_DUEL: ExtendedPathConfig = {
   modeId: 'RIVAL_DUEL',
   modeName: 'RIVAL DUEL',
   locationName: 'APEX GLADIATORIAL CHASM // SECTOR 16',
-  totalEquivalentKm: 5.6,
-  targetSplineLength: 4700,
+  totalEquivalentKm: 10.1,
+  targetSplineLength: 8500,
   controlPoints: [
-    [0, 10, 0],             // 00 Duel arena staging gates
-    [70, 25, -380],         // 01 Wide side-by-side overtaking highway
-    [210, 65, -840],        // 02 High-speed banked curve
-    [440, 95, -1360],       // 03 Technical canyon chicane
-    [640, 80, -1880],       // 04 Combat zone approach
-    [680, 25, -2380],       // 05 Narrow tunnel dive
-    [540, -40, -2820],      // 06 Technical S-bend gauntlet
-    [260, -85, -3100],      // 07 Deep chasm duel straightaway
-    [-110, -90, -3160],     // 08 Apex hairpin turn
-    [-460, -55, -2920],     // 09 Ascending combat sector
-    [-740, 10, -2480],      // 10 Drafting straight
-    [-840, 75, -1920],      // 11 Spire overpass curve
-    [-780, 110, -1340],     // 12 High-speed overtaking straight
-    [-540, 90, -780],       // 13 Arena entrance chicane
-    [-240, 45, -300],       // 14 Final 1v1 sprint straight
-    [-60, 15, 60],          // 15 Gladiatorial finish gate
+    [0, 18, 0],             // 00 Duel arena staging gates
+    [126, 45, -684],         // 01 Wide side-by-side overtaking highway
+    [378, 117, -1512],        // 02 High-speed banked curve
+    [792, 171, -2448],       // 03 Technical canyon chicane
+    [1152, 144, -3384],       // 04 Combat zone approach
+    [1224, 45, -4284],       // 05 Narrow tunnel dive
+    [972, -72, -5076],      // 06 Technical S-bend gauntlet
+    [468, -153, -5580],      // 07 Deep chasm duel straightaway
+    [-198, -162, -5688],     // 08 Apex hairpin turn
+    [-828, -99, -5256],     // 09 Ascending combat sector
+    [-1332, 18, -4464],      // 10 Drafting straight
+    [-1512, 135, -3456],      // 11 Spire overpass curve
+    [-1404, 198, -2412],     // 12 High-speed overtaking straight
+    [-972, 162, -1404],       // 13 Arena entrance chicane
+    [-432, 81, -540],       // 14 Final 1v1 sprint straight
+    [-108, 27, 108],          // 15 Gladiatorial finish gate
   ],
   sectors: [
-    { index: 1, name: 'SECTOR 1: OVERTAKING HIGHWAY', subtitle: 'SIDE-BY-SIDE DRAG', startT: 0.0, endT: 0.25, environment: 'DUEL_ARENA', hazardDensity: 0.2, recommendedSpeed: 760, description: 'Wide 4-lane straight designed for high-speed slipstreaming.' },
-    { index: 2, name: 'SECTOR 2: TECHNICAL CHASM', subtitle: 'DEFENSIVE BLOCKING', startT: 0.25, endT: 0.52, environment: 'DUEL_ARENA', hazardDensity: 0.45, recommendedSpeed: 680, description: 'Tight canyon bends testing steering precision and ramming defenses.' },
-    { index: 3, name: 'SECTOR 3: COMBAT TUNNEL', subtitle: 'MISSILE DUEL', startT: 0.52, endT: 0.78, environment: 'DUEL_ARENA', hazardDensity: 0.6, recommendedSpeed: 770, description: 'Enclosed tunnel where tactical missile timing decides position.' },
-    { index: 4, name: 'SECTOR 4: ARENA SHOWDOWN', subtitle: 'FINAL SPRINT', startT: 0.78, endT: 1.0, environment: 'DUEL_ARENA', hazardDensity: 0.7, recommendedSpeed: 880, description: 'Final drag race across the gladiatorial arena floor.' },
+    { index: 1, name: 'SECTOR 1: OVERTAKING HIGHWAY', subtitle: 'SIDE-BY-SIDE DRAG', startT: 0.0, endT: 0.25, environment: 'DUEL_ARENA', hazardDensity: 0.3, recommendedSpeed: 760, description: 'Wide 4-lane straight designed for high-speed slipstreaming.' },
+    { index: 2, name: 'SECTOR 2: TECHNICAL CHASM', subtitle: 'DEFENSIVE BLOCKING', startT: 0.25, endT: 0.52, environment: 'DUEL_ARENA', hazardDensity: 0.55, recommendedSpeed: 680, description: 'Tight canyon bends testing steering precision and ramming defenses.' },
+    { index: 3, name: 'SECTOR 3: COMBAT TUNNEL', subtitle: 'MISSILE DUEL', startT: 0.52, endT: 0.78, environment: 'DUEL_ARENA', hazardDensity: 0.7, recommendedSpeed: 770, description: 'Enclosed tunnel where tactical missile timing decides position.' },
+    { index: 4, name: 'SECTOR 4: ARENA SHOWDOWN', subtitle: 'FINAL SPRINT', startT: 0.78, endT: 1.0, environment: 'DUEL_ARENA', hazardDensity: 0.8, recommendedSpeed: 880, description: 'Final drag race across the gladiatorial arena floor.' },
   ],
   branches: [],
   cinematicTriggers: [
@@ -58,7 +58,9 @@ export const MODE_PATH_16_RIVAL_DUEL: ExtendedPathConfig = {
     { environment: 'DUEL_ARENA', startT: 0.0, endT: 1.0, fogColor: 0x1f0808, fogDensity: 0.0005, ambientColor: 0xdc2626, sunColor: 0xf87171, skyboxTheme: 'NEBULA', particleSpeedMultiplier: 1.6 },
   ],
   hazards: [
-    { id: 'h_duel_combat', name: 'GLADIATORIAL COMBAT SPIKES', startT: 0.35, endT: 0.7, hazardType: 'DRONE_MINES', intensity: 0.5, warningText: 'RIVAL WEAPONS ONLINE // PREPARE DEFENSIVE SHIELD', color: '#dc2626' },
+    { id: 'h_duel_combat_approach', name: 'GLADIATORIAL COMBAT SPIKES // APPROACH', startT: 0.19, endT: 0.31, hazardType: 'DRONE_MINES', intensity: 0.40, warningText: 'RIVAL WEAPONS ONLINE // PREPARE DEFENSIVE SHIELD', color: '#dc2626' },
+    { id: 'h_duel_combat_core', name: 'GLADIATORIAL COMBAT SPIKES', startT: 0.35, endT: 0.70, hazardType: 'DRONE_MINES', intensity: 0.50, warningText: 'RIVAL WEAPONS ONLINE // PREPARE DEFENSIVE SHIELD', color: '#dc2626' },
+    { id: 'h_duel_combat_final', name: 'GLADIATORIAL COMBAT SPIKES // FINAL GAUNTLET', startT: 0.72, endT: 0.92, hazardType: 'DRONE_MINES', intensity: 0.47, warningText: 'RIVAL WEAPONS ONLINE // PREPARE DEFENSIVE SHIELD', color: '#dc2626' },
   ],
   finalClimax: {
     startT: 0.84,
@@ -73,32 +75,32 @@ export const MODE_PATH_17_RELAY_RACE: ExtendedPathConfig = {
   modeId: 'RELAY_RACE',
   modeName: 'RELAY RACE',
   locationName: 'ODYSSEY EXPEDITION // 5-SECTOR TRANSIT',
-  totalEquivalentKm: 7.0,
-  targetSplineLength: 5800,
+  totalEquivalentKm: 12.6,
+  targetSplineLength: 10400,
   controlPoints: [
-    [0, 10, 0],             // 00 Sector A: Neon city launch
-    [-90, 30, -420],        // 01 Neon skyway
-    [-280, 80, -940],       // 02 Tower skybridge
-    [-540, 115, -1520],     // 03 Handoff Gate 1 (A to B)
-    [-760, 90, -2120],      // 04 Sector B: Asteroid mining trench
-    [-840, 35, -2700],      // 05 Asteroid cavern bend
-    [-740, -30, -3220],     // 06 Handoff Gate 2 (B to C)
-    [-460, -85, -3560],     // 07 Sector C: Plasma storm cloud
-    [-110, -95, -3660],     // 08 Lightning discharge curve
-    [240, -60, -3460],      // 09 Handoff Gate 3 (C to D)
-    [580, -10, -3020],      // 10 Sector D: Orbital station docks
-    [790, 60, -2440],       // 11 Station exterior skyway
-    [840, 110, -1780],      // 12 Handoff Gate 4 (D to E)
-    [690, 95, -1140],       // 13 Sector E: Hyperspace accelerator
-    [410, 50, -560],        // 14 Warp tunnel straight
-    [120, 15, -80],         // 15 Odyssey grand relay finish
+    [0, 18, 0],             // 00 Sector A: Neon city launch
+    [-162, 54, -756],        // 01 Neon skyway
+    [-504, 144, -1692],       // 02 Tower skybridge
+    [-972, 207, -2736],     // 03 Handoff Gate 1 (A to B)
+    [-1368, 162, -3816],      // 04 Sector B: Asteroid mining trench
+    [-1512, 63, -4860],      // 05 Asteroid cavern bend
+    [-1332, -54, -5796],     // 06 Handoff Gate 2 (B to C)
+    [-828, -153, -6408],     // 07 Sector C: Plasma storm cloud
+    [-198, -171, -6588],     // 08 Lightning discharge curve
+    [432, -108, -6228],      // 09 Handoff Gate 3 (C to D)
+    [1044, -18, -5436],      // 10 Sector D: Orbital station docks
+    [1422, 108, -4392],       // 11 Station exterior skyway
+    [1512, 198, -3204],      // 12 Handoff Gate 4 (D to E)
+    [1242, 171, -2052],       // 13 Sector E: Hyperspace accelerator
+    [738, 90, -1008],        // 14 Warp tunnel straight
+    [216, 27, -144],         // 15 Odyssey grand relay finish
   ],
   sectors: [
-    { index: 1, name: 'SECTOR A: NEON SPEEDWAY', subtitle: 'STAGE 1: AGILITY', startT: 0.0, endT: 0.2, environment: 'NEON_CITY', hazardDensity: 0.25, recommendedSpeed: 720, description: 'Speedster pilot lead-off leg through illuminated megacity corridors.' },
-    { index: 2, name: 'SECTOR B: ASTEROID CANYON', subtitle: 'STAGE 2: DURABILITY', startT: 0.2, endT: 0.42, environment: 'ASTEROID_FIELD', hazardDensity: 0.55, recommendedSpeed: 660, description: 'Armored pilot second leg navigating tumbling kinetic debris.' },
-    { index: 3, name: 'SECTOR C: ION PLASMA STORM', subtitle: 'STAGE 3: SHIELDING', startT: 0.42, endT: 0.64, environment: 'PLASMA_STORM', hazardDensity: 0.65, recommendedSpeed: 740, description: 'Energy specialist third leg fighting electrical storm discharges.' },
-    { index: 4, name: 'SECTOR D: STATION TRANSIT', subtitle: 'STAGE 4: PRECISION', startT: 0.64, endT: 0.82, environment: 'SKYLINE_HIGHWAY', hazardDensity: 0.5, recommendedSpeed: 780, description: 'Tactician fourth leg threading tight orbital station airlocks.' },
-    { index: 5, name: 'SECTOR E: HYPERSPACE ANCHOR', subtitle: 'STAGE 5: VELOCITY', startT: 0.82, endT: 1.0, environment: 'HYPERSPACE_VOID', hazardDensity: 0.75, recommendedSpeed: 960, description: 'Anchor racer final leg maximum supercharged boost to the line.' },
+    { index: 1, name: 'SECTOR A: NEON SPEEDWAY', subtitle: 'STAGE 1: AGILITY', startT: 0.0, endT: 0.2, environment: 'NEON_CITY', hazardDensity: 0.35, recommendedSpeed: 720, description: 'Speedster pilot lead-off leg through illuminated megacity corridors.' },
+    { index: 2, name: 'SECTOR B: ASTEROID CANYON', subtitle: 'STAGE 2: DURABILITY', startT: 0.2, endT: 0.42, environment: 'ASTEROID_FIELD', hazardDensity: 0.65, recommendedSpeed: 660, description: 'Armored pilot second leg navigating tumbling kinetic debris.' },
+    { index: 3, name: 'SECTOR C: ION PLASMA STORM', subtitle: 'STAGE 3: SHIELDING', startT: 0.42, endT: 0.64, environment: 'PLASMA_STORM', hazardDensity: 0.75, recommendedSpeed: 740, description: 'Energy specialist third leg fighting electrical storm discharges.' },
+    { index: 4, name: 'SECTOR D: STATION TRANSIT', subtitle: 'STAGE 4: PRECISION', startT: 0.64, endT: 0.82, environment: 'SKYLINE_HIGHWAY', hazardDensity: 0.6, recommendedSpeed: 780, description: 'Tactician fourth leg threading tight orbital station airlocks.' },
+    { index: 5, name: 'SECTOR E: HYPERSPACE ANCHOR', subtitle: 'STAGE 5: VELOCITY', startT: 0.82, endT: 1.0, environment: 'HYPERSPACE_VOID', hazardDensity: 0.85, recommendedSpeed: 960, description: 'Anchor racer final leg maximum supercharged boost to the line.' },
   ],
   branches: [],
   cinematicTriggers: [
@@ -123,7 +125,9 @@ export const MODE_PATH_17_RELAY_RACE: ExtendedPathConfig = {
     { environment: 'HYPERSPACE_VOID', startT: 0.82, endT: 1.0, fogColor: 0x07011d, fogDensity: 0.0004, ambientColor: 0x8b5cf6, sunColor: 0xa78bfa, skyboxTheme: 'QUANTUM', particleSpeedMultiplier: 2.6 },
   ],
   hazards: [
-    { id: 'h_relay_gates', name: 'RELAY ENERGY ARCS', startT: 0.35, endT: 0.65, hazardType: 'LASER_BARRIER', intensity: 0.5, warningText: 'TRANSIT ZONE GATES SYNCHRONIZED', color: '#06b6d4' },
+    { id: 'h_relay_gates_approach', name: 'RELAY ENERGY ARCS // APPROACH', startT: 0.19, endT: 0.31, hazardType: 'LASER_BARRIER', intensity: 0.40, warningText: 'TRANSIT ZONE GATES SYNCHRONIZED', color: '#06b6d4' },
+    { id: 'h_relay_gates_core', name: 'RELAY ENERGY ARCS', startT: 0.35, endT: 0.65, hazardType: 'LASER_BARRIER', intensity: 0.50, warningText: 'TRANSIT ZONE GATES SYNCHRONIZED', color: '#06b6d4' },
+    { id: 'h_relay_gates_final', name: 'RELAY ENERGY ARCS // FINAL GAUNTLET', startT: 0.72, endT: 0.87, hazardType: 'LASER_BARRIER', intensity: 0.47, warningText: 'TRANSIT ZONE GATES SYNCHRONIZED', color: '#06b6d4' },
   ],
   finalClimax: {
     startT: 0.84,
@@ -138,32 +142,32 @@ export const MODE_PATH_18_SURVIVAL_ELIMINATION: ExtendedPathConfig = {
   modeId: 'SURVIVAL_ELIMINATION',
   modeName: 'SURVIVAL ELIMINATION',
   locationName: 'COLOSSEUM KNOCKOUT // SECTOR 18',
-  totalEquivalentKm: 6.6,
-  targetSplineLength: 5500,
+  totalEquivalentKm: 11.9,
+  targetSplineLength: 9900,
   controlPoints: [
-    [0, 10, 0],             // 00 Fleet staging arena (6 racers)
-    [90, 35, -440],         // 01 Stage 1: Wide warm-up highway
-    [290, 85, -960],        // 02 High-speed banked curve
-    [520, 125, -1540],      // 03 Elimination Gate 1 approach
-    [710, 95, -2160],       // 04 Stage 2: Tight chicane section
-    [740, 35, -2760],       // 05 Laser barrier obstacle lane
-    [610, -35, -3280],      // 06 Elimination Gate 2 approach
-    [320, -85, -3620],      // 07 Stage 3: Extreme technical chasm
-    [-60, -95, -3700],      // 08 Sharp hairpin with zero-G drift
-    [-440, -60, -3480],     // 09 Elimination Gate 3 approach
-    [-740, 5, -3020],       // 10 Stage 4: High-G corkscrew
-    [-890, 75, -2420],      // 11 Disintegrating track elements
-    [-840, 120, -1740],     // 12 Elimination Gate 4 (Final 2 Racers)
-    [-640, 95, -1120],      // 13 Stage 5: Championship 1v1 sprint
-    [-340, 45, -540],       // 14 Colosseum arena entry
-    [-80, 15, 60],          // 15 Winner takes all finish gate
+    [0, 18, 0],             // 00 Fleet staging arena (6 racers)
+    [162, 63, -792],         // 01 Stage 1: Wide warm-up highway
+    [522, 153, -1728],        // 02 High-speed banked curve
+    [936, 225, -2772],      // 03 Elimination Gate 1 approach
+    [1278, 171, -3888],       // 04 Stage 2: Tight chicane section
+    [1332, 63, -4968],       // 05 Laser barrier obstacle lane
+    [1098, -63, -5904],      // 06 Elimination Gate 2 approach
+    [576, -153, -6516],      // 07 Stage 3: Extreme technical chasm
+    [-108, -171, -6660],      // 08 Sharp hairpin with zero-G drift
+    [-792, -108, -6264],     // 09 Elimination Gate 3 approach
+    [-1332, 9, -5436],       // 10 Stage 4: High-G corkscrew
+    [-1602, 135, -4356],      // 11 Disintegrating track elements
+    [-1512, 216, -3132],     // 12 Elimination Gate 4 (Final 2 Racers)
+    [-1152, 171, -2016],      // 13 Stage 5: Championship 1v1 sprint
+    [-612, 81, -972],       // 14 Colosseum arena entry
+    [-144, 27, 108],          // 15 Winner takes all finish gate
   ],
   sectors: [
-    { index: 1, name: 'SECTOR 1: WARM-UP HIGHWAY', subtitle: 'ROUND 1: 6 RACERS', startT: 0.0, endT: 0.22, environment: 'ELIMINATION_GAUNTLET', hazardDensity: 0.25, recommendedSpeed: 740, description: 'Wide opening straight allowing racers to jostle for position.' },
-    { index: 2, name: 'SECTOR 2: LASER CHICANE', subtitle: 'ROUND 2: 5 RACERS', startT: 0.22, endT: 0.45, environment: 'ELIMINATION_GAUNTLET', hazardDensity: 0.5, recommendedSpeed: 680, description: 'Laser grids and narrowing lanes forcing aggressive overtakes.' },
-    { index: 3, name: 'SECTOR 3: CHASM HAIRPIN', subtitle: 'ROUND 3: 4 RACERS', startT: 0.45, endT: 0.68, environment: 'ELIMINATION_GAUNTLET', hazardDensity: 0.7, recommendedSpeed: 640, description: 'High-risk drift hairpin where mistakes cause immediate drops.' },
-    { index: 4, name: 'SECTOR 4: CORKSCREW GAUNTLET', subtitle: 'ROUND 4: 3 RACERS', startT: 0.68, endT: 0.85, environment: 'ELIMINATION_GAUNTLET', hazardDensity: 0.8, recommendedSpeed: 780, description: 'Violent 3D corkscrew leading to the penultimate knockout.' },
-    { index: 5, name: 'SECTOR 5: FINAL DUEL SPRINT', subtitle: 'FINAL 2 RACERS', startT: 0.85, endT: 1.0, environment: 'ELIMINATION_GAUNTLET', hazardDensity: 0.9, recommendedSpeed: 910, description: 'Head-to-head sprint for ultimate survival supremacy.' },
+    { index: 1, name: 'SECTOR 1: WARM-UP HIGHWAY', subtitle: 'ROUND 1: 6 RACERS', startT: 0.0, endT: 0.22, environment: 'ELIMINATION_GAUNTLET', hazardDensity: 0.35, recommendedSpeed: 740, description: 'Wide opening straight allowing racers to jostle for position.' },
+    { index: 2, name: 'SECTOR 2: LASER CHICANE', subtitle: 'ROUND 2: 5 RACERS', startT: 0.22, endT: 0.45, environment: 'ELIMINATION_GAUNTLET', hazardDensity: 0.6, recommendedSpeed: 680, description: 'Laser grids and narrowing lanes forcing aggressive overtakes.' },
+    { index: 3, name: 'SECTOR 3: CHASM HAIRPIN', subtitle: 'ROUND 3: 4 RACERS', startT: 0.45, endT: 0.68, environment: 'ELIMINATION_GAUNTLET', hazardDensity: 0.8, recommendedSpeed: 640, description: 'High-risk drift hairpin where mistakes cause immediate drops.' },
+    { index: 4, name: 'SECTOR 4: CORKSCREW GAUNTLET', subtitle: 'ROUND 4: 3 RACERS', startT: 0.68, endT: 0.85, environment: 'ELIMINATION_GAUNTLET', hazardDensity: 0.9, recommendedSpeed: 780, description: 'Violent 3D corkscrew leading to the penultimate knockout.' },
+    { index: 5, name: 'SECTOR 5: FINAL DUEL SPRINT', subtitle: 'FINAL 2 RACERS', startT: 0.85, endT: 1.0, environment: 'ELIMINATION_GAUNTLET', hazardDensity: 1, recommendedSpeed: 910, description: 'Head-to-head sprint for ultimate survival supremacy.' },
   ],
   branches: [],
   cinematicTriggers: [
@@ -184,7 +188,9 @@ export const MODE_PATH_18_SURVIVAL_ELIMINATION: ExtendedPathConfig = {
     { environment: 'ELIMINATION_GAUNTLET', startT: 0.0, endT: 1.0, fogColor: 0x1f0404, fogDensity: 0.0006, ambientColor: 0xb91c1c, sunColor: 0xef4444, skyboxTheme: 'NEBULA', particleSpeedMultiplier: 1.8 },
   ],
   hazards: [
-    { id: 'h_elimination_cannon', name: 'ORBITAL ELIMINATION TARGETING', startT: 0.2, endT: 0.85, hazardType: 'DRONE_MINES', intensity: 0.8, warningText: 'MAINTAIN LEAD // LAST POSITION SHIP DESTROYED', color: '#ef4444' },
+    { id: 'h_elimination_cannon_approach', name: 'ORBITAL ELIMINATION TARGETING // APPROACH', startT: 0.08, endT: 0.20, hazardType: 'DRONE_MINES', intensity: 0.64, warningText: 'MAINTAIN LEAD // LAST POSITION SHIP DESTROYED', color: '#ef4444' },
+    { id: 'h_elimination_cannon_core', name: 'ORBITAL ELIMINATION TARGETING', startT: 0.20, endT: 0.85, hazardType: 'DRONE_MINES', intensity: 0.80, warningText: 'MAINTAIN LEAD // LAST POSITION SHIP DESTROYED', color: '#ef4444' },
+    { id: 'h_elimination_cannon_final', name: 'ORBITAL ELIMINATION TARGETING // FINAL GAUNTLET', startT: 0.72, endT: 0.92, hazardType: 'DRONE_MINES', intensity: 0.76, warningText: 'MAINTAIN LEAD // LAST POSITION SHIP DESTROYED', color: '#ef4444' },
   ],
   finalClimax: {
     startT: 0.85,
@@ -199,31 +205,31 @@ export const MODE_PATH_19_TREASURE_HUNT: ExtendedPathConfig = {
   modeId: 'COSMIC_TREASURE_HUNT',
   modeName: 'COSMIC TREASURE HUNT',
   locationName: 'PROGENITOR RUINS // LABYRINTH VAULT',
-  totalEquivalentKm: 6.4,
-  targetSplineLength: 5300,
+  totalEquivalentKm: 11.5,
+  targetSplineLength: 9500,
   controlPoints: [
-    [0, 10, 0],             // 00 Ancient ruins staging approach
-    [-80, 25, -400],        // 01 Carved megalith gates
-    [-260, 65, -880],       // 02 Crystal canyon entry
-    [-520, 105, -1420],     // 03 Hidden portal shortcut fork
-    [-740, 85, -1980],      // 04 Asteroid cave interior
-    [-810, 25, -2520],      // 05 Glowing alien relic chamber
-    [-710, -45, -3000],     // 06 Subterranean crystal bridge
-    [-440, -95, -3320],     // 07 Primary treasure vault approach
-    [-110, -100, -3420],    // 08 Ancient vault core platform
-    [240, -70, -3220],      // 09 Vault defense activation
-    [560, -15, -2800],      // 10 Extraction tunnel
-    [760, 45, -2260],       // 11 Megastructure spire climb
-    [810, 100, -1680],      // 12 High-altitude relic gauntlet
-    [680, 85, -1100],       // 13 Ruins exterior overpass
-    [410, 45, -540],        // 14 Artifact extraction straight
-    [120, 15, -80],         // 15 Research vessel finish
+    [0, 18, 0],             // 00 Ancient ruins staging approach
+    [-144, 45, -720],        // 01 Carved megalith gates
+    [-468, 117, -1584],       // 02 Crystal canyon entry
+    [-936, 189, -2556],     // 03 Hidden portal shortcut fork
+    [-1332, 153, -3564],      // 04 Asteroid cave interior
+    [-1458, 45, -4536],      // 05 Glowing alien relic chamber
+    [-1278, -81, -5400],     // 06 Subterranean crystal bridge
+    [-792, -171, -5976],     // 07 Primary treasure vault approach
+    [-198, -180, -6156],    // 08 Ancient vault core platform
+    [432, -126, -5796],      // 09 Vault defense activation
+    [1008, -27, -5040],      // 10 Extraction tunnel
+    [1368, 81, -4068],       // 11 Megastructure spire climb
+    [1458, 180, -3024],      // 12 High-altitude relic gauntlet
+    [1224, 153, -1980],       // 13 Ruins exterior overpass
+    [738, 81, -972],        // 14 Artifact extraction straight
+    [216, 27, -144],         // 15 Research vessel finish
   ],
   sectors: [
-    { index: 1, name: 'SECTOR 1: PROGENITOR ENTRANCE', subtitle: 'CRYSTAL CANYON', startT: 0.0, endT: 0.25, environment: 'TREASURE_VAULT', hazardDensity: 0.3, recommendedSpeed: 720, description: 'Threading ancient stone obelisks embedded with pulsating crystals.' },
-    { index: 2, name: 'SECTOR 2: ASTEROID CAVERN', subtitle: 'HIDDEN PORTALS', startT: 0.25, endT: 0.52, environment: 'TREASURE_VAULT', hazardDensity: 0.55, recommendedSpeed: 650, description: 'Labyrinthine cave system with branch shortcuts and relic caches.' },
-    { index: 3, name: 'SECTOR 3: ANCIENT VAULT CORE', subtitle: 'TREASURE SECURED', startT: 0.52, endT: 0.78, environment: 'TREASURE_VAULT', hazardDensity: 0.7, recommendedSpeed: 750, description: 'Vault awakens as the player claims the progenitor power artifact.' },
-    { index: 4, name: 'SECTOR 4: EXTRACTION FLIGHT', subtitle: 'FINAL RELIC ESCAPE', startT: 0.78, endT: 1.0, environment: 'TREASURE_VAULT', hazardDensity: 0.8, recommendedSpeed: 860, description: 'Maximum engine boost escape before the ancient ruin seals shut.' },
+    { index: 1, name: 'SECTOR 1: PROGENITOR ENTRANCE', subtitle: 'CRYSTAL CANYON', startT: 0.0, endT: 0.25, environment: 'TREASURE_VAULT', hazardDensity: 0.4, recommendedSpeed: 720, description: 'Threading ancient stone obelisks embedded with pulsating crystals.' },
+    { index: 2, name: 'SECTOR 2: ASTEROID CAVERN', subtitle: 'HIDDEN PORTALS', startT: 0.25, endT: 0.52, environment: 'TREASURE_VAULT', hazardDensity: 0.65, recommendedSpeed: 650, description: 'Labyrinthine cave system with branch shortcuts and relic caches.' },
+    { index: 3, name: 'SECTOR 3: ANCIENT VAULT CORE', subtitle: 'TREASURE SECURED', startT: 0.52, endT: 0.78, environment: 'TREASURE_VAULT', hazardDensity: 0.8, recommendedSpeed: 750, description: 'Vault awakens as the player claims the progenitor power artifact.' },
+    { index: 4, name: 'SECTOR 4: EXTRACTION FLIGHT', subtitle: 'FINAL RELIC ESCAPE', startT: 0.78, endT: 1.0, environment: 'TREASURE_VAULT', hazardDensity: 0.9, recommendedSpeed: 860, description: 'Maximum engine boost escape before the ancient ruin seals shut.' },
   ],
   branches: [],
   cinematicTriggers: [
@@ -244,7 +250,9 @@ export const MODE_PATH_19_TREASURE_HUNT: ExtendedPathConfig = {
     { environment: 'TREASURE_VAULT', startT: 0.0, endT: 1.0, fogColor: 0x051b14, fogDensity: 0.0005, ambientColor: 0x10b981, sunColor: 0x34d399, skyboxTheme: 'NEBULA', particleSpeedMultiplier: 1.5 },
   ],
   hazards: [
-    { id: 'h_vault_defenses', name: 'ANCIENT SENTINEL BEACONS', startT: 0.45, endT: 0.75, hazardType: 'LASER_BARRIER', intensity: 0.65, warningText: 'VAULT DEFENSES ACTIVE // COLLECT ENERGY GEMS', color: '#10b981' },
+    { id: 'h_vault_defenses_approach', name: 'ANCIENT SENTINEL BEACONS // APPROACH', startT: 0.29, endT: 0.41, hazardType: 'LASER_BARRIER', intensity: 0.52, warningText: 'VAULT DEFENSES ACTIVE // COLLECT ENERGY GEMS', color: '#10b981' },
+    { id: 'h_vault_defenses_core', name: 'ANCIENT SENTINEL BEACONS', startT: 0.45, endT: 0.75, hazardType: 'LASER_BARRIER', intensity: 0.65, warningText: 'VAULT DEFENSES ACTIVE // COLLECT ENERGY GEMS', color: '#10b981' },
+    { id: 'h_vault_defenses_final', name: 'ANCIENT SENTINEL BEACONS // FINAL GAUNTLET', startT: 0.72, endT: 0.92, hazardType: 'LASER_BARRIER', intensity: 0.62, warningText: 'VAULT DEFENSES ACTIVE // COLLECT ENERGY GEMS', color: '#10b981' },
   ],
   finalClimax: {
     startT: 0.83,
@@ -259,35 +267,35 @@ export const MODE_PATH_20_VOID_CHAMPIONSHIP: ExtendedPathConfig = {
   modeId: 'VOID_CHAMPIONSHIP',
   modeName: 'VOID CHAMPIONSHIP',
   locationName: 'THE GRAND PAN-COSMIC CIRCUIT // STAGE FINALE',
-  totalEquivalentKm: 8.5,
-  targetSplineLength: 7200,
+  totalEquivalentKm: 15.3,
+  targetSplineLength: 13000,
   controlPoints: [
-    [0, 10, 0],             // 00 Championship stadium staging
-    [90, 30, -480],         // 01 Sector 1: Neon city skyway
-    [280, 75, -1120],       // 02 Corporate tower chicane
-    [540, 120, -1860],      // 03 Transition to Sector 2: Asteroid trench
-    [760, 95, -2640],       // 04 Tumbling ore cavern
-    [820, 35, -3480],       // 05 Transition to Sector 3: Solar storm
-    [690, -35, -4280],      // 06 Solar flare corridor overpass
-    [410, -90, -4960],      // 07 Transition to Sector 4: Planetary ring
-    [40, -110, -5420],      // 08 Colossal orbital ring arc
-    [-380, -90, -5540],     // 09 Transition to Sector 5: Wormhole vortex
-    [-780, -35, -5260],     // 10 Warped subspace tunnel
-    [-1090, 30, -4640],     // 11 Transition to Sector 6: Hyperspace straight
-    [-1180, 95, -3780],     // 12 Maximum velocity tachyon corridor
-    [-1040, 125, -2820],    // 13 Transition to Sector 7: Grand Finale
-    [-760, 105, -1880],     // 14 Championship stadium skybridge
-    [-420, 60, -980],       // 15 Pyrotechnic archway descent
-    [-110, 15, -180],       // 16 Final sprint straight to podium gate
+    [0, 18, 0],             // 00 Championship stadium staging
+    [162, 54, -864],         // 01 Sector 1: Neon city skyway
+    [504, 135, -2016],       // 02 Corporate tower chicane
+    [972, 216, -3348],      // 03 Transition to Sector 2: Asteroid trench
+    [1368, 171, -4752],       // 04 Tumbling ore cavern
+    [1476, 63, -6264],       // 05 Transition to Sector 3: Solar storm
+    [1242, -63, -7704],      // 06 Solar flare corridor overpass
+    [738, -162, -8928],      // 07 Transition to Sector 4: Planetary ring
+    [72, -198, -9756],      // 08 Colossal orbital ring arc
+    [-684, -162, -9972],     // 09 Transition to Sector 5: Wormhole vortex
+    [-1404, -63, -9468],     // 10 Warped subspace tunnel
+    [-1962, 54, -8352],     // 11 Transition to Sector 6: Hyperspace straight
+    [-2124, 171, -6804],     // 12 Maximum velocity tachyon corridor
+    [-1872, 225, -5076],    // 13 Transition to Sector 7: Grand Finale
+    [-1368, 189, -3384],     // 14 Championship stadium skybridge
+    [-756, 108, -1764],       // 15 Pyrotechnic archway descent
+    [-198, 27, -324],       // 16 Final sprint straight to podium gate
   ],
   sectors: [
-    { index: 1, name: 'SECTOR 1: NEON METROPOLIS', subtitle: 'STAGE 1: URBAN SPRINT', startT: 0.0, endT: 0.16, environment: 'NEON_CITY', hazardDensity: 0.25, recommendedSpeed: 740, description: 'High-speed urban canyon between towering cybernetic skyscrapers.' },
-    { index: 2, name: 'SECTOR 2: ASTEROID BELT', subtitle: 'STAGE 2: KINETIC MINING', startT: 0.16, endT: 0.32, environment: 'ASTEROID_FIELD', hazardDensity: 0.5, recommendedSpeed: 680, description: 'Threading narrow rocky gorges through dense mineral deposits.' },
-    { index: 3, name: 'SECTOR 3: SOLAR CORONA', subtitle: 'STAGE 3: THERMAL FLARE', startT: 0.32, endT: 0.48, environment: 'SOLAR_CORONA', hazardDensity: 0.65, recommendedSpeed: 720, description: 'Extreme heat corridor flanking solar prominences and flares.' },
-    { index: 4, name: 'SECTOR 4: PLANETARY RING', subtitle: 'STAGE 4: ORBITAL ARC', startT: 0.48, endT: 0.64, environment: 'PLANETARY_RING', hazardDensity: 0.55, recommendedSpeed: 810, description: 'Banked curve across the shimmering ice particles of the orbital ring.' },
-    { index: 5, name: 'SECTOR 5: WORMHOLE RIFT', subtitle: 'STAGE 5: SUBSPACE CHUTE', startT: 0.64, endT: 0.78, environment: 'WORMHOLE', hazardDensity: 0.7, recommendedSpeed: 890, description: 'Distorted spacetime conduit bending ship velocity vectors.' },
-    { index: 6, name: 'SECTOR 6: HYPERSPACE SPRINT', subtitle: 'STAGE 6: TACHYON OVERDRIVE', startT: 0.78, endT: 0.88, environment: 'HYPERSPACE_VOID', hazardDensity: 0.6, recommendedSpeed: 1040, description: 'Superluminal long straightway leading to the championship arena.' },
-    { index: 7, name: 'SECTOR 7: STADIUM FINALE', subtitle: 'STAGE 7: GRAND PODIUM', startT: 0.88, endT: 1.0, environment: 'CHAMPIONSHIP_STADIUM', hazardDensity: 0.75, recommendedSpeed: 950, description: 'Pyrotechnic finish corridor before 500,000 spectators.' },
+    { index: 1, name: 'SECTOR 1: NEON METROPOLIS', subtitle: 'STAGE 1: URBAN SPRINT', startT: 0.0, endT: 0.16, environment: 'NEON_CITY', hazardDensity: 0.35, recommendedSpeed: 740, description: 'High-speed urban canyon between towering cybernetic skyscrapers.' },
+    { index: 2, name: 'SECTOR 2: ASTEROID BELT', subtitle: 'STAGE 2: KINETIC MINING', startT: 0.16, endT: 0.32, environment: 'ASTEROID_FIELD', hazardDensity: 0.6, recommendedSpeed: 680, description: 'Threading narrow rocky gorges through dense mineral deposits.' },
+    { index: 3, name: 'SECTOR 3: SOLAR CORONA', subtitle: 'STAGE 3: THERMAL FLARE', startT: 0.32, endT: 0.48, environment: 'SOLAR_CORONA', hazardDensity: 0.75, recommendedSpeed: 720, description: 'Extreme heat corridor flanking solar prominences and flares.' },
+    { index: 4, name: 'SECTOR 4: PLANETARY RING', subtitle: 'STAGE 4: ORBITAL ARC', startT: 0.48, endT: 0.64, environment: 'PLANETARY_RING', hazardDensity: 0.65, recommendedSpeed: 810, description: 'Banked curve across the shimmering ice particles of the orbital ring.' },
+    { index: 5, name: 'SECTOR 5: WORMHOLE RIFT', subtitle: 'STAGE 5: SUBSPACE CHUTE', startT: 0.64, endT: 0.78, environment: 'WORMHOLE', hazardDensity: 0.8, recommendedSpeed: 890, description: 'Distorted spacetime conduit bending ship velocity vectors.' },
+    { index: 6, name: 'SECTOR 6: HYPERSPACE SPRINT', subtitle: 'STAGE 6: TACHYON OVERDRIVE', startT: 0.78, endT: 0.88, environment: 'HYPERSPACE_VOID', hazardDensity: 0.7, recommendedSpeed: 1040, description: 'Superluminal long straightway leading to the championship arena.' },
+    { index: 7, name: 'SECTOR 7: STADIUM FINALE', subtitle: 'STAGE 7: GRAND PODIUM', startT: 0.88, endT: 1.0, environment: 'CHAMPIONSHIP_STADIUM', hazardDensity: 0.85, recommendedSpeed: 950, description: 'Pyrotechnic finish corridor before 500,000 spectators.' },
   ],
   branches: [],
   cinematicTriggers: [
@@ -314,7 +322,9 @@ export const MODE_PATH_20_VOID_CHAMPIONSHIP: ExtendedPathConfig = {
     { environment: 'CHAMPIONSHIP_STADIUM', startT: 0.88, endT: 1.0, fogColor: 0x180b26, fogDensity: 0.0004, ambientColor: 0xeab308, sunColor: 0xfacc15, skyboxTheme: 'NEON', particleSpeedMultiplier: 1.5 },
   ],
   hazards: [
-    { id: 'h_championship_pyro', name: 'CELEBRATORY PYROTECHNIC VOLLEYS', startT: 0.88, endT: 1.0, hazardType: 'DRONE_MINES', intensity: 0.4, warningText: 'PODIUM PYROTECHNIC SALVOS OVERHEAD', color: '#eab308' },
+    { id: 'h_championship_pyro_approach', name: 'CELEBRATORY PYROTECHNIC VOLLEYS // APPROACH', startT: 0.72, endT: 0.84, hazardType: 'DRONE_MINES', intensity: 0.32, warningText: 'PODIUM PYROTECHNIC SALVOS OVERHEAD', color: '#eab308' },
+    { id: 'h_championship_pyro_core', name: 'CELEBRATORY PYROTECHNIC VOLLEYS', startT: 0.88, endT: 1.00, hazardType: 'DRONE_MINES', intensity: 0.40, warningText: 'PODIUM PYROTECHNIC SALVOS OVERHEAD', color: '#eab308' },
+    { id: 'h_championship_pyro_final', name: 'CELEBRATORY PYROTECHNIC VOLLEYS // FINAL GAUNTLET', startT: 0.72, endT: 0.92, hazardType: 'DRONE_MINES', intensity: 0.38, warningText: 'PODIUM PYROTECHNIC SALVOS OVERHEAD', color: '#eab308' },
   ],
   finalClimax: {
     startT: 0.86,
