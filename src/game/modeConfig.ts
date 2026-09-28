@@ -14,6 +14,48 @@ export interface GameModeConfig {
 }
 
 export const GAME_MODE_CONFIGS: Record<GameMode, GameModeConfig> = {
+  BLACK_HOLE: {
+    id: 'BLACK_HOLE',
+    name: '21 — Black Hole: Quantum Launch Pro',
+    environment: 'Supermassive black hole, glowing accretion disk, photon ring, gravitational lensing, distorted starfield, tidal-force corridors and collapsing orbital structures',
+    objective: 'Complete the selected Quantum Launch Pro submode and use the active escape route to survive the black-hole event',
+    hazards: ['Gravity wells', 'Event-horizon zones', 'Tidal-force waves', 'Collapsing track sections', 'Accretion debris', 'Singularity pulses'],
+    mechanics: [
+      'BlackHoleSystem',
+      'BlackHoleCinematicManager',
+      'GravityField',
+      'EventHorizon',
+      'GravitySlingshot',
+      'DynamicTrackCollapse',
+      'QuantumLaunch',
+      'EmergencyEscapeRoute',
+      'BlackHoleAI',
+      'SafeZoneRouting',
+    ],
+    winCondition: 'Complete the selected Quantum Launch Pro objective and reach the final escape/finish zone',
+    lossCondition: 'Fall into the event horizon, miss the available escape route, crash beyond recovery, or exceed the active mode timer',
+    scoring: 'Finish position, checkpoint progress, escape speed, route efficiency, survival bonus, and submode objective completion',
+    allowedSystems: [
+      'UniversalPlayerSystem',
+      'AIController',
+      'TrackManager',
+      'RouteManager',
+      'JunctionManager',
+      'CheckpointManager',
+      'CollisionManager',
+      'DamageManager',
+      'ShieldManager',
+      'MissileSystem',
+      'RespawnManager',
+      'BoostManager',
+      'BlackHoleSystem',
+      'BlackHoleCinematicManager',
+      'ExtendedPathManager',
+      'MinimapSystem',
+      'AudioSystem',
+    ],
+  },
+
   SINGULARITY_RUN: {
     id: 'SINGULARITY_RUN',
     name: '01 — Singularity Run',

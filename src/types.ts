@@ -36,6 +36,7 @@ export type GameMode =
   | 'SURVIVAL_ELIMINATION'  // 18 — Progressive knockout elimination
   | 'COSMIC_TREASURE_HUNT'  // 19 — Radar scanner & ancient relics
   | 'VOID_CHAMPIONSHIP'     // 20 — 6-stage premier championship
+  | 'BLACK_HOLE'            // 21 — Black Hole / Quantum Launch Pro
   // Backward compatibility aliases
   | 'STANDARD'
   | 'GRAND_PRIX'
@@ -822,3 +823,37 @@ export interface MinimapTelemetry {
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
 }
 
+
+
+// MODE 21 — BLACK HOLE / QUANTUM LAUNCH PRO
+export type BlackHoleSubmodeId =
+  | 'SINGULARITY_DESCENT'
+  | 'GRAVITY_SLINGSHOT'
+  | 'BLACK_HOLE_STORM'
+  | 'COLLAPSING_ORBIT'
+  | 'BLACK_HOLE_TREASURE_HUNT'
+  | 'BLACK_HOLE_WARZONE'
+  | 'EVENT_HORIZON_RUN'
+  | 'BLACK_HOLE_MAZE'
+  | 'SINGULARITY_RIVAL'
+  | 'FINAL_SINGULARITY';
+
+export type BlackHoleDangerState =
+  | 'SAFE'
+  | 'WARNING'
+  | 'DANGER'
+  | 'CRITICAL'
+  | 'COLLAPSE';
+
+export interface BlackHoleSubmodeConfig {
+  id: BlackHoleSubmodeId;
+  number: number;
+  name: string;
+  objective: string;
+  trackId: string;
+  durationSeconds?: number;
+  sectors: number;
+  difficulty: AIDifficulty;
+  dangerProfile: BlackHoleDangerState[];
+  finalEscape: boolean;
+}

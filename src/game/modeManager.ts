@@ -27,6 +27,7 @@ export interface ModeHUDTelemetry {
     | 'ELIMINATION_CLOCK'
     | 'RELIC_RADAR'
     | 'CHAMPIONSHIP_POINTS'
+    | 'BLACK_HOLE'
     | 'STANDARD';
   stuntScore?: number;
   heatLevel?: number; // 0-100
@@ -42,6 +43,9 @@ export interface ModeHUDTelemetry {
   championshipStage?: number;
   championshipTotalStages?: number;
   championshipScore?: number;
+  blackHoleSubmode?: number;
+  blackHoleDanger?: 'SAFE' | 'WARNING' | 'DANGER' | 'CRITICAL' | 'COLLAPSE';
+  finalSingularityCountdown?: number;
 }
 
 export class ModeManager {
@@ -116,6 +120,11 @@ export class ModeManager {
   public totalChampionshipStages = 6;
   public championshipPoints = 0;
 
+  // Mode 21: Black Hole / Quantum Launch Pro
+  public blackHoleSubmode = 1;
+  public blackHoleDanger: 'SAFE' | 'WARNING' | 'DANGER' | 'CRITICAL' | 'COLLAPSE' = 'SAFE';
+  public finalSingularityCountdown = 300;
+
   constructor(mode: GameMode = 'NEON_CIRCUIT') {
     this.setMode(mode);
   }
@@ -141,6 +150,9 @@ export class ModeManager {
     this.activeRacersCount = 6;
     this.relicsFound = 0;
     this.championshipPoints = 0;
+    this.blackHoleSubmode = 1;
+    this.blackHoleDanger = 'SAFE';
+    this.finalSingularityCountdown = 300;
   }
 
   public update(dt: number, shipSpeed: number, isBoosting: boolean, isDrifting: boolean): ModeHUDTelemetry {
@@ -433,6 +445,57 @@ export class ModeManager {
           customOverlayType: 'RELIC_RADAR',
         };
 
+      case 'BLACK_HOLE': {
+        // Mode 21 uses one main mode with ten Quantum Launch Pro submodes.
+        // Submode 10 is the mandatory five-minute Final Singularity.
+        const submodeNames = [
+          '01 — SINGULARITY DESCENT',
+          '02 — GRAVITY SLINGSHOT',
+          '03 — BLACK-HOLE STORM',
+          '04 — COLLAPSING ORBIT',
+          '05 — BLACK-HOLE TREASURE HUNT',
+          '06 — BLACK-HOLE WARZONE',
+          '07 — EVENT HORIZON RUN',
+          '08 — THE BLACK-HOLE MAZE',
+          '09 — SINGULARITY RIVAL',
+          '10 — THE FINAL SINGULARITY',
+        ];
+
+        if (this.blackHoleSubmode === 10) {
+          this.finalSingularityCountdown = Math.max(0, 300 - this.modeTimer);
+          if (this.finalSingularityCountdown <= 120) this.blackHoleDanger = 'WARNING';
+          if (this.finalSingularityCountdown <= 60) this.blackHoleDanger = 'DANGER';
+          if (this.finalSingularityCountdown <= 15) this.blackHoleDanger = 'CRITICAL';
+          if (this.finalSingularityCountdown <= 0) this.blackHoleDanger = 'COLLAPSE';
+        }
+
+        return {
+          mode: 'BLACK_HOLE',
+          modeName: `21 — BLACK HOLE // ${submodeNames[Math.max(0, Math.min(9, this.blackHoleSubmode - 1))]}`,
+          objectiveText: this.blackHoleSubmode === 10
+            ? 'FIVE MINUTES TO THE END // REACH THE EVACUATION TOWER BEFORE SINGULARITY COLLAPSE'
+            : 'QUANTUM LAUNCH PRO // SURVIVE THE SINGULARITY & REACH THE ESCAPE ROUTE',
+          primaryMetricLabel: this.blackHoleSubmode === 10 ? 'TIME TO SINGULARITY' : 'GRAVITY FIELD',
+          primaryMetricValue: this.blackHoleSubmode === 10
+            ? `${Math.floor(this.finalSingularityCountdown / 60)}:${Math.floor(this.finalSingularityCountdown % 60).toString().padStart(2, '0')}`
+            : `${Math.min(100, Math.floor(this.modeTimer * 1.5))}%`,
+          secondaryMetricLabel: 'DANGER STATE',
+          secondaryMetricValue: this.blackHoleDanger,
+          progressPercent: this.blackHoleSubmode === 10
+            ? Math.min(100, (this.modeTimer / 300) * 100)
+            : Math.min(100, (this.modeTimer / 90) * 100),
+          warningAlert: this.blackHoleDanger === 'CRITICAL' || this.blackHoleDanger === 'COLLAPSE'
+            ? 'CRITICAL SINGULARITY // ESCAPE ROUTE ACTIVE'
+            : this.blackHoleDanger === 'DANGER'
+              ? 'DANGER // GRAVITY FIELD INTENSIFYING'
+              : undefined,
+          customOverlayType: 'BLACK_HOLE',
+          blackHoleSubmode: this.blackHoleSubmode,
+          blackHoleDanger: this.blackHoleDanger,
+          finalSingularityCountdown: this.blackHoleSubmode === 10 ? this.finalSingularityCountdown : undefined,
+        };
+      }
+
       case 'VOID_CHAMPIONSHIP':
         return {
           mode: 'VOID_CHAMPIONSHIP',
@@ -459,6 +522,17 @@ export class ModeManager {
           progressPercent: 50,
         };
     }
+  }
+
+  public setBlackHoleSubmode(submode: number) {
+    this.blackHoleSubmode = Math.max(1, Math.min(10, Math.floor(submode)));
+    this.modeTimer = 0;
+    this.blackHoleDanger = 'SAFE';
+    this.finalSingularityCountdown = 300;
+  }
+
+  public setBlackHoleDanger(state: 'SAFE' | 'WARNING' | 'DANGER' | 'CRITICAL' | 'COLLAPSE') {
+    this.blackHoleDanger = state;
   }
 
   public recordAsteroidDestroyed() {
