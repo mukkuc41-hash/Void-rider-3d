@@ -1716,6 +1716,393 @@ class SoundSystem {
       });
     } catch (_) {}
   }
+
+  // ==========================================
+  // MODE 21 — THE FINAL COLLAPSE SOUND FX
+  // ==========================================
+
+  /** Deep gravitational rumbling representing the singularity destabilization */
+  public playGravitationalRumble(duration = 3.5) {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+
+      // Sub-bass oscillator
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(42, now);
+      osc.frequency.exponentialRampToValueAtTime(28, now + duration);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(90, now);
+      filter.frequency.linearRampToValueAtTime(140, now + duration * 0.5);
+      filter.frequency.exponentialRampToValueAtTime(50, now + duration);
+
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.linearRampToValueAtTime(0.45 * this.volume, now + 0.4);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + duration + 0.1);
+    } catch (_) {}
+  }
+
+  /** Shrill pulsing emergency evacuation klaxon siren */
+  public playEmergencyAlarm() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sawtooth';
+      // Dual-tone alternating siren
+      osc.frequency.setValueAtTime(960, now);
+      osc.frequency.setValueAtTime(960, now + 0.12);
+      osc.frequency.setValueAtTime(720, now + 0.13);
+      osc.frequency.setValueAtTime(720, now + 0.25);
+      osc.frequency.setValueAtTime(960, now + 0.26);
+      osc.frequency.setValueAtTime(960, now + 0.38);
+      osc.frequency.setValueAtTime(720, now + 0.39);
+      osc.frequency.setValueAtTime(720, now + 0.5);
+
+      gain.gain.setValueAtTime(0.28 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.58);
+    } catch (_) {}
+  }
+
+  /** Thunderous cosmic explosion of two distant planets colliding */
+  public playPlanetaryCollision() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+
+      // Heavy sub-bass detonation
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(80, now);
+      osc.frequency.exponentialRampToValueAtTime(18, now + 2.8);
+
+      gain.gain.setValueAtTime(0.6 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 3.0);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 3.1);
+
+      // Noise shockwave burst
+      const bufferSize = this.ctx.sampleRate * 1.5;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.4));
+      }
+
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+      const noiseFilter = this.ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(320, now);
+      noiseFilter.frequency.exponentialRampToValueAtTime(60, now + 1.5);
+
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.4 * this.volume, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(this.ctx.destination);
+      noise.start(now);
+    } catch (_) {}
+  }
+
+  /** Heavy hydraulic servo release when evacuation blast doors open */
+  public playBlastDoorOpen() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      // Mechanical hydraulic hiss & tone
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.linearRampToValueAtTime(420, now + 0.8);
+
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.linearRampToValueAtTime(0.25 * this.volume, now + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.95);
+    } catch (_) {}
+  }
+
+  /** Massive metallic slam and hydraulic lock when blast doors seal */
+  public playBlastDoorClose() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      // Heavy metal clank
+      const osc1 = this.ctx.createOscillator();
+      const gain1 = this.ctx.createGain();
+      osc1.type = 'square';
+      osc1.frequency.setValueAtTime(140, now);
+      osc1.frequency.exponentialRampToValueAtTime(35, now + 0.35);
+
+      gain1.gain.setValueAtTime(0.55 * this.volume, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+      osc1.connect(gain1);
+      gain1.connect(this.ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.42);
+
+      // Deep locking bolt thud
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(65, now + 0.08);
+      osc2.frequency.exponentialRampToValueAtTime(20, now + 0.55);
+
+      gain2.gain.setValueAtTime(0.5 * this.volume, now + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+      osc2.connect(gain2);
+      gain2.connect(this.ctx.destination);
+      osc2.start(now + 0.08);
+      osc2.stop(now + 0.62);
+    } catch (_) {}
+  }
+
+  /** Tremendous crescendo implosion and cosmic shockwave */
+  public playFinalCosmicCollapse() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc.type = 'triangle';
+      // Inward pitch drop, then high energy release
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(30, now + 1.2);
+      osc.frequency.linearRampToValueAtTime(240, now + 1.5);
+      osc.frequency.exponentialRampToValueAtTime(20, now + 4.0);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(300, now);
+      filter.frequency.linearRampToValueAtTime(1200, now + 1.5);
+      filter.frequency.exponentialRampToValueAtTime(60, now + 4.2);
+
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.linearRampToValueAtTime(0.6 * this.volume, now + 1.5);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 4.5);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 4.6);
+    } catch (_) {}
+  }
+
+  /** White flashbang explosion with massive boom and high-frequency ringing */
+  public playFlashbangBoom() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+
+      // 1. Massive low-end boom detonation
+      const oscBoom = this.ctx.createOscillator();
+      const gainBoom = this.ctx.createGain();
+      oscBoom.type = 'sine';
+      oscBoom.frequency.setValueAtTime(110, now);
+      oscBoom.frequency.exponentialRampToValueAtTime(18, now + 1.8);
+
+      gainBoom.gain.setValueAtTime(0.85 * this.volume, now);
+      gainBoom.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
+
+      oscBoom.connect(gainBoom);
+      gainBoom.connect(this.ctx.destination);
+      oscBoom.start(now);
+      oscBoom.stop(now + 2.3);
+
+      // 2. White noise blast
+      const bufferSize = this.ctx.sampleRate * 1.2;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.25));
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.6 * this.volume, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+      noise.connect(noiseGain);
+      noiseGain.connect(this.ctx.destination);
+      noise.start(now);
+
+      // 3. Tinnitus / ringing after-effect
+      const oscRing = this.ctx.createOscillator();
+      const gainRing = this.ctx.createGain();
+      oscRing.type = 'sine';
+      oscRing.frequency.setValueAtTime(3200, now + 0.05);
+
+      gainRing.gain.setValueAtTime(0.18 * this.volume, now + 0.05);
+      gainRing.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+
+      oscRing.connect(gainRing);
+      gainRing.connect(this.ctx.destination);
+      oscRing.start(now + 0.05);
+      oscRing.stop(now + 2.6);
+    } catch (_) {}
+  }
+
+  /** Mechanical clamp lock sound with heavy metallic latch and hydraulic pressure release */
+  public playClampLock(clampIndex: number = 0) {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+
+      // Heavy metallic clank
+      const oscClank = this.ctx.createOscillator();
+      const gainClank = this.ctx.createGain();
+      oscClank.type = 'triangle';
+      const baseFreq = 160 + clampIndex * 24;
+      oscClank.frequency.setValueAtTime(baseFreq, now);
+      oscClank.frequency.exponentialRampToValueAtTime(45, now + 0.18);
+
+      gainClank.gain.setValueAtTime(0.75 * this.volume, now);
+      gainClank.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      oscClank.connect(gainClank);
+      gainClank.connect(this.ctx.destination);
+      oscClank.start(now);
+      oscClank.stop(now + 0.24);
+
+      // Hydraulic hiss
+      const bufferSize = Math.floor(this.ctx.sampleRate * 0.25);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.08));
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+      const noiseFilter = this.ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(1400, now);
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.4 * this.volume, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(this.ctx.destination);
+      noise.start(now);
+    } catch (_) {}
+  }
+
+  /** Tech parking bay lock confirmation chime */
+  public playParkingConfirmed() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      const notes = [587.33, 880.0, 1174.66]; // D5, A5, D6
+      notes.forEach((freq, idx) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+        gain.gain.setValueAtTime(0.35 * this.volume, now + idx * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.45);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(now + idx * 0.08);
+        osc.stop(now + idx * 0.08 + 0.48);
+      });
+    } catch (_) {}
+  }
+
+  /** Secondary pressure door sealing sound */
+  public playHydraulicPressureDoor() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(80, now);
+      osc.frequency.linearRampToValueAtTime(42, now + 0.8);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(220, now);
+
+      gain.gain.setValueAtTime(0.5 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.9);
+    } catch (_) {}
+  }
+
+  /** Power connection and charging cable latch */
+  public playChargingConnect() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(360, now + 0.35);
+
+      gain.gain.setValueAtTime(0.3 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.55);
+    } catch (_) {}
+  }
 }
 
 export const sound = new SoundSystem();

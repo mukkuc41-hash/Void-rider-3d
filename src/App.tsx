@@ -1198,28 +1198,263 @@ export default function App() {
         />
       )}
 
-      {/* Mode 21 — Black Hole / Quantum Launch Pro cinematic telemetry */}
+      {/* Mode 21 — Black Hole / The Final Collapse cinematic HUD & Catastrophe FX */}
       {gameMode === 'BLACK_HOLE' && blackHoleCinematicTelemetry && (
-        <div className="pointer-events-none fixed inset-x-0 top-3 z-[60] flex justify-center px-3">
-          <div className="w-full max-w-xl rounded-2xl border border-purple-400/40 bg-black/70 px-4 py-3 text-center shadow-[0_0_30px_rgba(168,85,247,0.22)] backdrop-blur-md">
-            <div className="text-[11px] font-mono font-bold uppercase tracking-[0.22em] text-purple-300">
-              {blackHoleCinematicTelemetry.title}
-            </div>
-            {blackHoleCinematicTelemetry.subtitle && (
-              <div className="mt-1 text-xs text-white/75">{blackHoleCinematicTelemetry.subtitle}</div>
-            )}
-            {blackHoleCinematicTelemetry.warning && (
-              <div className="mt-2 text-xs font-bold uppercase tracking-wider text-red-300">
-                {blackHoleCinematicTelemetry.warning}
+        <>
+          {/* Planetary collision flash effect */}
+          {blackHoleCinematicTelemetry.event === 'PLANETARY_COLLISION' && blackHoleCinematicTelemetry.eventElapsed < 1.8 && (
+            <div
+              className="pointer-events-none fixed inset-0 z-[70] bg-white transition-opacity duration-700"
+              style={{
+                opacity: Math.max(0, 0.7 - (blackHoleCinematicTelemetry.eventElapsed / 1.8)),
+              }}
+            />
+          )}
+
+          {/* Final Singularity Implosion Flash */}
+          {(blackHoleCinematicTelemetry.event === 'FINAL_FLASH' || (blackHoleCinematicTelemetry.event === 'FINAL_COLLAPSE' && blackHoleCinematicTelemetry.eventElapsed > 4 && blackHoleCinematicTelemetry.eventElapsed < 5.5)) && (
+            <div
+              className="pointer-events-none fixed inset-0 z-[75] bg-white transition-opacity duration-1000"
+              style={{
+                opacity: 0.85,
+              }}
+            />
+          )}
+
+          {/* White Flash Bang with Boom - Whole screen goes white */}
+          {blackHoleCinematicTelemetry.event === 'FLASHBANG' && (
+            <div className="fixed inset-0 z-[98] bg-white pointer-events-none transition-none" />
+          )}
+
+          {/* Rebuilding Map Message & Holographic Reconstruction Screen */}
+          {blackHoleCinematicTelemetry.event === 'REBUILDING_MAP' && (
+            <div className="fixed inset-0 z-[98] bg-slate-950 flex flex-col items-center justify-center p-6 text-white font-mono select-none">
+              {/* Subtle grid backdrop */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.18),transparent_75%)] pointer-events-none" />
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#0e749015_1px,transparent_1px),linear-gradient(to_bottom,#0e749015_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] pointer-events-none" />
+
+              <div className="relative z-10 flex flex-col items-center max-w-md w-full text-center">
+                {/* Tech loader spinner */}
+                <div className="relative w-20 h-20 mb-6 flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-full border-4 border-cyan-500/20 border-t-cyan-400 animate-spin" />
+                  <div className="absolute inset-2 rounded-full border-4 border-purple-500/20 border-b-purple-400 animate-spin [animation-direction:reverse]" />
+                  <div className="w-8 h-8 rounded-full bg-cyan-400/20 animate-pulse flex items-center justify-center">
+                    <div className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+                  </div>
+                </div>
+
+                <div className="inline-block px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[10px] font-bold tracking-[0.25em] uppercase mb-3">
+                  Singularity Dissipated // Space-Time Recovery
+                </div>
+
+                <h1 className="text-3xl sm:text-4xl font-ui font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-purple-300 drop-shadow-[0_0_25px_rgba(6,182,212,0.6)]">
+                  REBUILDING MAP...
+                </h1>
+
+                <p className="mt-2 text-xs text-slate-400 tracking-wider">
+                  Reconstructing track geometry, sector coordinates & quantum anchors
+                </p>
+
+                {/* Progress bar */}
+                <div className="w-full mt-6 bg-slate-900 border border-cyan-500/30 rounded-full h-2.5 overflow-hidden p-0.5">
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 rounded-full transition-all duration-200"
+                    style={{
+                      width: `${Math.min(100, Math.round((blackHoleCinematicTelemetry.eventElapsed / 3.5) * 100))}%`,
+                    }}
+                  />
+                </div>
+
+                <div className="w-full flex justify-between text-[10px] text-cyan-400 mt-2 font-mono">
+                  <span>ORBITAL RESTRUCTURING</span>
+                  <span>{Math.min(100, Math.round((blackHoleCinematicTelemetry.eventElapsed / 3.5) * 100))}%</span>
+                </div>
+
+                {/* Status messages stream */}
+                <div className="mt-5 w-full bg-black/70 border border-cyan-500/20 rounded-xl p-3 text-left font-mono text-[11px] text-slate-300 space-y-1.5 shadow-inner">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <span>✓</span> <span>Evacuation shelter structural integrity: 100%</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <span>✓</span> <span>Cosmic singularity shockwave safely dissipated</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-cyan-300 animate-pulse">
+                    <span>⚡</span> <span>Synthesizing orbital highway & race telemetry...</span>
+                  </div>
+                </div>
               </div>
-            )}
-            {blackHoleCinematicTelemetry.finalCountdown !== null && (
-              <div className="mt-2 font-mono text-lg font-black text-white">
-                {Math.floor(blackHoleCinematicTelemetry.finalCountdown / 60)}:{Math.floor(blackHoleCinematicTelemetry.finalCountdown % 60).toString().padStart(2, '0')}
+            </div>
+          )}
+
+          {/* Spaghettification Gravitational Glitch / Vignette */}
+          {blackHoleCinematicTelemetry.event === 'SPAGHETTIFICATION' && (
+            <div className="pointer-events-none fixed inset-0 z-[55] shadow-[inset_0_0_120px_rgba(239,68,68,0.45)] animate-pulse" />
+          )}
+
+          {/* Primary Cinematic HUD Banner */}
+          {blackHoleCinematicTelemetry.event !== 'FLASHBANG' &&
+            blackHoleCinematicTelemetry.event !== 'REBUILDING_MAP' &&
+            blackHoleCinematicTelemetry.event !== 'RESULTS' && (
+            <div className="fixed inset-x-0 top-3 z-[65] flex flex-col items-center px-3 pointer-events-none">
+            {blackHoleCinematicTelemetry.finalCountdown !== null && blackHoleCinematicTelemetry.finalCountdown > 0 ? (
+              /* Phase 1: 5-Minute Race Normal Countdown */
+              <div className="w-full max-w-xl rounded-2xl border border-cyan-500/50 bg-[#040814]/90 px-5 py-3 text-center shadow-[0_0_35px_rgba(6,182,212,0.25)] backdrop-blur-md">
+                <div className="flex items-center justify-between gap-2 border-b border-cyan-500/20 pb-1.5 text-[10px] font-mono font-black tracking-[0.25em] text-cyan-300">
+                  <span>SINGULARITY COLLAPSE</span>
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                    BLACK HOLE STATUS: STABLE
+                  </span>
+                </div>
+
+                <div className="my-1 flex items-center justify-center gap-3">
+                  <span className="font-mono text-3xl sm:text-4xl font-black tracking-wider text-white drop-shadow-[0_0_15px_rgba(6,182,212,0.6)]">
+                    {Math.floor(blackHoleCinematicTelemetry.finalCountdown / 60).toString().padStart(2, '0')}:
+                    {Math.floor(blackHoleCinematicTelemetry.finalCountdown % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] font-mono text-slate-300">
+                  <span>OBJECTIVE: MAINTAIN LEAD // EXTENDED ROUTE</span>
+                  {/* Dev / Fast-Forward quick trigger */}
+                  <button
+                    onClick={() => engineRef.current?.triggerFinalCollapseImmediately()}
+                    className="pointer-events-auto rounded-lg border border-amber-500/60 bg-amber-950/40 px-2 py-0.5 text-[9px] font-bold text-amber-300 hover:bg-amber-900/60 transition-colors"
+                    title="Skip the 5-minute race timer and trigger 00:00 Singularity Collapse immediately for testing"
+                  >
+                    ⏩ SKIP TO 00:00 (TRIGGER COLLAPSE)
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Phase 2–12: 00:00 Catastrophe & Escape Sequence */
+              <div className="w-full max-w-2xl rounded-2xl border border-red-500/80 bg-red-950/70 px-5 py-3.5 text-center shadow-[0_0_45px_rgba(239,68,68,0.45)] backdrop-blur-md animate-pulse">
+                <div className="flex items-center justify-between border-b border-red-500/40 pb-1 text-[10px] font-mono font-black tracking-[0.25em] text-red-200">
+                  <span className="text-red-400">⚠️ CRITICAL GRAVITATIONAL COLLAPSE</span>
+                  <span className="text-amber-300">SINGULARITY STATUS: CRITICAL</span>
+                </div>
+
+                <div className="mt-1 text-base sm:text-lg font-black uppercase tracking-wider text-white drop-shadow-[0_0_12px_rgba(239,68,68,0.8)]">
+                  {blackHoleCinematicTelemetry.title}
+                </div>
+
+                {blackHoleCinematicTelemetry.subtitle && (
+                  <div className="text-xs font-mono font-bold text-red-200 mt-0.5">
+                    {blackHoleCinematicTelemetry.subtitle}
+                  </div>
+                )}
+
+                {/* Real-time Destruction Front Meter */}
+                {blackHoleCinematicTelemetry.destructionFrontDistance !== null && (
+                  <div className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-black/60 px-3 py-1 font-mono text-xs border border-red-500/30">
+                    <span className="text-slate-400">DESTRUCTION FRONT:</span>
+                    <span className={`font-black tracking-widest ${
+                      blackHoleCinematicTelemetry.destructionFrontDistance < 300
+                        ? 'text-red-400 animate-ping'
+                        : 'text-amber-300'
+                    }`}>
+                      {blackHoleCinematicTelemetry.destructionFrontDistance} METERS BEHIND
+                    </span>
+                    {blackHoleCinematicTelemetry.destructionFrontDistance < 300 && (
+                      <span className="text-[10px] font-black text-red-400 ml-1">
+                        CRITICAL — ESCAPE NOW!
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Safe zone objective banner */}
+                {blackHoleCinematicTelemetry.objective && (
+                  <div className="mt-2 text-xs font-mono font-black text-emerald-300 uppercase tracking-widest bg-emerald-950/50 py-1.5 px-3 rounded-lg border border-emerald-500/40">
+                    🎯 {blackHoleCinematicTelemetry.objective}
+                  </div>
+                )}
+
+                {/* Section 1-2: Evacuation Tower Approach Telemetry */}
+                {blackHoleCinematicTelemetry.towerApproach && (
+                  <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 rounded-xl bg-cyan-950/70 border border-cyan-500/40 px-3 py-1.5 font-mono text-[11px]">
+                    <span className="text-cyan-300 flex items-center gap-1 font-bold">
+                      <span className="text-emerald-400 text-sm animate-bounce">⬆</span> ENTRANCE:
+                    </span>
+                    <span className="font-black text-white tracking-widest">
+                      {blackHoleCinematicTelemetry.towerApproach.distanceToEntrance}m
+                    </span>
+                    <span className="text-slate-500">|</span>
+                    <span className="text-emerald-400 font-bold">
+                      LEVEL: {blackHoleCinematicTelemetry.towerApproach.level}
+                    </span>
+                    <span className="text-slate-500">|</span>
+                    <span className="text-cyan-400">SHIELD: ACTIVE 100%</span>
+                    {blackHoleCinematicTelemetry.towerApproach.entryReady && (
+                      <span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-400/50 animate-pulse">
+                        ENTRY READY
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Section 6-8: Dedicated Bay 07 Spaceship Parking HUD */}
+                {blackHoleCinematicTelemetry.parking && (
+                  <div className="mt-2.5 rounded-xl bg-slate-900/90 border border-cyan-400/40 p-2.5 font-mono text-xs shadow-[0_0_20px_rgba(6,182,212,0.25)]">
+                    <div className="flex items-center justify-between border-b border-cyan-500/30 pb-1 text-[11px]">
+                      <span className="font-black text-cyan-300 tracking-wider flex items-center gap-1.5">
+                        <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                        DOCKING BAY: <span className="text-white bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-500/50">{blackHoleCinematicTelemetry.parking.bayId}</span>
+                      </span>
+                      <span className="text-[10px] text-slate-300">
+                        SPEED: <span className={blackHoleCinematicTelemetry.parking.currentSpeedKmh <= blackHoleCinematicTelemetry.parking.targetSpeedKmh ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                          {blackHoleCinematicTelemetry.parking.currentSpeedKmh} KM/H
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 my-2 text-[10px]">
+                      <div className="bg-black/40 p-1.5 rounded border border-cyan-500/20">
+                        <div className="text-slate-400">POSITION OFFSET:</div>
+                        <div className={`font-black text-xs ${blackHoleCinematicTelemetry.parking.positionErrorM <= 2.2 ? 'text-emerald-400' : 'text-cyan-300'}`}>
+                          ±{blackHoleCinematicTelemetry.parking.positionErrorM}m
+                        </div>
+                      </div>
+                      <div className="bg-black/40 p-1.5 rounded border border-cyan-500/20">
+                        <div className="text-slate-400">ROTATION OFFSET:</div>
+                        <div className={`font-black text-xs ${blackHoleCinematicTelemetry.parking.rotationErrorDeg <= 15 ? 'text-emerald-400' : 'text-amber-300'}`}>
+                          ±{blackHoleCinematicTelemetry.parking.rotationErrorDeg}°
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section 8: Mechanical Clamp Indicators */}
+                    <div className="border-t border-cyan-500/20 pt-1.5">
+                      <div className="text-[10px] text-slate-400 mb-1 font-bold">HYDRAULIC PARKING CLAMPS:</div>
+                      <div className="grid grid-cols-4 gap-1 text-[9px] font-black text-center">
+                        <div className={`py-0.5 rounded border ${blackHoleCinematicTelemetry.parking.clampsLocked.left ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
+                          L-CLAMP
+                        </div>
+                        <div className={`py-0.5 rounded border ${blackHoleCinematicTelemetry.parking.clampsLocked.right ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
+                          R-CLAMP
+                        </div>
+                        <div className={`py-0.5 rounded border ${blackHoleCinematicTelemetry.parking.clampsLocked.front ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
+                          F-CLAMP
+                        </div>
+                        <div className={`py-0.5 rounded border ${blackHoleCinematicTelemetry.parking.clampsLocked.rear ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
+                          B-CLAMP
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Final Status */}
+                    {blackHoleCinematicTelemetry.parking.isHangarSealed && (
+                      <div className="mt-2 py-1 px-2 rounded bg-emerald-500/20 border border-emerald-400/60 text-center text-emerald-300 text-[10px] font-black animate-pulse">
+                        ✓ SHELTER STATUS: SECURE (100% INVULNERABLE)
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        </div>
+        )}
+        </>
       )}
 
       {/* Extended Path In-Race Cinematic Events & Sector HUD */}

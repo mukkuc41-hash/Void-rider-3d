@@ -35,6 +35,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   const myRank = sorted.findIndex(r => r.playerId === localPlayerId) + 1;
 
   const isChampionship = gameMode === 'VOID_CHAMPIONSHIP';
+  const isBlackHole = gameMode === 'BLACK_HOLE';
   const stageIndex = Math.min(championshipManager.currentStageIndex, CHAMPIONSHIP_STAGES.length - 1);
   const currentStage = CHAMPIONSHIP_STAGES[stageIndex];
   const standings = championshipManager.getStandings();
@@ -52,38 +53,62 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn select-none">
-      <div className="relative w-full max-w-xl bg-slate-950/95 border border-cyan-500/40 rounded-3xl p-6 sm:p-8 shadow-[0_0_60px_rgba(0,240,255,0.2)] flex flex-col items-center max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn select-none">
+      <div className={`relative w-full max-w-xl bg-slate-950/95 border rounded-3xl p-6 sm:p-8 flex flex-col items-center max-h-[90vh] overflow-y-auto ${
+        isBlackHole
+          ? 'border-purple-500/50 shadow-[0_0_60px_rgba(168,85,247,0.3)]'
+          : 'border-cyan-500/40 shadow-[0_0_60px_rgba(0,240,255,0.2)]'
+      }`}>
         {/* Podium Medal Graphic */}
-        <div className="p-4 rounded-3xl bg-cyan-950/70 border border-cyan-400 text-cyan-400 shadow-[0_0_25px_#00f0ff] mb-3">
+        <div className={`p-4 rounded-3xl border mb-3 ${
+          isBlackHole
+            ? 'bg-purple-950/70 border-purple-400 text-purple-400 shadow-[0_0_25px_#a855f7]'
+            : 'bg-cyan-950/70 border-cyan-400 text-cyan-400 shadow-[0_0_25px_#00f0ff]'
+        }`}>
           <Trophy className="w-10 h-10" />
         </div>
 
         <h2 className="text-2xl sm:text-3xl font-ui font-black uppercase tracking-wider text-white text-center">
-          {isChampionship
-            ? isChampionshipCompleted
-              ? 'VOID CHAMPIONSHIP CONCLUDED'
-              : `${currentStage?.title || 'CHAMPIONSHIP STAGE'} COMPLETED`
-            : 'SECTOR GRAND PRIX CONCLUDED'}
+          {isBlackHole
+            ? 'YOU SURVIVED THE FINAL COLLAPSE'
+            : isChampionship
+              ? isChampionshipCompleted
+                ? 'VOID CHAMPIONSHIP CONCLUDED'
+                : `${currentStage?.title || 'CHAMPIONSHIP STAGE'} COMPLETED`
+              : 'SECTOR GRAND PRIX CONCLUDED'}
         </h2>
-        <p className="text-xs font-mono text-cyan-400 mt-0.5 text-center">
-          {isChampionship
-            ? `${currentStage?.subtitle || ''} // Authoritative telemetry verified`
-            : 'Authoritative orbital timing verified'}
+        <p className={`text-xs font-mono mt-0.5 text-center ${
+          isBlackHole ? 'text-purple-300' : 'text-cyan-400'
+        }`}>
+          {isBlackHole
+            ? '5 MINUTES UNTIL THE VOID // EVACUATION TOWER BASEMENT SEALED'
+            : isChampionship
+              ? `${currentStage?.subtitle || ''} // Authoritative telemetry verified`
+              : 'Authoritative orbital timing verified'}
         </p>
 
         {/* Player Victory Summary Banner */}
-        <div className="w-full my-4 p-4 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 flex items-center justify-between">
+        <div className={`w-full my-4 p-4 rounded-2xl border flex items-center justify-between ${
+          isBlackHole
+            ? 'bg-purple-950/40 border-purple-500/40'
+            : 'bg-cyan-950/40 border-cyan-500/30'
+        }`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-cyan-300 font-ui font-black text-lg">
-              {myRank || 1}
+            <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-ui font-black text-lg ${
+              isBlackHole
+                ? 'bg-purple-500/20 border-purple-400 text-purple-300'
+                : 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
+            }`}>
+              {isBlackHole ? 'S' : (myRank || 1)}
             </div>
             <div>
               <span className="text-[10px] font-mono text-slate-400 uppercase">
-                YOUR FINISH POSITION
+                {isBlackHole ? 'EVACUATION RATING' : 'YOUR FINISH POSITION'}
               </span>
               <div className="text-lg font-ui font-black text-white">
-                {myRank === 1 ? '1ST PLACE - GOLD' : myRank === 2 ? '2ND PLACE - SILVER' : myRank === 3 ? '3RD PLACE - BRONZE' : `${myRank}TH PLACE`}
+                {isBlackHole
+                  ? 'S-RANK SURVIVOR'
+                  : myRank === 1 ? '1ST PLACE - GOLD' : myRank === 2 ? '2ND PLACE - SILVER' : myRank === 3 ? '3RD PLACE - BRONZE' : `${myRank}TH PLACE`}
               </div>
             </div>
           </div>

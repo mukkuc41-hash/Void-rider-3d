@@ -463,10 +463,11 @@ export class ModeManager {
 
         if (this.blackHoleSubmode === 10) {
           this.finalSingularityCountdown = Math.max(0, 300 - this.modeTimer);
-          if (this.finalSingularityCountdown <= 120) this.blackHoleDanger = 'WARNING';
-          if (this.finalSingularityCountdown <= 60) this.blackHoleDanger = 'DANGER';
-          if (this.finalSingularityCountdown <= 15) this.blackHoleDanger = 'CRITICAL';
-          if (this.finalSingularityCountdown <= 0) this.blackHoleDanger = 'COLLAPSE';
+          if (this.finalSingularityCountdown <= 0) {
+            this.blackHoleDanger = 'COLLAPSE';
+          } else {
+            this.blackHoleDanger = 'SAFE';
+          }
         }
 
         return {

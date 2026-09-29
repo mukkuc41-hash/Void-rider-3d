@@ -1387,7 +1387,76 @@ export class JunctionManager {
   // existing junction configuration untouched.
   public finalCollapseMode = false;
   public readonly finalCollapseJunctionId = 'final_collapse_tower_access';
-  private finalCollapseShelterGroup: THREE.Group | null = null;
+  public finalCollapseShelter: THREE.Group | null = null;
+  public finalCollapseDoorLeft: THREE.Mesh | null = null;
+  public finalCollapseDoorRight: THREE.Mesh | null = null;
+  public finalCollapseDoorOpenFraction = 0; // 0 = closed, 1 = open
+
+  // Secondary Pressure Doors & Hangar Shield
+  public finalCollapsePressureDoorLeft: THREE.Mesh | null = null;
+  public finalCollapsePressureDoorRight: THREE.Mesh | null = null;
+  public finalCollapsePressureDoorOpenFraction = 1;
+  public finalCollapseHangarShield: THREE.Mesh | null = null;
+
+  // Physical Parking Clamps for Bay 07
+  public clampArmLeft: THREE.Group | null = null;
+  public clampArmRight: THREE.Group | null = null;
+  public clampArmFront: THREE.Group | null = null;
+  public clampArmRear: THREE.Group | null = null;
+  public bay07Hologram: THREE.Group | null = null;
+  public energyCables: THREE.Group | null = null;
+
+  // World coordinates of Bay 07 and Entrance
+  public bay07WorldPosition: THREE.Vector3 = new THREE.Vector3();
+  public bay07WorldQuaternion: THREE.Quaternion = new THREE.Quaternion();
+  public towerEntranceWorldPosition: THREE.Vector3 = new THREE.Vector3();
+
+  public setFinalCollapseDoorOpen(fraction: number) {
+    this.finalCollapseDoorOpenFraction = THREE.MathUtils.clamp(fraction, 0, 1);
+    if (this.finalCollapseDoorLeft && this.finalCollapseDoorRight) {
+      const x = THREE.MathUtils.lerp(5.5, 17.5, this.finalCollapseDoorOpenFraction);
+      this.finalCollapseDoorLeft.position.x = -x;
+      this.finalCollapseDoorRight.position.x = x;
+    }
+  }
+
+  public setFinalCollapsePressureDoorOpen(fraction: number) {
+    this.finalCollapsePressureDoorOpenFraction = THREE.MathUtils.clamp(fraction, 0, 1);
+    if (this.finalCollapsePressureDoorLeft && this.finalCollapsePressureDoorRight) {
+      const x = THREE.MathUtils.lerp(3.5, 15.0, this.finalCollapsePressureDoorOpenFraction);
+      this.finalCollapsePressureDoorLeft.position.x = -x;
+      this.finalCollapsePressureDoorRight.position.x = x;
+    }
+  }
+
+  public setClampsProgress(left: number, right: number, front: number, rear: number) {
+    if (this.clampArmLeft) {
+      this.clampArmLeft.position.x = THREE.MathUtils.lerp(-5.8, -4.0, left);
+      this.clampArmLeft.rotation.z = THREE.MathUtils.lerp(0.35, -0.1, left);
+    }
+    if (this.clampArmRight) {
+      this.clampArmRight.position.x = THREE.MathUtils.lerp(5.8, 4.0, right);
+      this.clampArmRight.rotation.z = THREE.MathUtils.lerp(-0.35, 0.1, right);
+    }
+    if (this.clampArmFront) {
+      this.clampArmFront.position.z = THREE.MathUtils.lerp(-192.5, -190.0, front);
+      this.clampArmFront.rotation.x = THREE.MathUtils.lerp(-0.35, 0.15, front);
+    }
+    if (this.clampArmRear) {
+      this.clampArmRear.position.z = THREE.MathUtils.lerp(-177.5, -180.0, rear);
+      this.clampArmRear.rotation.x = THREE.MathUtils.lerp(0.35, -0.15, rear);
+    }
+  }
+
+  public setHangarShieldActive(active: boolean) {
+    if (this.finalCollapseHangarShield) {
+      const mat = this.finalCollapseHangarShield.material as THREE.MeshBasicMaterial;
+      if (mat) {
+        mat.opacity = active ? 0.75 : 0.0;
+      }
+    }
+  }
+
   public mainTrack: CosmicTrack;
 
   // Active state for local player
@@ -1536,9 +1605,10 @@ export class JunctionManager {
   }
 
   /**
-   * Build the visible physical evacuation tower + basement entry around the
-   * final collapse branch endpoint. This is visual/playable world geometry:
-   * the player is still driven by the real branch curve and is not teleported.
+   * Build the visible physical evacuation tower + subterranean basement complex,
+   * descending ramp, B3 hangar, and Bay 07 parking bay around the branch endpoint.
+   * This is REAL playable world geometry: the player physically steers their ship
+   * down the ramp into Bay 07, aligns, stops, and gets clamped.
    */
   private buildFinalCollapseShelter(junction: JunctionZoneInstance): THREE.Group {
     const group = new THREE.Group();
@@ -1551,7 +1621,7 @@ export class JunctionManager {
 
     const towerMat = new THREE.MeshStandardMaterial({
       color: 0x07121c,
-      metalness: 0.9,
+      metalness: 0.92,
       roughness: 0.22,
       emissive: 0x062b38,
       emissiveIntensity: 0.85,
@@ -1565,147 +1635,389 @@ export class JunctionManager {
       emissiveIntensity: 1.1,
     });
 
+    const concreteMat = new THREE.MeshStandardMaterial({
+      color: 0x111923,
+      metalness: 0.4,
+      roughness: 0.8,
+    });
+
+    const hazardMat = new THREE.MeshStandardMaterial({
+      color: 0xeab308,
+      metalness: 0.8,
+      roughness: 0.3,
+      emissive: 0x713f12,
+      emissiveIntensity: 0.5,
+    });
+
     const cyanMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
     const greenMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
     const warningMat = new THREE.MeshBasicMaterial({ color: 0xff5b35 });
+    const shieldMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.18,
+      wireframe: true,
+    });
 
-    // Main evacuation tower body.
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(62, 92, 84),
-      towerMat
-    );
-    body.position.set(0, 44, -48);
+    // 1. Tower Exterior & Giant Energy Shield Dome
+    const body = new THREE.Mesh(new THREE.BoxGeometry(68, 110, 84), towerMat);
+    body.position.set(0, 52, -42);
     group.add(body);
 
-    // Shoulder structures make the tower read as a large space facility.
-    const shoulderGeo = new THREE.BoxGeometry(20, 54, 100);
+    const shoulderGeo = new THREE.BoxGeometry(22, 65, 100);
     const leftShoulder = new THREE.Mesh(shoulderGeo, armorMat);
-    leftShoulder.position.set(-39, 27, -44);
+    leftShoulder.position.set(-42, 32, -40);
     const rightShoulder = leftShoulder.clone();
-    rightShoulder.position.x = 39;
+    rightShoulder.position.x = 42;
     group.add(leftShoulder, rightShoulder);
 
-    // Large physical blast-door frame around the road entrance.
-    const doorPillarGeo = new THREE.BoxGeometry(4.5, 22, 9);
+    // Tower Energy Shield Dome
+    const shieldDome = new THREE.Mesh(new THREE.SphereGeometry(72, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.65), shieldMat);
+    shieldDome.position.set(0, 30, -50);
+    group.add(shieldDome);
+
+    // Mast and Beacon
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.2, 42, 12), armorMat);
+    mast.position.set(0, 115, -45);
+    const beacon = new THREE.Mesh(new THREE.SphereGeometry(4.8, 20, 20), warningMat);
+    beacon.position.set(0, 138, -45);
+    group.add(mast, beacon);
+
+    // Outer Blast Door frame around entrance threshold (z = 0)
+    const doorPillarGeo = new THREE.BoxGeometry(5.0, 24, 10);
     const leftPillar = new THREE.Mesh(doorPillarGeo, armorMat);
-    leftPillar.position.set(-17, 11, -4);
+    leftPillar.position.set(-18, 12, -2);
     const rightPillar = leftPillar.clone();
-    rightPillar.position.x = 17;
+    rightPillar.position.x = 18;
+    const doorHeader = new THREE.Mesh(new THREE.BoxGeometry(42, 5.0, 10), armorMat);
+    doorHeader.position.set(0, 23.5, -2);
+    group.add(leftPillar, rightPillar, doorHeader);
 
-    const doorHeader = new THREE.Mesh(
-      new THREE.BoxGeometry(39, 4.5, 9),
-      armorMat
-    );
-    doorHeader.position.set(0, 21.5, -4);
-
-    const doorGlow = new THREE.Mesh(
-      new THREE.BoxGeometry(28, 15, 0.7),
-      new THREE.MeshBasicMaterial({
-        color: 0x08202b,
-        transparent: true,
-        opacity: 0.82,
-      })
-    );
-    doorGlow.position.set(0, 11, 0.3);
-
-    group.add(leftPillar, rightPillar, doorHeader, doorGlow);
-
-    // Two sliding-door slabs are offset to the sides, leaving the playable
-    // center opening clear. Later gameEngine logic can animate them.
-    const slabGeo = new THREE.BoxGeometry(12, 15, 1.5);
+    // Sliding Outer Blast Door Slabs
+    const slabGeo = new THREE.BoxGeometry(13, 17, 1.8);
     const leftSlab = new THREE.Mesh(slabGeo, new THREE.MeshStandardMaterial({
-      color: 0x1c2934,
+      color: 0x1e293b,
       metalness: 0.95,
       roughness: 0.2,
-      emissive: 0x103745,
-      emissiveIntensity: 0.8,
+      emissive: 0x0f172a,
     }));
-    leftSlab.position.set(-10, 11, -0.1);
+    leftSlab.position.set(-6, 11.5, -0.1);
     const rightSlab = leftSlab.clone();
-    rightSlab.position.x = 10;
+    rightSlab.position.x = 6;
     group.add(leftSlab, rightSlab);
+    this.finalCollapseDoorLeft = leftSlab;
+    this.finalCollapseDoorRight = rightSlab;
+    this.setFinalCollapseDoorOpen(0);
 
-    // Visible emergency lighting rails.
-    const lightRailGeo = new THREE.BoxGeometry(1.0, 1.0, 76);
-    [-27, -21, 21, 27].forEach(x => {
-      const rail = new THREE.Mesh(lightRailGeo, cyanMat);
-      rail.position.set(x, 24, -42);
-      group.add(rail);
-    });
-
-    // Green safe-zone guide rails continue into the basement.
-    const basementRailGeo = new THREE.BoxGeometry(0.9, 0.9, 92);
-    [-14, 14].forEach(x => {
-      const rail = new THREE.Mesh(basementRailGeo, greenMat);
-      rail.position.set(x, 3.8, -55);
-      group.add(rail);
-    });
-
-    // Emergency beacon mast.
-    const mast = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.4, 1.8, 34, 12),
-      armorMat
-    );
-    mast.position.set(0, 98, -50);
-    group.add(mast);
-
-    const beacon = new THREE.Mesh(
-      new THREE.SphereGeometry(4.2, 20, 20),
-      warningMat
-    );
-    beacon.position.set(0, 116, -50);
-    group.add(beacon);
-
-    // Basement ceiling strips make the physical interior readable at speed.
-    const ceilingStripGeo = new THREE.BoxGeometry(2.0, 0.7, 88);
-    [-10, 10].forEach(x => {
-      const strip = new THREE.Mesh(ceilingStripGeo, cyanMat);
-      strip.position.set(x, 11.5, -52);
-      group.add(strip);
-    });
-
-    // Tower sign board.
+    // Tower Exterior Holographic Sign
     const signCanvas = document.createElement('canvas');
     signCanvas.width = 1024;
     signCanvas.height = 256;
     const ctx = signCanvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#061018';
+      ctx.fillStyle = '#05101a';
       ctx.fillRect(0, 0, signCanvas.width, signCanvas.height);
       ctx.strokeStyle = '#22d3ee';
-      ctx.lineWidth = 10;
+      ctx.lineWidth = 12;
       ctx.strokeRect(8, 8, signCanvas.width - 16, signCanvas.height - 16);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = 'bold 72px Arial';
+      ctx.font = 'bold 68px Arial';
       ctx.fillStyle = '#67e8f9';
-      ctx.fillText('EVACUATION TOWER', signCanvas.width / 2, 92);
-      ctx.font = 'bold 42px Arial';
+      ctx.fillText('EVACUATION TOWER // SAFE ZONE', signCanvas.width / 2, 85);
+      ctx.font = 'bold 44px Arial';
       ctx.fillStyle = '#22c55e';
-      ctx.fillText('BASEMENT SAFE ZONE', signCanvas.width / 2, 166);
+      ctx.fillText('BASEMENT ACCESS RAMP ACTIVE', signCanvas.width / 2, 168);
     }
-
     const signTexture = new THREE.CanvasTexture(signCanvas);
     signTexture.needsUpdate = true;
     const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(42, 10.5),
-      new THREE.MeshBasicMaterial({
-        map: signTexture,
-        transparent: true,
-        side: THREE.DoubleSide,
-      })
+      new THREE.PlaneGeometry(44, 11),
+      new THREE.MeshBasicMaterial({ map: signTexture, transparent: true, side: THREE.DoubleSide })
     );
-    sign.position.set(0, 44, 0.8);
+    sign.position.set(0, 36, 1.2);
     group.add(sign);
 
-    // Navigation ring just before the entrance.
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(20, 1.0, 14, 64),
-      new THREE.MeshBasicMaterial({ color: 0x22c55e })
+    // 2. Security Scanner Gate (z = -24)
+    const scannerArch = new THREE.Mesh(new THREE.BoxGeometry(34, 18, 3), armorMat);
+    scannerArch.position.set(0, 9, -24);
+    const scannerLaser = new THREE.Mesh(
+      new THREE.BoxGeometry(28, 0.3, 0.3),
+      new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.9 })
     );
-    ring.position.set(0, 10, 16);
-    ring.rotation.x = Math.PI / 2;
-    group.add(ring);
+    scannerLaser.position.set(0, 14, -24);
+    group.add(scannerArch, scannerLaser);
+
+    // 3. Descending Access Ramp (z = -32 to z = -128)
+    // Slopes smoothly from y = 0 to y = -14
+    const rampLength = 96;
+    const rampGeo = new THREE.BoxGeometry(32, 1.2, rampLength);
+    const ramp = new THREE.Mesh(rampGeo, concreteMat);
+    ramp.position.set(0, -7, -80);
+    ramp.rotation.x = Math.atan2(14, rampLength);
+    group.add(ramp);
+
+    // Ramp Tunnel Walls & Ceiling Enclosure
+    const tunnelWallMat = new THREE.MeshStandardMaterial({
+      color: 0x0c1520,
+      metalness: 0.85,
+      roughness: 0.4,
+    });
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(2, 22, rampLength), tunnelWallMat);
+    leftWall.position.set(-16.5, -3, -80);
+    const rightWall = leftWall.clone();
+    rightWall.position.x = 16.5;
+    const tunnelCeiling = new THREE.Mesh(new THREE.BoxGeometry(35, 2, rampLength), tunnelWallMat);
+    tunnelCeiling.position.set(0, 8, -80);
+    tunnelCeiling.rotation.x = ramp.rotation.x;
+    group.add(leftWall, rightWall, tunnelCeiling);
+
+    // Observation Windows looking out at the Cosmic Catastrophe
+    const windowMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      metalness: 0.1,
+      roughness: 0.05,
+      transparent: true,
+      opacity: 0.28,
+    });
+    [-62, -98].forEach(wz => {
+      const windowMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 10, 16), windowMat);
+      windowMesh.position.set(-16.4, -3, wz);
+      group.add(windowMesh);
+
+      // Warning Frame around observation window
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(1.4, 11, 18), armorMat);
+      frame.position.set(-16.6, -3, wz);
+      group.add(frame);
+    });
+
+    // Descent Level B3 Sign
+    const b3Canvas = document.createElement('canvas');
+    b3Canvas.width = 512;
+    b3Canvas.height = 128;
+    const b3ctx = b3Canvas.getContext('2d');
+    if (b3ctx) {
+      b3ctx.fillStyle = '#081420';
+      b3ctx.fillRect(0, 0, 512, 128);
+      b3ctx.font = 'bold 38px Arial';
+      b3ctx.fillStyle = '#38bdf8';
+      b3ctx.textAlign = 'center';
+      b3ctx.textBaseline = 'middle';
+      b3ctx.fillText('EVACUATION LEVEL: B3', 256, 45);
+      b3ctx.font = 'bold 26px Arial';
+      b3ctx.fillStyle = '#22c55e';
+      b3ctx.fillText('SPACESHIP DOCKING HANGAR', 256, 88);
+    }
+    const b3Sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(24, 6),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(b3Canvas), transparent: true })
+    );
+    b3Sign.position.set(0, 4, -112);
+    group.add(b3Sign);
+
+    // 4. Underground Tunnel & Secondary Pressure Gate (z = -135)
+    const pressureGateFrame = new THREE.Mesh(new THREE.BoxGeometry(36, 22, 6), armorMat);
+    pressureGateFrame.position.set(0, -3, -135);
+    group.add(pressureGateFrame);
+
+    const pressSlabGeo = new THREE.BoxGeometry(14, 18, 2);
+    const pLeft = new THREE.Mesh(pressSlabGeo, armorMat);
+    pLeft.position.set(-14, -4, -135);
+    const pRight = pLeft.clone();
+    pRight.position.x = 14;
+    group.add(pLeft, pRight);
+    this.finalCollapsePressureDoorLeft = pLeft;
+    this.finalCollapsePressureDoorRight = pRight;
+
+    // 5. Evacuation Hangar B3 (z = -145 to z = -225, floor at y = -14)
+    const hangarFloor = new THREE.Mesh(new THREE.BoxGeometry(64, 1.5, 80), concreteMat);
+    hangarFloor.position.set(0, -14.75, -185);
+    const hangarCeiling = new THREE.Mesh(new THREE.BoxGeometry(64, 1.5, 80), tunnelWallMat);
+    hangarCeiling.position.set(0, 9, -185);
+    const hangarLeftWall = new THREE.Mesh(new THREE.BoxGeometry(2, 24, 80), tunnelWallMat);
+    hangarLeftWall.position.set(-32, -3, -185);
+    const hangarRightWall = hangarLeftWall.clone();
+    hangarRightWall.position.x = 32;
+    const hangarRearWall = new THREE.Mesh(new THREE.BoxGeometry(64, 24, 2), tunnelWallMat);
+    hangarRearWall.position.set(0, -3, -225);
+    group.add(hangarFloor, hangarCeiling, hangarLeftWall, hangarRightWall, hangarRearWall);
+
+    // Structural Pillars with Hazard Stripes
+    [-24, 24].forEach(px => {
+      [-160, -185, -210].forEach(pz => {
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(3.5, 24, 3.5), armorMat);
+        pillar.position.set(px, -3, pz);
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.5, 3.6), hazardMat);
+        stripe.position.set(px, -11, pz);
+        group.add(pillar, stripe);
+      });
+    });
+
+    // Side Parking Bays 01 - 06 (decorative support craft/docking stations)
+    [-20, 20].forEach((bx, bIdx) => {
+      [-165, -185, -205].forEach((bz, zIdx) => {
+        const bayNum = bIdx * 3 + zIdx + 1;
+        const sidePad = new THREE.Mesh(new THREE.BoxGeometry(10, 0.4, 14), armorMat);
+        sidePad.position.set(bx, -14.4, bz);
+        group.add(sidePad);
+
+        // Simple parked drone craft
+        const drone = new THREE.Mesh(new THREE.ConeGeometry(2.5, 8, 4), towerMat);
+        drone.position.set(bx, -12, bz);
+        drone.rotation.x = Math.PI / 2;
+        group.add(drone);
+      });
+    });
+
+    // 6. DEDICATED PLAYER PARKING BAY 07 (x = 0, y = -14, z = -185)
+    const bay07Pad = new THREE.Mesh(
+      new THREE.BoxGeometry(18, 0.6, 26),
+      new THREE.MeshStandardMaterial({
+        color: 0x14202c,
+        metalness: 0.9,
+        roughness: 0.25,
+        emissive: 0x082b3d,
+        emissiveIntensity: 0.6,
+      })
+    );
+    bay07Pad.position.set(0, -14.4, -185);
+    group.add(bay07Pad);
+
+    // Glowing Neon Docking Reticle & Perimeter
+    const borderGeo = new THREE.BoxGeometry(17.6, 0.2, 0.8);
+    const borderNorth = new THREE.Mesh(borderGeo, cyanMat);
+    borderNorth.position.set(0, -14.05, -197.6);
+    const borderSouth = borderNorth.clone();
+    borderSouth.position.z = -172.4;
+    group.add(borderNorth, borderSouth);
+
+    const borderSideGeo = new THREE.BoxGeometry(0.8, 0.2, 26);
+    const borderWest = new THREE.Mesh(borderSideGeo, cyanMat);
+    borderWest.position.set(-8.6, -14.05, -185);
+    const borderEast = borderWest.clone();
+    borderEast.position.x = 8.6;
+    group.add(borderWest, borderEast);
+
+    // Floor Target Crosshairs
+    const cross1 = new THREE.Mesh(new THREE.BoxGeometry(10, 0.1, 0.6), greenMat);
+    cross1.position.set(0, -14.02, -185);
+    const cross2 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.1, 14), greenMat);
+    cross2.position.set(0, -14.02, -185);
+    group.add(cross1, cross2);
+
+    // Holographic BAY 07 Beacon Projector
+    const bay07Group = new THREE.Group();
+    bay07Group.position.set(0, -7.5, -185);
+    const holoCanvas = document.createElement('canvas');
+    holoCanvas.width = 512;
+    holoCanvas.height = 256;
+    const hctx = holoCanvas.getContext('2d');
+    if (hctx) {
+      hctx.fillStyle = 'rgba(6, 25, 40, 0.85)';
+      hctx.fillRect(0, 0, 512, 256);
+      hctx.strokeStyle = '#00f0ff';
+      hctx.lineWidth = 10;
+      hctx.strokeRect(6, 6, 500, 244);
+      hctx.textAlign = 'center';
+      hctx.textBaseline = 'middle';
+      hctx.font = 'bold 64px Arial';
+      hctx.fillStyle = '#67e8f9';
+      hctx.fillText('[ BAY 07 ]', 256, 80);
+      hctx.font = 'bold 32px Arial';
+      hctx.fillStyle = '#22c55e';
+      hctx.fillText('EVACUATION DOCK // SURVIVOR', 256, 160);
+    }
+    const holoMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(12, 6),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(holoCanvas), transparent: true, side: THREE.DoubleSide })
+    );
+    bay07Group.add(holoMesh);
+    group.add(bay07Group);
+    this.bay07Hologram = bay07Group;
+
+    // 7. Physical Mechanical Clamps (Left, Right, Front, Rear)
+    const clampMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      metalness: 0.95,
+      roughness: 0.2,
+      emissive: 0x0f172a,
+    });
+    const clampTipMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+
+    // Left Clamp Assembly
+    const clampLeft = new THREE.Group();
+    clampLeft.position.set(-5.8, -14.0, -185);
+    const baseL = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.5, 4.0), clampMat);
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 3.2), clampMat);
+    armL.position.set(1.2, 1.2, 0);
+    const tipL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.4, 3.4), clampTipMat);
+    tipL.position.set(2.4, 1.2, 0);
+    clampLeft.add(baseL, armL, tipL);
+    group.add(clampLeft);
+    this.clampArmLeft = clampLeft;
+
+    // Right Clamp Assembly
+    const clampRight = new THREE.Group();
+    clampRight.position.set(5.8, -14.0, -185);
+    const baseR = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.5, 4.0), clampMat);
+    const armR = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 3.2), clampMat);
+    armR.position.set(-1.2, 1.2, 0);
+    const tipR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.4, 3.4), clampTipMat);
+    tipR.position.set(-2.4, 1.2, 0);
+    clampRight.add(baseR, armR, tipR);
+    group.add(clampRight);
+    this.clampArmRight = clampRight;
+
+    // Front Clamp Assembly
+    const clampFront = new THREE.Group();
+    clampFront.position.set(0, -14.0, -192.5);
+    const baseF = new THREE.Mesh(new THREE.BoxGeometry(4.0, 2.5, 1.6), clampMat);
+    const armF = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 2.4), clampMat);
+    armF.position.set(0, 1.2, 1.2);
+    const tipF = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.4, 0.4), clampTipMat);
+    tipF.position.set(0, 1.2, 2.4);
+    clampFront.add(baseF, armF, tipF);
+    group.add(clampFront);
+    this.clampArmFront = clampFront;
+
+    // Rear Clamp Assembly
+    const clampRear = new THREE.Group();
+    clampRear.position.set(0, -14.0, -177.5);
+    const baseB = new THREE.Mesh(new THREE.BoxGeometry(4.0, 2.5, 1.6), clampMat);
+    const armB = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 2.4), clampMat);
+    armB.position.set(0, 1.2, -1.2);
+    const tipB = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.4, 0.4), clampTipMat);
+    tipB.position.set(0, 1.2, -2.4);
+    clampRear.add(baseB, armB, tipB);
+    group.add(clampRear);
+    this.clampArmRear = clampRear;
+
+    // Charging Cables & Power Conduit Lines
+    const cableMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true });
+    const cableGroup = new THREE.Group();
+    [-4, 4].forEach(cx => {
+      const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 8, 8), cableMat);
+      cable.position.set(cx, -13.6, -185);
+      cable.rotation.z = Math.PI / 2;
+      cableGroup.add(cable);
+    });
+    group.add(cableGroup);
+    this.energyCables = cableGroup;
+
+    // Hangar Secondary Energy Shield (activates upon shelter sealed)
+    const hShield = new THREE.Mesh(
+      new THREE.BoxGeometry(32, 18, 1),
+      new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.0, side: THREE.DoubleSide })
+    );
+    hShield.position.set(0, -4, -144);
+    group.add(hShield);
+    this.finalCollapseHangarShield = hShield;
+
+    // Precalculate target world positions
+    group.updateMatrixWorld(true);
+    this.towerEntranceWorldPosition.set(0, 0, 0).applyMatrix4(group.matrixWorld);
+    this.bay07WorldPosition.set(0, -14, -185).applyMatrix4(group.matrixWorld);
+    this.bay07WorldQuaternion.copy(group.quaternion);
 
     return group;
   }

@@ -10,8 +10,7 @@ export type BlackHoleSubmodeId =
   | 'EVENT_HORIZON_RUN'
   | 'BLACK_HOLE_MAZE'
   | 'SINGULARITY_RIVAL'
-  | 'FINAL_COLLAPSE'
-  | 'FINAL_SINGULARITY'; // legacy alias
+  | 'FINAL_COLLAPSE';
 
 export interface BlackHoleSectorConfig {
   sector: number;

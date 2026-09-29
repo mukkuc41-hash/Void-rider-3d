@@ -773,3 +773,520 @@ export class FinalCollapseManager {
     };
   }
 }
+
+// =========================================================================
+// MODE 21 — SUBMODE 10: THE FINAL COLLAPSE COSMIC VISUALS
+// =========================================================================
+
+/**
+ * Supermassive Black Hole 3D Visual Asset:
+ * Looming in deep space with event horizon, procedural plasma accretion disk,
+ * photon ring, gravitational lensing, and accelerated collapse sequence.
+ */
+export class SupermassiveBlackHoleVisuals {
+  public root: THREE.Group;
+  public eventHorizonMesh: THREE.Mesh;
+  public accretionMesh: THREE.Mesh;
+  public photonRingMesh: THREE.Mesh;
+  public gravitationalLensMesh: THREE.Mesh;
+  public particles: THREE.Points;
+  private accretionMaterial: THREE.ShaderMaterial;
+  private rotationSpeed = 0.6;
+  public instability = 0;
+  public isCollapsing = false;
+  private collapseProgress = 0;
+  private scene: THREE.Scene;
+
+  constructor(scene: THREE.Scene, position = new THREE.Vector3(0, 180, -3500)) {
+    this.scene = scene;
+    this.root = new THREE.Group();
+    this.root.name = 'SupermassiveBlackHole';
+    this.root.position.copy(position);
+
+    // 1. Pitch black Event Horizon
+    const horizonGeo = new THREE.SphereGeometry(220, 48, 48);
+    const horizonMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    this.eventHorizonMesh = new THREE.Mesh(horizonGeo, horizonMat);
+    this.root.add(this.eventHorizonMesh);
+
+    // 2. High-energy Swirling Accretion Disk
+    const diskGeo = new THREE.RingGeometry(240, 950, 80, 12);
+    this.accretionMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0 },
+        speed: { value: 1.0 },
+        instability: { value: 0.0 },
+        innerColor: { value: new THREE.Color(0xff7700) },
+        outerColor: { value: new THREE.Color(0x8a2be2) },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float time;
+        uniform float speed;
+        uniform float instability;
+        uniform vec3 innerColor;
+        uniform vec3 outerColor;
+        varying vec2 vUv;
+
+        void main() {
+          vec2 p = vUv - 0.5;
+          float dist = length(p) * 2.0;
+          float angle = atan(p.y, p.x);
+
+          float spiral = sin(angle * 6.0 - time * 2.6 * speed + dist * 10.0);
+          spiral += sin(angle * 3.0 + dist * 5.0 - time * 1.5 * speed) * 0.5;
+          spiral = spiral * 0.5 + 0.5;
+
+          float alpha = smoothstep(0.15, 0.35, dist) * smoothstep(1.0, 0.72, dist);
+          alpha *= (0.65 + 0.35 * spiral + instability * 0.5);
+
+          vec3 col = mix(innerColor, outerColor, dist);
+          col += vec3(1.0, 0.85, 0.6) * pow(spiral, 2.5) * (0.8 + instability * 1.5);
+
+          gl_FragColor = vec4(col, clamp(alpha * 0.95, 0.0, 1.0));
+        }
+      `,
+      transparent: true,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.accretionMesh = new THREE.Mesh(diskGeo, this.accretionMaterial);
+    this.accretionMesh.rotation.x = Math.PI / 2.35;
+    this.root.add(this.accretionMesh);
+
+    // 3. Glowing Photon Ring at horizon perimeter
+    const ringGeo = new THREE.RingGeometry(220, 245, 64);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xffa500,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    this.photonRingMesh = new THREE.Mesh(ringGeo, ringMat);
+    this.photonRingMesh.rotation.x = Math.PI / 2.35;
+    this.root.add(this.photonRingMesh);
+
+    // 4. Gravitational Lensing refraction halo
+    const lensGeo = new THREE.SphereGeometry(260, 28, 28);
+    const lensMat = new THREE.MeshBasicMaterial({
+      color: 0x9333ea,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.3,
+      blending: THREE.AdditiveBlending,
+    });
+    this.gravitationalLensMesh = new THREE.Mesh(lensGeo, lensMat);
+    this.root.add(this.gravitationalLensMesh);
+
+    // 5. Infalling accretion particles
+    const particleCount = 200;
+    const posArray = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      const radius = 250 + Math.random() * 750;
+      const theta = Math.random() * Math.PI * 2;
+      posArray[i * 3] = Math.cos(theta) * radius;
+      posArray[i * 3 + 1] = (Math.random() - 0.5) * 30;
+      posArray[i * 3 + 2] = Math.sin(theta) * radius;
+    }
+    const particleGeo = new THREE.BufferGeometry();
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const particleMat = new THREE.PointsMaterial({
+      color: 0xfde047,
+      size: 7,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+    });
+    this.particles = new THREE.Points(particleGeo, particleMat);
+    this.particles.rotation.x = Math.PI / 2.35;
+    this.root.add(this.particles);
+
+    scene.add(this.root);
+  }
+
+  public setInstability(level: number) {
+    this.instability = THREE.MathUtils.clamp(level, 0, 1);
+    this.rotationSpeed = 0.6 + this.instability * 3.8;
+    this.accretionMaterial.uniforms.speed.value = 1.0 + this.instability * 4.0;
+    this.accretionMaterial.uniforms.instability.value = this.instability;
+    const pulseScale = 1.0 + this.instability * 0.15;
+    this.photonRingMesh.scale.set(pulseScale, pulseScale, pulseScale);
+  }
+
+  public triggerCollapse() {
+    this.isCollapsing = true;
+    this.collapseProgress = 0;
+  }
+
+  public update(dt: number) {
+    const delta = Math.max(0, dt);
+    this.accretionMaterial.uniforms.time.value += delta * this.rotationSpeed;
+    this.accretionMesh.rotation.z += delta * 0.25 * this.rotationSpeed;
+    this.particles.rotation.z += delta * 0.35 * this.rotationSpeed;
+
+    if (this.isCollapsing) {
+      this.collapseProgress += delta * 0.22;
+      // Inward collapse of accretion disk and horizon
+      const s = Math.max(0.01, 1.0 - this.collapseProgress * 0.85);
+      this.accretionMesh.scale.set(s, s, s);
+      this.eventHorizonMesh.scale.set(s, s, s);
+      this.photonRingMesh.scale.set(s * 1.5, s * 1.5, s * 1.5);
+    }
+  }
+
+  public dispose() {
+    this.scene.remove(this.root);
+    this.root.traverse(o => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.geometry) mesh.geometry.dispose();
+    });
+  }
+}
+
+/**
+ * Background Planetary Collision Visuals:
+ * Distant celestial bodies that destabilize, collide, and generate a massive
+ * non-graphic cosmic explosion with expanding debris cloud and shockwave ring.
+ */
+export class PlanetaryCollisionVisuals {
+  public root: THREE.Group;
+  public planetA: THREE.Mesh; // Gas giant
+  public planetB: THREE.Mesh; // Colliding fractured planet
+  public flashMesh: THREE.Mesh;
+  public shockwaveMesh: THREE.Mesh;
+  public debrisPoints: THREE.Points;
+  private debrisVelocities: THREE.Vector3[] = [];
+  public isCollided = false;
+  private collisionTimer = 0;
+  private scene: THREE.Scene;
+
+  constructor(scene: THREE.Scene) {
+    this.scene = scene;
+    this.root = new THREE.Group();
+    this.root.name = 'PlanetaryCollisionSystem';
+
+    // Planet A: Large Gas giant with rings
+    const geoA = new THREE.SphereGeometry(260, 32, 32);
+    const matA = new THREE.MeshStandardMaterial({
+      color: 0x2563eb,
+      roughness: 0.65,
+      metalness: 0.1,
+      emissive: 0x1e3a8a,
+      emissiveIntensity: 0.4,
+    });
+    this.planetA = new THREE.Mesh(geoA, matA);
+    this.planetA.position.set(-1500, 480, -3200);
+
+    const ringGeo = new THREE.RingGeometry(310, 480, 48);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x60a5fa,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.45,
+    });
+    const rings = new THREE.Mesh(ringGeo, ringMat);
+    rings.rotation.x = Math.PI / 3;
+    this.planetA.add(rings);
+    this.root.add(this.planetA);
+
+    // Planet B: Rocky red-hot fractured planet
+    const geoB = new THREE.SphereGeometry(170, 24, 24);
+    const matB = new THREE.MeshStandardMaterial({
+      color: 0xea580c,
+      roughness: 0.85,
+      metalness: 0.2,
+      emissive: 0x9a3412,
+      emissiveIntensity: 0.6,
+    });
+    this.planetB = new THREE.Mesh(geoB, matB);
+    this.planetB.position.set(-850, 720, -3500);
+    this.root.add(this.planetB);
+
+    // Blinding energy flash
+    const flashGeo = new THREE.SphereGeometry(60, 24, 24);
+    const flashMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+    });
+    this.flashMesh = new THREE.Mesh(flashGeo, flashMat);
+    this.flashMesh.position.set(-1450, 490, -3250);
+    this.root.add(this.flashMesh);
+
+    // Expanding shockwave ring
+    const swGeo = new THREE.RingGeometry(40, 75, 64);
+    const swMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+    });
+    this.shockwaveMesh = new THREE.Mesh(swGeo, swMat);
+    this.shockwaveMesh.position.copy(this.flashMesh.position);
+    this.root.add(this.shockwaveMesh);
+
+    // 160 Debris explosion dust/rock particles
+    const debrisCount = 160;
+    const debrisPositions = new Float32Array(debrisCount * 3);
+    for (let i = 0; i < debrisCount; i++) {
+      debrisPositions[i * 3] = this.flashMesh.position.x;
+      debrisPositions[i * 3 + 1] = this.flashMesh.position.y;
+      debrisPositions[i * 3 + 2] = this.flashMesh.position.z;
+
+      const dir = new THREE.Vector3(
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2
+      ).normalize().multiplyScalar(140 + Math.random() * 280);
+      this.debrisVelocities.push(dir);
+    }
+    const debrisGeo = new THREE.BufferGeometry();
+    debrisGeo.setAttribute('position', new THREE.BufferAttribute(debrisPositions, 3));
+    const debrisMat = new THREE.PointsMaterial({
+      color: 0xfb923c,
+      size: 14,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+    });
+    this.debrisPoints = new THREE.Points(debrisGeo, debrisMat);
+    this.root.add(this.debrisPoints);
+
+    scene.add(this.root);
+  }
+
+  public triggerCollision() {
+    this.isCollided = true;
+    this.collisionTimer = 0;
+  }
+
+  public update(dt: number) {
+    const delta = Math.max(0, dt);
+
+    if (!this.isCollided) {
+      // Gentle orbit drift
+      this.planetA.rotation.y += delta * 0.04;
+      this.planetB.rotation.y -= delta * 0.06;
+    } else {
+      this.collisionTimer += delta;
+
+      // Planet B moving rapidly into Planet A
+      if (this.collisionTimer < 1.4) {
+        this.planetB.position.lerp(new THREE.Vector3(-1440, 500, -3240), delta * 2.5);
+      } else {
+        // Impact occurs!
+        this.planetB.visible = false;
+        const progress = (this.collisionTimer - 1.4) / 4.0;
+
+        if (progress <= 1.0) {
+          // Flash expansion and fade
+          const flashScale = 1.0 + progress * 8.0;
+          this.flashMesh.scale.set(flashScale, flashScale, flashScale);
+          (this.flashMesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1.0 - progress * 1.4);
+
+          // Shockwave expands outward
+          const swScale = 1.0 + progress * 24.0;
+          this.shockwaveMesh.scale.set(swScale, swScale, swScale);
+          (this.shockwaveMesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.9 - progress);
+
+          // Debris particles expand outward
+          const posAttr = this.debrisPoints.geometry.getAttribute('position') as THREE.BufferAttribute;
+          const posArr = posAttr.array as Float32Array;
+          for (let i = 0; i < this.debrisVelocities.length; i++) {
+            posArr[i * 3] += this.debrisVelocities[i].x * delta;
+            posArr[i * 3 + 1] += this.debrisVelocities[i].y * delta;
+            posArr[i * 3 + 2] += this.debrisVelocities[i].z * delta;
+          }
+          posAttr.needsUpdate = true;
+          (this.debrisPoints.material as THREE.PointsMaterial).opacity = Math.max(0, 1.0 - progress);
+        }
+      }
+    }
+  }
+
+  public dispose() {
+    this.scene.remove(this.root);
+    this.root.traverse(o => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.geometry) mesh.geometry.dispose();
+    });
+  }
+}
+
+/**
+ * Dynamic Track Destruction & Spaghettification Visuals:
+ * Chunks of the race track behind the player crack, stretch into elongated
+ * shards toward the singularity vector, and plummet into the void.
+ */
+export class TrackDestructionVisuals {
+  public root: THREE.Group;
+  private fragments: {
+    mesh: THREE.Mesh;
+    velocity: THREE.Vector3;
+    rotVelocity: THREE.Vector3;
+    active: boolean;
+    life: number;
+  }[] = [];
+  private scene: THREE.Scene;
+
+  constructor(scene: THREE.Scene) {
+    this.scene = scene;
+    this.root = new THREE.Group();
+    this.root.name = 'TrackDestructionSystem';
+
+    const geo = new THREE.BoxGeometry(16, 2.5, 30);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.5,
+      metalness: 0.85,
+      roughness: 0.25,
+    });
+
+    for (let i = 0; i < 36; i++) {
+      const mesh = new THREE.Mesh(geo.clone(), mat.clone());
+      mesh.visible = false;
+      this.root.add(mesh);
+      this.fragments.push({
+        mesh,
+        velocity: new THREE.Vector3(),
+        rotVelocity: new THREE.Vector3(),
+        active: false,
+        life: 0,
+      });
+    }
+
+    scene.add(this.root);
+  }
+
+  public spawnCollapseBehind(playerPos: THREE.Vector3, blackHolePos: THREE.Vector3, count = 2) {
+    let spawned = 0;
+    for (const f of this.fragments) {
+      if (!f.active) {
+        f.active = true;
+        f.life = 0;
+        f.mesh.visible = true;
+
+        // Position 80-160 meters behind player
+        f.mesh.position.set(
+          playerPos.x + (Math.random() - 0.5) * 40,
+          playerPos.y + (Math.random() - 0.5) * 10,
+          playerPos.z + 90 + Math.random() * 80
+        );
+
+        // Tidal pull toward black hole
+        const pullDir = blackHolePos.clone().sub(f.mesh.position).normalize();
+        f.velocity.copy(pullDir).multiplyScalar(80 + Math.random() * 60);
+        f.velocity.y -= 45; // Gravity drop
+
+        f.rotVelocity.set(
+          (Math.random() - 0.5) * 4,
+          (Math.random() - 0.5) * 4,
+          (Math.random() - 0.5) * 4
+        );
+
+        spawned++;
+        if (spawned >= count) break;
+      }
+    }
+  }
+
+  public update(dt: number, spaghettification = true) {
+    const delta = Math.max(0, dt);
+    for (const f of this.fragments) {
+      if (f.active) {
+        f.life += delta;
+        f.mesh.position.addScaledVector(f.velocity, delta);
+        f.mesh.rotation.x += f.rotVelocity.x * delta;
+        f.mesh.rotation.y += f.rotVelocity.y * delta;
+        f.mesh.rotation.z += f.rotVelocity.z * delta;
+
+        // Spaghettification stretching effect!
+        if (spaghettification) {
+          const stretch = 1.0 + f.life * 1.8;
+          f.mesh.scale.set(Math.max(0.2, 1.0 / stretch), Math.max(0.2, 1.0 / stretch), stretch);
+        }
+
+        if (f.life > 3.5 || f.mesh.position.y < -300) {
+          f.active = false;
+          f.mesh.visible = false;
+        }
+      }
+    }
+  }
+
+  public dispose() {
+    this.scene.remove(this.root);
+    this.root.traverse(o => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.geometry) mesh.geometry.dispose();
+    });
+  }
+}
+
+/**
+ * Holographic Warning System:
+ * Physical neon holographic warning panels placed along the escape corridor.
+ */
+export class HolographicWarningSystem {
+  public root: THREE.Group;
+  private scene: THREE.Scene;
+
+  constructor(scene: THREE.Scene) {
+    this.scene = scene;
+    this.root = new THREE.Group();
+    this.root.name = 'HolographicWarningSigns';
+    scene.add(this.root);
+  }
+
+  public spawnSign(position: THREE.Vector3, text: string, subtext: string) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = 'rgba(8, 4, 18, 0.85)';
+      ctx.fillRect(0, 0, 512, 256);
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(6, 6, 500, 244);
+
+      ctx.fillStyle = '#f87171';
+      ctx.font = 'bold 36px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, 256, 88);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 24px monospace';
+      ctx.fillText(subtext, 256, 160);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const signMat = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+    const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(42, 21), signMat);
+    signMesh.position.copy(position);
+    this.root.add(signMesh);
+  }
+
+  public dispose() {
+    this.scene.remove(this.root);
+    this.root.traverse(o => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.geometry) mesh.geometry.dispose();
+    });
+  }
+}
