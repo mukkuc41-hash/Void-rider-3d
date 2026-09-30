@@ -1221,9 +1221,51 @@ export default function App() {
             />
           )}
 
-          {/* White Flash Bang with Boom - Whole screen goes white */}
-          {blackHoleCinematicTelemetry.event === 'FLASHBANG' && (
-            <div className="fixed inset-0 z-[98] bg-white pointer-events-none transition-none" />
+          {/* White Flash Bang with Boom - Whole screen goes pure white & fades into void */}
+          {(blackHoleCinematicTelemetry.event === 'FLASHBANG' ||
+            blackHoleCinematicTelemetry.event === 'COSMIC_LIGHT_EVENT' ||
+            (blackHoleCinematicTelemetry.event === 'SILENCE' && blackHoleCinematicTelemetry.eventElapsed < 1.4)) && (
+            <div
+              className="fixed inset-0 z-[98] bg-white pointer-events-none flex items-center justify-center transition-opacity duration-700"
+              style={{
+                opacity:
+                  blackHoleCinematicTelemetry.event === 'SILENCE'
+                    ? Math.max(0, 1.0 - blackHoleCinematicTelemetry.eventElapsed / 1.4)
+                    : 1.0,
+              }}
+            >
+              {blackHoleCinematicTelemetry.event !== 'SILENCE' && (
+                <div className="text-black/80 font-mono font-black text-2xl sm:text-4xl tracking-[0.35em] uppercase animate-pulse">
+                  COSMIC LIGHT EVENT
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Phase 14: Survival Confirmed Cinematic Overlay */}
+          {blackHoleCinematicTelemetry.event === 'SURVIVAL_RESULTS' && (
+            <div className="fixed inset-0 z-[90] pointer-events-none flex flex-col items-center justify-center p-6 text-center select-none animate-fadeIn">
+              <div className="rounded-2xl border-2 border-emerald-400 bg-black/85 p-8 max-w-lg w-full shadow-[0_0_80px_rgba(16,185,129,0.6)] backdrop-blur-md">
+                <div className="inline-block px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/60 text-emerald-400 font-mono text-xs font-black tracking-[0.25em] uppercase mb-3">
+                  ✓ EVACUATION PROTOCOL COMPLETE
+                </div>
+                <h1 className="text-3xl sm:text-5xl font-ui font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-white to-cyan-300 drop-shadow-[0_0_20px_rgba(16,185,129,0.8)]">
+                  SURVIVAL CONFIRMED
+                </h1>
+                <div className="mt-3 font-mono text-lg font-black text-emerald-300 tracking-widest uppercase">
+                  EVACUATION SUCCESSFUL
+                </div>
+                <div className="mt-1 font-mono text-xs font-bold text-slate-300 tracking-wider">
+                  PILOT STATUS: ALIVE // SHELTER: SECURE
+                </div>
+                <div className="mt-5 border-t border-emerald-500/30 pt-4 grid grid-cols-2 gap-3 text-left font-mono text-xs text-slate-300">
+                  <div>DOCKING BAY: <span className="text-white font-black">BAY 07</span></div>
+                  <div>HULL INTEGRITY: <span className="text-emerald-400 font-black">100% INTACT</span></div>
+                  <div>SINGULARITY: <span className="text-cyan-400 font-black">DISSIPATED</span></div>
+                  <div>STATUS: <span className="text-emerald-300 font-black">INVULNERABLE</span></div>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Rebuilding Map Message & Holographic Reconstruction Screen */}
@@ -1293,8 +1335,11 @@ export default function App() {
 
           {/* Primary Cinematic HUD Banner */}
           {blackHoleCinematicTelemetry.event !== 'FLASHBANG' &&
+            blackHoleCinematicTelemetry.event !== 'COSMIC_LIGHT_EVENT' &&
             blackHoleCinematicTelemetry.event !== 'REBUILDING_MAP' &&
-            blackHoleCinematicTelemetry.event !== 'RESULTS' && (
+            blackHoleCinematicTelemetry.event !== 'RESULTS' &&
+            blackHoleCinematicTelemetry.event !== 'RESULTS_COMPLETE' &&
+            blackHoleCinematicTelemetry.event !== 'SURVIVAL_RESULTS' && (
             <div className="fixed inset-x-0 top-3 z-[65] flex flex-col items-center px-3 pointer-events-none">
             {blackHoleCinematicTelemetry.finalCountdown !== null && blackHoleCinematicTelemetry.finalCountdown > 0 ? (
               /* Phase 1: 5-Minute Race Normal Countdown */
@@ -1326,8 +1371,38 @@ export default function App() {
                   </button>
                 </div>
               </div>
+            ) : blackHoleCinematicTelemetry.event === 'FINAL_SINGULARITY' ? (
+              /* Phase 9: Final Singularity — Dramatic Cinematic Title */
+              <div className="mt-8 flex flex-col items-center text-center drop-shadow-[0_0_35px_rgba(239,68,68,0.9)] animate-pulse">
+                <div className="inline-block px-3 py-1 rounded-full bg-red-950/80 border border-red-500/60 text-red-400 font-mono text-[10px] font-black tracking-[0.25em] uppercase mb-2">
+                  ⚠️ ACCRETION DISK INSTABILITY
+                </div>
+                <h1 className="text-4xl sm:text-6xl font-ui font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-amber-200 to-red-500">
+                  {blackHoleCinematicTelemetry.title}
+                </h1>
+                <p className="mt-2 font-mono text-xs sm:text-sm text-red-200 tracking-wider max-w-xl">
+                  {blackHoleCinematicTelemetry.subtitle}
+                </p>
+              </div>
+            ) : blackHoleCinematicTelemetry.event === 'WORLD_COLLAPSE' ||
+                blackHoleCinematicTelemetry.event === 'TOWER_REVEAL' ||
+                blackHoleCinematicTelemetry.event === 'PLANETARY_COLLISION' ||
+                blackHoleCinematicTelemetry.event === 'SILENCE' ||
+                blackHoleCinematicTelemetry.event === 'TOWER_REVEAL_RETURN' ||
+                blackHoleCinematicTelemetry.event === 'SHIP_FINAL_SHOT' ? (
+              /* Phase 6-13: Outside Destruction & Cosmic Events sleek presentation title badge */
+              <div className="mt-8 flex flex-col items-center text-center drop-shadow-[0_0_35px_rgba(0,0,0,0.9)]">
+                <div className="inline-block px-4 py-1.5 rounded-full bg-black/80 border border-cyan-500/50 text-cyan-300 font-mono text-xs font-black tracking-[0.25em] uppercase mb-1 shadow-lg">
+                  {blackHoleCinematicTelemetry.title}
+                </div>
+                {blackHoleCinematicTelemetry.subtitle && (
+                  <p className="font-mono text-xs text-slate-200 tracking-wider bg-black/50 px-3 py-1 rounded-full">
+                    {blackHoleCinematicTelemetry.subtitle}
+                  </p>
+                )}
+              </div>
             ) : (
-              /* Phase 2–12: 00:00 Catastrophe & Escape Sequence */
+              /* Phase 2–6: 00:00 Catastrophe & Escape Sequence */
               <div className="w-full max-w-2xl rounded-2xl border border-red-500/80 bg-red-950/70 px-5 py-3.5 text-center shadow-[0_0_45px_rgba(239,68,68,0.45)] backdrop-blur-md animate-pulse">
                 <div className="flex items-center justify-between border-b border-red-500/40 pb-1 text-[10px] font-mono font-black tracking-[0.25em] text-red-200">
                   <span className="text-red-400">⚠️ CRITICAL GRAVITATIONAL COLLAPSE</span>
@@ -1371,7 +1446,13 @@ export default function App() {
                 )}
 
                 {/* Section 1-2: Evacuation Tower Approach Telemetry */}
-                {blackHoleCinematicTelemetry.towerApproach && (
+                {blackHoleCinematicTelemetry.towerApproach &&
+                  (blackHoleCinematicTelemetry.event === 'TOWER_APPROACH' ||
+                   blackHoleCinematicTelemetry.event === 'BASEMENT_ENTRY' ||
+                   blackHoleCinematicTelemetry.event === 'BASEMENT_DESCENT' ||
+                   blackHoleCinematicTelemetry.event === 'HANGAR_ENTRY' ||
+                   blackHoleCinematicTelemetry.event === 'PARKING_APPROACH' ||
+                   blackHoleCinematicTelemetry.event === 'PARKING_ALIGNMENT') && (
                   <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 rounded-xl bg-cyan-950/70 border border-cyan-500/40 px-3 py-1.5 font-mono text-[11px]">
                     <span className="text-cyan-300 flex items-center gap-1 font-bold">
                       <span className="text-emerald-400 text-sm animate-bounce">⬆</span> ENTRANCE:
@@ -1394,7 +1475,16 @@ export default function App() {
                 )}
 
                 {/* Section 6-8: Dedicated Bay 07 Spaceship Parking HUD */}
-                {blackHoleCinematicTelemetry.parking && (
+                {blackHoleCinematicTelemetry.parking &&
+                  (blackHoleCinematicTelemetry.event === 'PARKING_APPROACH' ||
+                   blackHoleCinematicTelemetry.event === 'PARKING_ALIGNMENT' ||
+                   blackHoleCinematicTelemetry.event === 'SHIP_PARKING' ||
+                   blackHoleCinematicTelemetry.event === 'PARKING_CLAMPS' ||
+                   blackHoleCinematicTelemetry.event === 'SHIP_SECURED' ||
+                   blackHoleCinematicTelemetry.event === 'SHELTER_SEALING' ||
+                   blackHoleCinematicTelemetry.event === 'SHELTER_SECURED' ||
+                   blackHoleCinematicTelemetry.event === 'SHELTER_SEALED' ||
+                   blackHoleCinematicTelemetry.event === 'AFTERMATH_START') && (
                   <div className="mt-2.5 rounded-xl bg-slate-900/90 border border-cyan-400/40 p-2.5 font-mono text-xs shadow-[0_0_20px_rgba(6,182,212,0.25)]">
                     <div className="flex items-center justify-between border-b border-cyan-500/30 pb-1 text-[11px]">
                       <span className="font-black text-cyan-300 tracking-wider flex items-center gap-1.5">

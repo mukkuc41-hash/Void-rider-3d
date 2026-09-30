@@ -8,15 +8,31 @@ export type FinalCollapseState =
   | 'TOWER_APPROACH'
   | 'BASEMENT_ENTRY'
   | 'BASEMENT_DESCENT'
-  | 'HANGAR_ENTRY'
+  | 'PARKING_APPROACH'
   | 'PARKING_ALIGNMENT'
   | 'SHIP_PARKING'
+  | 'PARKING_CLAMPS'
   | 'SHIP_SECURED'
+  | 'SHELTER_SEALING'
   | 'SHELTER_SEALED'
+  | 'SHELTER_SECURED'
+  | 'AFTERMATH_START'
+  | 'TOWER_REVEAL'
+  | 'WORLD_COLLAPSE'
+  | 'FINAL_SINGULARITY'
+  | 'COSMIC_LIGHT_EVENT'
+  | 'SILENCE'
+  | 'AFTERMATH_REVEAL'
+  | 'TOWER_REVEAL_RETURN'
+  | 'SHIP_FINAL_SHOT'
+  | 'CINEMATIC_END'
+  | 'RESULTS_INTRO'
+  | 'RESULTS_STATS'
+  | 'REWARD_SEQUENCE'
+  | 'RESULTS_COMPLETE'
+  | 'HANGAR_ENTRY'
   | 'AFTERMATH_CINEMATIC'
   | 'FINAL_SINGULARITY_COLLAPSE'
-  | 'COSMIC_LIGHT_EVENT'
-  | 'AFTERMATH_REVEAL'
   | 'SURVIVAL_RESULTS';
 
 export type BlackHoleCinematicEvent =
@@ -37,14 +53,30 @@ export type BlackHoleCinematicEvent =
   | 'BASEMENT_ENTRY'
   | 'BASEMENT_DESCENT'
   | 'HANGAR_ENTRY'
+  | 'PARKING_APPROACH'
   | 'PARKING_ALIGNMENT'
   | 'SHIP_PARKING'
+  | 'PARKING_CLAMPS'
   | 'SHIP_SECURED'
+  | 'SHELTER_SEALING'
   | 'SHELTER_SEALED'
+  | 'SHELTER_SECURED'
+  | 'AFTERMATH_START'
+  | 'TOWER_REVEAL'
+  | 'WORLD_COLLAPSE'
+  | 'FINAL_SINGULARITY'
+  | 'COSMIC_LIGHT_EVENT'
+  | 'SILENCE'
+  | 'AFTERMATH_REVEAL'
+  | 'TOWER_REVEAL_RETURN'
+  | 'SHIP_FINAL_SHOT'
+  | 'CINEMATIC_END'
+  | 'RESULTS_INTRO'
+  | 'RESULTS_STATS'
+  | 'REWARD_SEQUENCE'
+  | 'RESULTS_COMPLETE'
   | 'AFTERMATH_CINEMATIC'
   | 'FINAL_SINGULARITY_COLLAPSE'
-  | 'COSMIC_LIGHT_EVENT'
-  | 'AFTERMATH_REVEAL'
   | 'SURVIVAL_RESULTS'
   | 'TOWER_ENTRY'
   | 'TOWER_SEALING'
@@ -53,7 +85,6 @@ export type BlackHoleCinematicEvent =
   | 'FLASHBANG'
   | 'REBUILDING_MAP'
   | 'AFTERMATH'
-  | 'FINAL_SINGULARITY'
   | 'RESULTS';
 
 export type BlackHoleDangerState =
@@ -147,24 +178,39 @@ const EVENT_DURATIONS: Record<BlackHoleCinematicEvent, number> = {
   BASEMENT_ENTRY: 6.0,
   BASEMENT_DESCENT: 8.0,
   HANGAR_ENTRY: 8.0,
+  PARKING_APPROACH: 4.0,
   PARKING_ALIGNMENT: 30.0,
-  SHIP_PARKING: 3.0,
-  SHIP_SECURED: 3.5,
-  SHELTER_SEALED: 3.0,
+  SHIP_PARKING: 2.5,
+  PARKING_CLAMPS: 3.0,
+  SHIP_SECURED: 2.0,
+  SHELTER_SEALING: 2.5,
+  SHELTER_SECURED: 2.0,
+  SHELTER_SEALED: 2.5,
+  AFTERMATH_START: 2.8,
+  TOWER_REVEAL: 5.0,
+  WORLD_COLLAPSE: 5.5,
+  FINAL_SINGULARITY: 6.0,
+  COSMIC_LIGHT_EVENT: 3.0,
+  SILENCE: 4.0,
+  TOWER_REVEAL_RETURN: 4.5,
+  SHIP_FINAL_SHOT: 4.5,
+  SURVIVAL_RESULTS: 4.0,
+  RESULTS: 60.0,
+  RESULTS_COMPLETE: 60.0,
+  AFTERMATH_REVEAL: 4.0,
+  CINEMATIC_END: 4.0,
+  RESULTS_INTRO: 1.5,
+  RESULTS_STATS: 4.5,
+  REWARD_SEQUENCE: 2.0,
   AFTERMATH_CINEMATIC: 10.0,
   FINAL_SINGULARITY_COLLAPSE: 6.0,
-  COSMIC_LIGHT_EVENT: 3.0,
-  AFTERMATH_REVEAL: 5.0,
-  SURVIVAL_RESULTS: 30.0,
   TOWER_ENTRY: 15.0,
   TOWER_SEALING: 4.0,
   FINAL_COLLAPSE: 5.5,
   FINAL_FLASH: 1.5,
   FLASHBANG: 2.5,
-  REBUILDING_MAP: 3.5,
+  REBUILDING_MAP: 4.0,
   AFTERMATH: 3.0,
-  FINAL_SINGULARITY: 8.0,
-  RESULTS: 5.0,
 };
 
 /** Reusable presentation/event controller for Mode 21 — Black Hole. */
@@ -207,18 +253,22 @@ export class BlackHoleCinematicManager {
     // Only non-playable presentation moments take full camera control
     this.cameraOverride = [
       'INTRO', 'PRE_RACE', 'BLACK_HOLE_REVEAL', 'FINAL_SINGULARITY_WARNING',
-      'SHIP_PARKING', 'SHIP_SECURED', 'SHELTER_SEALED',
-      'AFTERMATH_CINEMATIC', 'FINAL_SINGULARITY_COLLAPSE', 'COSMIC_LIGHT_EVENT', 'AFTERMATH_REVEAL', 'SURVIVAL_RESULTS',
+      'SHIP_PARKING', 'PARKING_CLAMPS', 'SHIP_SECURED', 'SHELTER_SEALING', 'SHELTER_SEALED', 'SHELTER_SECURED',
+      'AFTERMATH_START', 'TOWER_REVEAL', 'WORLD_COLLAPSE', 'PLANETARY_COLLISION', 'FINAL_SINGULARITY',
+      'COSMIC_LIGHT_EVENT', 'SILENCE', 'TOWER_REVEAL_RETURN', 'SHIP_FINAL_SHOT', 'SURVIVAL_RESULTS',
+      'AFTERMATH_CINEMATIC', 'FINAL_SINGULARITY_COLLAPSE', 'AFTERMATH_REVEAL',
       'TOWER_SEALING', 'FINAL_COLLAPSE',
-      'FINAL_FLASH', 'FLASHBANG', 'REBUILDING_MAP', 'AFTERMATH', 'RESULTS',
+      'FINAL_FLASH', 'FLASHBANG', 'REBUILDING_MAP', 'AFTERMATH', 'RESULTS', 'RESULTS_COMPLETE',
     ].includes(event);
 
     // Gameplay locking: during non-interactive cinematics
     this.gameplayLocked = [
       'INTRO', 'PRE_RACE', 'FINAL_SINGULARITY_WARNING',
-      'SHIP_PARKING', 'SHIP_SECURED', 'SHELTER_SEALED',
-      'AFTERMATH_CINEMATIC', 'FINAL_SINGULARITY_COLLAPSE', 'COSMIC_LIGHT_EVENT', 'AFTERMATH_REVEAL', 'SURVIVAL_RESULTS',
-      'TOWER_SEALING', 'FINAL_COLLAPSE', 'FINAL_FLASH', 'FLASHBANG', 'REBUILDING_MAP',
+      'SHIP_PARKING', 'PARKING_CLAMPS', 'SHIP_SECURED', 'SHELTER_SEALING', 'SHELTER_SEALED', 'SHELTER_SECURED',
+      'AFTERMATH_START', 'TOWER_REVEAL', 'WORLD_COLLAPSE', 'PLANETARY_COLLISION', 'FINAL_SINGULARITY',
+      'COSMIC_LIGHT_EVENT', 'SILENCE', 'TOWER_REVEAL_RETURN', 'SHIP_FINAL_SHOT', 'SURVIVAL_RESULTS',
+      'AFTERMATH_CINEMATIC', 'FINAL_SINGULARITY_COLLAPSE', 'AFTERMATH_REVEAL',
+      'TOWER_SEALING', 'FINAL_COLLAPSE', 'FINAL_FLASH', 'FLASHBANG', 'REBUILDING_MAP', 'RESULTS', 'RESULTS_COMPLETE',
     ].includes(event);
 
     if ([
@@ -361,37 +411,62 @@ export class BlackHoleCinematicManager {
   }
 
   private advanceAutomaticEvent(): void {
+    if (this.event === 'PLANETARY_COLLISION') {
+      const isAftermath = this.parkingTelemetry?.isParked || this.parkingTelemetry?.isSecured;
+      this.start(isAftermath ? 'FINAL_SINGULARITY' : 'DESTRUCTION_FRONT');
+      return;
+    }
+
     const next: Partial<Record<BlackHoleCinematicEvent, BlackHoleCinematicEvent>> = {
       FINAL_SINGULARITY_WARNING: 'SPAGHETTIFICATION',
       SPAGHETTIFICATION: 'PLANETARY_COLLISION',
-      PLANETARY_COLLISION: 'DESTRUCTION_FRONT',
       DESTRUCTION_FRONT: 'EVACUATION',
-      // Basement entry and aftermath sequence
-      SHIP_PARKING: 'SHIP_SECURED',
-      SHIP_SECURED: 'SHELTER_SEALED',
-      SHELTER_SEALED: 'AFTERMATH_CINEMATIC',
-      AFTERMATH_CINEMATIC: 'FINAL_SINGULARITY_COLLAPSE',
+      EVACUATION: 'TOWER_APPROACH',
+      TOWER_APPROACH: 'BASEMENT_ENTRY',
+      BASEMENT_ENTRY: 'BASEMENT_DESCENT',
+      BASEMENT_DESCENT: 'PARKING_APPROACH',
+      PARKING_APPROACH: 'PARKING_ALIGNMENT',
+      PARKING_ALIGNMENT: 'SHIP_PARKING',
+      SHIP_PARKING: 'PARKING_CLAMPS',
+      PARKING_CLAMPS: 'SHIP_SECURED',
+      SHIP_SECURED: 'SHELTER_SEALING',
+      SHELTER_SEALING: 'SHELTER_SEALED',
+      SHELTER_SEALED: 'AFTERMATH_START',
+      SHELTER_SECURED: 'AFTERMATH_START',
+      AFTERMATH_START: 'TOWER_REVEAL',
+      TOWER_REVEAL: 'WORLD_COLLAPSE',
+      WORLD_COLLAPSE: 'PLANETARY_COLLISION',
+      FINAL_SINGULARITY: 'COSMIC_LIGHT_EVENT',
+      COSMIC_LIGHT_EVENT: 'SILENCE',
+      SILENCE: 'TOWER_REVEAL_RETURN',
+      TOWER_REVEAL_RETURN: 'SHIP_FINAL_SHOT',
+      SHIP_FINAL_SHOT: 'SURVIVAL_RESULTS',
+      SURVIVAL_RESULTS: 'RESULTS',
+      RESULTS: 'RESULTS_COMPLETE',
+      // backward-compatible fallbacks
+      FLASHBANG: 'SILENCE',
       FINAL_SINGULARITY_COLLAPSE: 'COSMIC_LIGHT_EVENT',
-      COSMIC_LIGHT_EVENT: 'AFTERMATH_REVEAL',
-      AFTERMATH_REVEAL: 'SURVIVAL_RESULTS',
-      // Backward-compatible fallbacks
-      FINAL_COLLAPSE: 'FLASHBANG',
-      FINAL_FLASH: 'FLASHBANG',
-      FLASHBANG: 'REBUILDING_MAP',
-      REBUILDING_MAP: 'RESULTS',
+      AFTERMATH_REVEAL: 'TOWER_REVEAL_RETURN',
+      CINEMATIC_END: 'RESULTS',
+      RESULTS_INTRO: 'RESULTS',
+      RESULTS_STATS: 'RESULTS',
+      REWARD_SEQUENCE: 'RESULTS',
+      AFTERMATH_CINEMATIC: 'TOWER_REVEAL',
       AFTERMATH: 'RESULTS',
+      REBUILDING_MAP: 'RESULTS',
     };
     const nextEvent = next[this.event];
     if (!nextEvent) {
-      if (this.event !== 'RESULTS' && this.event !== 'SURVIVAL_RESULTS') {
+      if (this.event !== 'RESULTS_COMPLETE' && this.event !== 'RESULTS' && this.event !== 'SURVIVAL_RESULTS') {
         this.cameraOverride = false;
         this.gameplayLocked = false;
       }
       return;
     }
     this.start(nextEvent);
-    // Playable states keep full camera and movement
-    if (['SPAGHETTIFICATION', 'PLANETARY_COLLISION', 'DESTRUCTION_FRONT', 'EVACUATION', 'TOWER_APPROACH', 'BASEMENT_ENTRY', 'BASEMENT_DESCENT', 'HANGAR_ENTRY', 'PARKING_ALIGNMENT'].includes(nextEvent)) {
+    // Playable states keep full camera and movement only if ship is not yet parked
+    const isParked = this.parkingTelemetry?.isParked || this.parkingTelemetry?.isSecured;
+    if (!isParked && ['SPAGHETTIFICATION', 'PLANETARY_COLLISION', 'DESTRUCTION_FRONT', 'EVACUATION', 'TOWER_APPROACH', 'BASEMENT_ENTRY', 'BASEMENT_DESCENT', 'HANGAR_ENTRY', 'PARKING_APPROACH', 'PARKING_ALIGNMENT'].includes(nextEvent)) {
       this.cameraOverride = false;
       this.gameplayLocked = false;
     }
@@ -498,26 +573,45 @@ export class BlackHoleCinematicManager {
       BASEMENT_ENTRY: 'BASEMENT_ENTRY',
       BASEMENT_DESCENT: 'BASEMENT_DESCENT',
       HANGAR_ENTRY: 'HANGAR_ENTRY',
+      PARKING_APPROACH: 'PARKING_APPROACH',
       PARKING_ALIGNMENT: 'PARKING_ALIGNMENT',
       SHIP_PARKING: 'SHIP_PARKING',
+      PARKING_CLAMPS: 'PARKING_CLAMPS',
       SHIP_SECURED: 'SHIP_SECURED',
-      SHELTER_SEALED: 'SHELTER_SEALED',
+      SHELTER_SEALING: 'SHELTER_SEALING',
+      SHELTER_SECURED: 'SHELTER_SECURED',
+      AFTERMATH_START: 'AFTERMATH_START',
+      TOWER_REVEAL: 'TOWER_REVEAL',
+      WORLD_COLLAPSE: 'WORLD_COLLAPSE',
+      FINAL_SINGULARITY: 'FINAL_SINGULARITY',
+      COSMIC_LIGHT_EVENT: 'COSMIC_LIGHT_EVENT',
+      SILENCE: 'SILENCE',
+      AFTERMATH_REVEAL: 'AFTERMATH_REVEAL',
+      TOWER_REVEAL_RETURN: 'TOWER_REVEAL_RETURN',
+      SHIP_FINAL_SHOT: 'SHIP_FINAL_SHOT',
+      CINEMATIC_END: 'CINEMATIC_END',
+      RESULTS_INTRO: 'RESULTS_INTRO',
+      RESULTS_STATS: 'RESULTS_STATS',
+      REWARD_SEQUENCE: 'REWARD_SEQUENCE',
+      RESULTS_COMPLETE: 'RESULTS_COMPLETE',
       AFTERMATH_CINEMATIC: 'AFTERMATH_CINEMATIC',
       FINAL_SINGULARITY_COLLAPSE: 'FINAL_SINGULARITY_COLLAPSE',
-      COSMIC_LIGHT_EVENT: 'COSMIC_LIGHT_EVENT',
-      AFTERMATH_REVEAL: 'AFTERMATH_REVEAL',
       SURVIVAL_RESULTS: 'SURVIVAL_RESULTS',
       TOWER_ENTRY: 'BASEMENT_ENTRY',
-      TOWER_SEALING: 'SHELTER_SEALED',
-      FINAL_COLLAPSE: 'FINAL_SINGULARITY_COLLAPSE',
+      TOWER_SEALING: 'SHELTER_SECURED',
+      FINAL_COLLAPSE: 'FINAL_SINGULARITY',
       FLASHBANG: 'COSMIC_LIGHT_EVENT',
-      REBUILDING_MAP: 'AFTERMATH_REVEAL',
-      RESULTS: 'SURVIVAL_RESULTS',
+      REBUILDING_MAP: 'RESULTS_COMPLETE',
+      RESULTS: 'RESULTS_COMPLETE',
     };
     return map[this.event] || 'NORMAL_RACE';
   }
 
   private getTitle(): string {
+    if (this.event === 'FINAL_SINGULARITY') {
+      return this.eventElapsed < 3.0 ? 'SINGULARITY CRITICAL' : 'FINAL COLLAPSE';
+    }
+
     const titles: Record<BlackHoleCinematicEvent, string> = {
       NONE: 'QUANTUM LAUNCH PRO', INTRO: 'MODE 21 — BLACK HOLE', PRE_RACE: 'QUANTUM LAUNCH PRO',
       BLACK_HOLE_REVEAL: 'SINGULARITY DETECTED', DANGER_EVENT: 'GRAVITY ANOMALY',
@@ -527,21 +621,36 @@ export class BlackHoleCinematicManager {
       DESTRUCTION_FRONT: 'DESTRUCTION FRONT', EVACUATION: 'EMERGENCY EVACUATION',
       TOWER_APPROACH: 'SAFE ZONE REACHED', BASEMENT_ENTRY: 'EVACUATION IN PROGRESS',
       BASEMENT_DESCENT: 'DESCENDING TO LEVEL B3', HANGAR_ENTRY: 'EVACUATION HANGAR B3',
-      PARKING_ALIGNMENT: 'EVACUATION BAY 07', SHIP_PARKING: 'SHIP PARKING CONFIRMED',
-      SHIP_SECURED: 'SHIP SECURED', SHELTER_SEALED: 'SAFE ZONE SEALED',
-      AFTERMATH_CINEMATIC: 'THE COSMIC CATASTROPHE', FINAL_SINGULARITY_COLLAPSE: 'SINGULARITY CRITICAL',
-      COSMIC_LIGHT_EVENT: 'FINAL COLLAPSE', AFTERMATH_REVEAL: 'THE SINGULARITY HAS COLLAPSED',
+      PARKING_APPROACH: 'EVACUATION BAY 07', PARKING_ALIGNMENT: 'ALIGNMENT CONFIRMED',
+      SHIP_PARKING: 'SHIP PARKED', PARKING_CLAMPS: 'LOCKING PARKING CLAMPS',
+      SHIP_SECURED: 'SHIP SECURED', SHELTER_SEALING: 'EVACUATION SHELTER CLOSING',
+      SHELTER_SECURED: 'SHELTER SEALED', AFTERMATH_START: 'SAFE ZONE SECURED',
+      TOWER_REVEAL: 'TOWER EXTERIOR', WORLD_COLLAPSE: 'THE COSMIC COLLAPSE',
+      FINAL_SINGULARITY: 'SINGULARITY CRITICAL', COSMIC_LIGHT_EVENT: 'SINGULARITY DETONATION',
+      SILENCE: 'ATMOSPHERIC SILENCE', AFTERMATH_REVEAL: 'THE SINGULARITY HAS COLLAPSED',
+      TOWER_REVEAL_RETURN: 'RETURNING TO SHELTER', SHIP_FINAL_SHOT: 'SHIP STATUS: SECURE',
+      CINEMATIC_END: 'THE SINGULARITY HAS COLLAPSED', RESULTS_INTRO: 'MISSION COMPLETE',
+      RESULTS_STATS: 'SURVIVAL TELEMETRY', REWARD_SEQUENCE: 'REWARDS UNLOCKED',
+      RESULTS_COMPLETE: 'FINAL COLLAPSE COMPLETE',
+      AFTERMATH_CINEMATIC: 'THE COSMIC CATASTROPHE', FINAL_SINGULARITY_COLLAPSE: 'FINAL COLLAPSE',
       SURVIVAL_RESULTS: 'YOU SURVIVED THE FINAL COLLAPSE',
       TOWER_ENTRY: 'EMERGENCY SHELTER', TOWER_SEALING: 'SAFE ZONE SEALED',
+      SHELTER_SEALED: 'SHELTER SEALED',
       FINAL_COLLAPSE: 'THE FINAL COLLAPSE', FINAL_FLASH: 'SINGULARITY COLLAPSE',
-      FLASHBANG: 'SINGULARITY FLASHBANG', REBUILDING_MAP: 'REBUILDING MAP...',
-      AFTERMATH: 'THE SINGULARITY HAS COLLAPSED', FINAL_SINGULARITY: 'THE FINAL COLLAPSE',
-      RESULTS: 'YOU SURVIVED THE SINGULARITY',
+      FLASHBANG: 'SINGULARITY DETONATION', REBUILDING_MAP: 'REBUILDING MAP...',
+      AFTERMATH: 'THE SINGULARITY HAS COLLAPSED',
+      RESULTS: 'YOU SURVIVED THE FINAL COLLAPSE',
     };
     return titles[this.event] || 'THE FINAL COLLAPSE';
   }
 
   private getSubtitle(): string {
+    if (this.event === 'FINAL_SINGULARITY') {
+      return this.eventElapsed < 3.0
+        ? 'Relativistic accretion disk acceleration detected'
+        : 'Spacetime metric collapsing inward — all matter falling into the void';
+    }
+
     const subtitles: Partial<Record<BlackHoleCinematicEvent, string>> = {
       BLACK_HOLE_REVEAL: 'Event horizon locked. Accretion field expanding.',
       TRACK_COLLAPSE: 'Route integrity failing. Find the safe corridor.',
@@ -556,15 +665,31 @@ export class BlackHoleCinematicManager {
       BASEMENT_ENTRY: 'Blast doors disengaging. Welcome to emergency facility.',
       BASEMENT_DESCENT: 'Environmental shielding engaged. External hazards muffled.',
       HANGAR_ENTRY: 'Subterranean hangar chamber online. Follow guidance lights.',
-      PARKING_ALIGNMENT: 'ALIGN SHIP WITH PARKING MARKER (BAY 07)',
-      SHIP_PARKING: 'Controlled deceleration engaged. Docking in progress.',
-      SHIP_SECURED: 'Hydraulic clamps locked. Energy conduit connected.',
-      SHELTER_SEALED: 'PLAYER SHELTER STATUS: SECURE // 100% INVULNERABLE',
+      PARKING_APPROACH: 'ALIGN SHIP WITH PARKING MARKER (BAY 07)',
+      PARKING_ALIGNMENT: 'REDUCE SPEED // DOCKING IN PROGRESS',
+      SHIP_PARKING: 'Controlled deceleration engaged. Velocity zero.',
+      PARKING_CLAMPS: 'Hydraulic clamps engaging left, right, front, rear.',
+      SHIP_SECURED: 'EVACUATION STATUS // SHIP: SECURED // SHELTER: ACTIVE',
+      SHELTER_SEALING: 'Emergency lights active. Outer blast doors closing.',
+      SHELTER_SECURED: 'PLAYER STATUS: SAFE // 100% INVULNERABLE',
+      SHELTER_SEALED: 'PLAYER STATUS: SAFE // 100% INVULNERABLE',
+      AFTERMATH_START: 'Spaceship securely docked inside Bay 07.',
+      TOWER_REVEAL: 'Observation cameras online. Ascending from basement to tower exterior.',
+      WORLD_COLLAPSE: 'Planetary collision & route disintegration outside the shelter.',
+      FINAL_SINGULARITY: 'Accretion disk accelerating to relativistic speeds.',
+      COSMIC_LIGHT_EVENT: 'Cosmic energy shockwave detonation. Blinding whiteout.',
+      SILENCE: 'Gravitational shockwave dissipated. Distant rumbling.',
+      AFTERMATH_REVEAL: 'The surrounding universe has collapsed. Tower survived.',
+      TOWER_REVEAL_RETURN: 'Sensors tracking back to lone evacuation shelter in cosmic void.',
+      SHIP_FINAL_SHOT: 'Camera returns inside evacuation hangar // Spaceship clamped and safe.',
+      CINEMATIC_END: 'THE RACE IS OVER // YOU SURVIVED',
+      RESULTS_INTRO: 'Recording flight telemetry...',
+      RESULTS_STATS: 'Compiling mission statistics...',
+      REWARD_SEQUENCE: 'Survival bonus awarded.',
+      RESULTS_COMPLETE: 'Evacuation confirmed.',
       AFTERMATH_CINEMATIC: 'External cosmic structures disintegrating outside.',
       FINAL_SINGULARITY_COLLAPSE: 'Singularity reaches maximum gravitational instability.',
-      COSMIC_LIGHT_EVENT: 'Cosmic energy shockwave detonation.',
-      AFTERMATH_REVEAL: 'The universe outside has collapsed. Tower shelter survived.',
-      SURVIVAL_RESULTS: 'Evacuation confirmed. Mission telemetry recorded.',
+      SURVIVAL_RESULTS: 'SURVIVAL CONFIRMED // EVACUATION SUCCESSFUL // PILOT STATUS: ALIVE',
       TOWER_ENTRY: 'ENTER BASEMENT',
       TOWER_SEALING: 'SEALING PROCEDURE',
       FINAL_COLLAPSE: 'External environment critical. Shelter sealed.',
@@ -572,7 +697,6 @@ export class BlackHoleCinematicManager {
       FLASHBANG: 'Singularity detonation shockwave. Blinding whiteout.',
       REBUILDING_MAP: 'Reconstructing orbital topography and spacetime grid.',
       AFTERMATH: 'The surrounding planetary system has collapsed.',
-      FINAL_SINGULARITY: 'Five minutes are over. The final collapse begins.',
       RESULTS: 'You survived the final singularity collapse. Evacuation confirmed.',
     };
     return subtitles[this.event] ?? '';

@@ -322,6 +322,7 @@ export class GameEngine {
   private finalCollapseShipParked = false;
   private finalCollapseShipSecured = false;
   private finalCollapseHangarSealed = false;
+  private finalCollapseAftermathStarted = false;
   private finalCollapseClampStep = 0;
   private shelterNavigationActive = false;
   private shelterX = 0;
@@ -1856,11 +1857,34 @@ export class GameEngine {
     this.cameraShake = 0;
     this.collisionFovPunch = 0;
     this.camera.fov = 65;
+    this.camera.far = 4000;
     this.camera.updateProjectionMatrix();
 
     if (this.playerShipGroup) {
       this.playerShipGroup.visible = true;
     }
+    if (this.trackMeshGroup) {
+      this.trackMeshGroup.visible = true;
+    }
+    this.localAIRacers.forEach(ai => {
+      if (ai.group) ai.group.visible = true;
+    });
+    if (this.scene.fog instanceof THREE.FogExp2) {
+      this.scene.fog.density = 0.0012;
+    }
+
+    this.finalCollapseCatastropheActive = false;
+    this.finalCollapseShelterEntered = false;
+    this.finalCollapseDescending = false;
+    this.finalCollapseHangarEntered = false;
+    this.finalCollapseParkingAligned = false;
+    this.finalCollapseShipParked = false;
+    this.finalCollapseShipSecured = false;
+    this.finalCollapseHangarSealed = false;
+    this.finalCollapseAftermathStarted = false;
+    this.finalCollapseRaceFinishSent = false;
+    this.shelterNavigationActive = false;
+    this.shelterClampTimer = 0;
 
     this.callbacks.onSpeedUpdate?.(0);
     this.callbacks.onBoostUpdate?.(100);
@@ -2622,19 +2646,41 @@ export class GameEngine {
       if (isFinalCollapse) {
         const event = blackHoleCinematic.event;
 
+        // Dynamic fog & far clip adjustment: clear fog during cosmic aftermath scenes
+        if (this.scene.fog instanceof THREE.FogExp2) {
+          const isCosmicView =
+            event === 'TOWER_REVEAL' ||
+            event === 'WORLD_COLLAPSE' ||
+            event === 'PLANETARY_COLLISION' ||
+            event === 'FINAL_SINGULARITY' ||
+            event === 'COSMIC_LIGHT_EVENT' ||
+            event === 'FLASHBANG' ||
+            event === 'SILENCE' ||
+            event === 'TOWER_REVEAL_RETURN';
+          const targetDensity = isCosmicView ? 0.00003 : 0.0012;
+          this.scene.fog.density = THREE.MathUtils.lerp(this.scene.fog.density, targetDensity, dt * 2.5);
+          this.camera.far = isCosmicView ? 15000 : 4000;
+          this.camera.updateProjectionMatrix();
+        }
+
         // Keep physical phase manager in sync
         this.finalCollapseManager?.update(dt);
 
         // Update dynamic track debris
         if (this.trackDestruction) {
-          const isSpaghetti = event === 'SPAGHETTIFICATION' || event === 'PLANETARY_COLLISION' || event === 'DESTRUCTION_FRONT';
+          const isSpaghetti =
+            event === 'SPAGHETTIFICATION' ||
+            event === 'PLANETARY_COLLISION' ||
+            event === 'DESTRUCTION_FRONT' ||
+            event === 'WORLD_COLLAPSE' ||
+            event === 'FINAL_SINGULARITY' ||
+            event === 'AFTERMATH_START' ||
+            event === 'TOWER_REVEAL';
           this.trackDestruction.update(dt, isSpaghetti);
-          if (isSpaghetti && this.playerShipGroup && Math.random() < 0.35) {
-            this.trackDestruction.spawnCollapseBehind(
-              this.playerShipGroup.position,
-              this.supermassiveBlackHole?.root.position ?? new THREE.Vector3(0, 180, -3500),
-              2
-            );
+          if (isSpaghetti && Math.random() < 0.45) {
+            const bhPos = this.supermassiveBlackHole?.root.position ?? new THREE.Vector3(0, 180, -3500);
+            const refPos = this.playerShipGroup ? this.playerShipGroup.position : new THREE.Vector3(0, 0, -900);
+            this.trackDestruction.spawnCollapseBehind(refPos, bhPos, 2);
           }
         }
 
@@ -2693,12 +2739,11 @@ export class GameEngine {
 
             case 'PLANETARY_COLLISION':
               this.finalCollapseManager?.beginPlanetaryCollision();
-              if (!this.finalCollapseCollisionAudioPlayed) {
-                this.finalCollapseCollisionAudioPlayed = true;
-                this.planetaryCollision?.triggerCollision();
-                sound.playPlanetaryCollision();
-              }
-              this.cameraShake = Math.max(this.cameraShake, 1.35);
+              this.planetaryCollision?.triggerCollision();
+              sound.playPlanetaryCollision();
+              sound.playHeavyImpact();
+              sound.playGravitationalRumble(4.0);
+              this.cameraShake = Math.max(this.cameraShake, 2.8);
               break;
 
             case 'DESTRUCTION_FRONT':
@@ -2739,23 +2784,66 @@ export class GameEngine {
               }
               break;
 
-            case 'FINAL_COLLAPSE':
-              this.finalCollapseManager?.beginFinalCollapse();
-              this.supermassiveBlackHole?.triggerCollapse();
-              sound.playFinalCosmicCollapse();
-              this.blackHoleCinematicManager.setObjective('SHELTER SEALED');
-              this.cameraShake = Math.max(this.cameraShake, 1.5);
+            case 'PARKING_CLAMPS':
               break;
 
+            case 'SHELTER_SEALING':
+              this.junctionManager.setHangarShieldActive(true);
+              this.junctionManager.setFinalCollapseDoorOpen(0.0);
+              this.junctionManager.setFinalCollapsePressureDoorOpen(0.0);
+              sound.playBlastDoorClose();
+              break;
+
+            case 'SHELTER_SECURED':
+            case 'SHELTER_SEALED':
+              this.finalCollapseManager?.sealTower();
+              this.hullHealth = 100;
+              break;
+
+            case 'WORLD_COLLAPSE':
+              this.supermassiveBlackHole?.setInstability(0.95);
+              sound.playGravitationalRumble(4.0);
+              this.cameraShake = Math.max(this.cameraShake, 1.8);
+              break;
+
+            case 'FINAL_SINGULARITY':
+            case 'FINAL_SINGULARITY_COLLAPSE':
+            case 'FINAL_COLLAPSE':
+              this.finalCollapseManager?.beginFinalCollapse();
+              this.supermassiveBlackHole?.setInstability(1.0);
+              sound.playFinalCosmicCollapse();
+              sound.playGravitationalRumble(5.0);
+              this.cameraShake = Math.max(this.cameraShake, 2.4);
+              break;
+
+            case 'COSMIC_LIGHT_EVENT':
             case 'FLASHBANG':
+              this.supermassiveBlackHole?.triggerCollapse();
               sound.playFlashbangBoom();
-              this.cameraShake = Math.max(this.cameraShake, 2.2);
+              this.cameraShake = Math.max(this.cameraShake, 3.5);
               break;
 
             case 'REBUILDING_MAP':
-              this.blackHoleCinematicManager.setObjective('REBUILDING MAP...');
+              sound.playGravitationalRumble(1.0);
               break;
 
+            case 'SILENCE':
+              sound.playGravitationalRumble(0.2);
+              this.trackMeshGroup.visible = false;
+              this.localAIRacers.forEach(ai => {
+                if (ai.group) ai.group.visible = false;
+              });
+              this.cameraShake = 0;
+              break;
+
+            case 'SURVIVAL_RESULTS':
+              this.finalCollapseManager?.markSurvived();
+              sound.playFinish();
+              break;
+
+            case 'RESULTS_INTRO':
+            case 'RESULTS_STATS':
+            case 'RESULTS_COMPLETE':
             case 'RESULTS':
               this.finalCollapseManager?.markSurvived();
               if (!this.finalCollapseRaceFinishSent) {
@@ -2871,59 +2959,57 @@ export class GameEngine {
             this.junctionManager.setFinalCollapsePressureDoorOpen(pOpen);
           }
 
-          // Section 6: Evacuation Hangar B3 Entry
+          // Phase 1: Evacuation Hangar B3 Entry & Approach
           if (this.shelterZ <= -140 && !this.finalCollapseHangarEntered) {
             this.finalCollapseHangarEntered = true;
             this.junctionManager.setFinalCollapsePressureDoorOpen(0.0);
             this.junctionManager.setFinalCollapseDoorOpen(0.0);
-            this.blackHoleCinematicManager.start('PARKING_ALIGNMENT');
+            this.blackHoleCinematicManager.start('PARKING_APPROACH');
             this.blackHoleCinematicManager.setObjective('EVACUATION BAY 07 // ALIGN SHIP WITH PARKING MARKER');
           }
 
-          // Section 7: Spaceship Parking Logic & Alignment Zone
+          // Phase 1-2: Spaceship Parking Logic & Alignment Zone
           const bayDist = Math.hypot(this.shelterX, this.shelterZ - (-185));
           const rotDeg = Math.abs(this.shelterHeading) * (180 / Math.PI);
           const speedKmh = Math.round(this.currentSpeed * 3.6);
 
           if (this.finalCollapseHangarEntered && !this.finalCollapseShipParked) {
-            if (bayDist < 5.0 && speedKmh < 45) {
+            if (bayDist < 4.5 && speedKmh < 35 && !this.finalCollapseParkingAligned) {
               this.finalCollapseParkingAligned = true;
-              this.blackHoleCinematicManager.setObjective('SHIP ALIGNMENT CONFIRMED — REDUCE SPEED');
+              this.blackHoleCinematicManager.start('PARKING_ALIGNMENT');
+              this.blackHoleCinematicManager.setObjective('ALIGNMENT CONFIRMED — REDUCE SPEED');
             }
 
-            // Final parking position confirmed
+            // Phase 2: Automatic Parking Assist trigger
             if (bayDist <= 2.2 && rotDeg <= 18 && (speedKmh <= 15 || this.input.throttle < 0 || this.shelterZ <= -184)) {
               this.finalCollapseShipParked = true;
               sound.playParkingConfirmed();
               this.blackHoleCinematicManager.start('SHIP_PARKING');
-              this.blackHoleCinematicManager.setObjective('SHIP PARKING CONFIRMED');
+              this.blackHoleCinematicManager.setObjective('SHIP PARKED');
             }
           }
 
-          // Section 8: Parking Clamp Sequence
-          if (this.finalCollapseShipParked && !this.finalCollapseHangarSealed) {
+          // Phase 3 to 20: Continuous progression
+          if (this.finalCollapseShipParked) {
             this.shelterClampTimer += dt;
             const t = this.shelterClampTimer;
 
-            // Step 1: Left Clamp (0 - 0.7s)
+            // Phase 3: Sequential Clamps
             const cL = THREE.MathUtils.clamp(t / 0.6, 0, 1);
             if (t >= 0.6 && this.finalCollapseClampStep < 1) {
               this.finalCollapseClampStep = 1;
               sound.playClampLock(0);
             }
-            // Step 2: Right Clamp (0.7 - 1.3s)
             const cR = THREE.MathUtils.clamp((t - 0.7) / 0.6, 0, 1);
             if (t >= 1.3 && this.finalCollapseClampStep < 2) {
               this.finalCollapseClampStep = 2;
               sound.playClampLock(1);
             }
-            // Step 3: Front Clamp (1.4 - 2.0s)
             const cF = THREE.MathUtils.clamp((t - 1.4) / 0.6, 0, 1);
             if (t >= 2.0 && this.finalCollapseClampStep < 3) {
               this.finalCollapseClampStep = 3;
               sound.playClampLock(2);
             }
-            // Step 4: Rear Clamp (2.1 - 2.7s)
             const cB = THREE.MathUtils.clamp((t - 2.1) / 0.6, 0, 1);
             if (t >= 2.7 && this.finalCollapseClampStep < 4) {
               this.finalCollapseClampStep = 4;
@@ -2932,14 +3018,15 @@ export class GameEngine {
 
             this.junctionManager.setClampsProgress(cL, cR, cF, cB);
 
+            // Phase 4: Pilot safe confirmation
             if (t >= 2.8 && !this.finalCollapseShipSecured) {
               this.finalCollapseShipSecured = true;
               this.blackHoleCinematicManager.start('SHIP_SECURED');
-              this.blackHoleCinematicManager.setObjective('SHIP SECURED // CLAMPS LOCKED');
+              this.blackHoleCinematicManager.setObjective('EVACUATION STATUS // SHIP: SECURED');
             }
 
-            // Section 10: Hangar Sealing
-            if (t >= 4.2 && !this.finalCollapseHangarSealed) {
+            // Phase 5: Hangar Sealing
+            if (t >= 4.5 && !this.finalCollapseHangarSealed) {
               this.finalCollapseHangarSealed = true;
               this.junctionManager.setHangarShieldActive(true);
               this.junctionManager.setFinalCollapseDoorOpen(0.0);
@@ -2950,15 +3037,15 @@ export class GameEngine {
               }
               this.finalCollapseManager?.sealTower();
               this.blackHoleCinematicManager.start('SHELTER_SEALED');
-              this.blackHoleCinematicManager.setObjective('SAFE ZONE SEALED // SHELTER STATUS: SECURE');
+              this.blackHoleCinematicManager.setObjective('SHELTER SEALED // PLAYER STATUS: SAFE');
               this.hullHealth = 100;
             }
 
-            // Section 11: Transition to Aftermath
-            if (t >= 6.8) {
-              this.blackHoleCinematicManager.start('AFTERMATH_CINEMATIC');
-              this.blackHoleCinematicManager.setObjective('SAFE ZONE SEALED // EXTERNAL COLLAPSE ACTIVE');
-              this.hasFinished = true;
+            // Phase 6: Camera leaves the spaceship -> Aftermath Start
+            if (t >= 7.0 && !this.finalCollapseAftermathStarted) {
+              this.finalCollapseAftermathStarted = true;
+              this.blackHoleCinematicManager.start('AFTERMATH_START');
+              this.blackHoleCinematicManager.setObjective('SAFE ZONE SECURED // EXTERNAL COLLAPSE ACTIVE');
             }
           }
 
@@ -2992,8 +3079,7 @@ export class GameEngine {
 
         // Finish race upon RESULTS
         if (
-          event === 'RESULTS' &&
-          this.blackHoleCinematicManager.isEventComplete() &&
+          (event === 'RESULTS' || event === 'RESULTS_COMPLETE') &&
           !this.finalCollapseRaceFinishSent
         ) {
           this.finalCollapseRaceFinishSent = true;
@@ -3550,7 +3636,14 @@ export class GameEngine {
           this.camera.position.lerp(targetCamPos, 0.15);
           this.camera.lookAt(lookTarget);
           return;
-        } else if (bhEvent !== 'AFTERMATH_CINEMATIC' && bhEvent !== 'FINAL_SINGULARITY_COLLAPSE' && bhEvent !== 'COSMIC_LIGHT_EVENT' && bhEvent !== 'FLASHBANG' && bhEvent !== 'REBUILDING_MAP' && bhEvent !== 'RESULTS') {
+        } else if (
+          bhEvent === 'SHIP_PARKING' ||
+          bhEvent === 'PARKING_CLAMPS' ||
+          bhEvent === 'SHIP_SECURED' ||
+          bhEvent === 'SHELTER_SEALING' ||
+          bhEvent === 'SHELTER_SECURED' ||
+          bhEvent === 'SHELTER_SEALED'
+        ) {
           // Side Camera -> Wide Hangar Camera showing ship clamped in Bay 07
           const bay07 = this.junctionManager.bay07WorldPosition;
           const isWide = this.finalCollapseHangarSealed;
@@ -3562,34 +3655,194 @@ export class GameEngine {
         }
       }
 
-      // Section 12-14: Continuous Cinematic Aftermath Camera Path
-      if (bhEvent === 'AFTERMATH_CINEMATIC') {
+      // Section 9 & 12-14: Continuous Aftermath Cinematic Camera Path
+      if (
+        bhEvent === 'AFTERMATH_START' ||
+        bhEvent === 'TOWER_REVEAL' ||
+        bhEvent === 'WORLD_COLLAPSE' ||
+        bhEvent === 'PLANETARY_COLLISION' ||
+        bhEvent === 'FINAL_SINGULARITY' ||
+        bhEvent === 'COSMIC_LIGHT_EVENT' ||
+        bhEvent === 'FLASHBANG' ||
+        bhEvent === 'SILENCE' ||
+        bhEvent === 'AFTERMATH_REVEAL' ||
+        bhEvent === 'TOWER_REVEAL_RETURN' ||
+        bhEvent === 'SHIP_FINAL_SHOT' ||
+        bhEvent === 'CINEMATIC_END' ||
+        bhEvent === 'AFTERMATH_CINEMATIC' ||
+        bhEvent === 'REBUILDING_MAP' ||
+        bhEvent === 'SURVIVAL_RESULTS' ||
+        bhEvent === 'RESULTS' ||
+        bhEvent === 'RESULTS_COMPLETE'
+      ) {
         const elapsed = this.blackHoleCinematicManager.eventElapsed;
         const bay07 = this.junctionManager.bay07WorldPosition;
         const entrance = this.junctionManager.towerEntranceWorldPosition;
 
-        if (elapsed < 2.8) {
-          // 1. Hold on Parked Spaceship in Bay 07 with locked clamps & glowing cables (Section 13)
-          const cam = bay07.clone().add(new THREE.Vector3(-5.5, 3.2, 6.8));
+        if (bhEvent === 'AFTERMATH_START') {
+          // Phase 6: Hold on Parked Spaceship in Bay 07 with locked clamps & glowing cables
+          const cam = bay07.clone().add(new THREE.Vector3(-6.5, 3.8, 7.2));
           this.camera.position.lerp(cam, 0.1);
-          this.camera.lookAt(this.playerShipGroup.position);
-        } else if (elapsed < 5.5) {
-          // 2. Pan out into Evacuation Hangar B3 showing sealed doors and structural pillars
-          const camHangar = bay07.clone().add(new THREE.Vector3(0, 14, 26));
-          this.camera.position.lerp(camHangar, 0.07);
-          this.camera.lookAt(bay07);
-        } else if (elapsed < 8.0) {
-          // 3. Ascend through basement ramp and out through tower interior
-          const camRamp = entrance.clone().add(new THREE.Vector3(0, 16, 24));
-          this.camera.position.lerp(camRamp, 0.06);
-          this.camera.lookAt(entrance);
-        } else {
-          // 4. Rise above tower exterior platform and reveal outside collapsing track & planets!
-          const camOrbit = entrance.clone().add(new THREE.Vector3(-240, 480, 520));
-          this.camera.position.lerp(camOrbit, 0.05);
-          this.camera.lookAt(bhPos);
+          this.camera.lookAt(this.playerShipGroup.position.clone().add(new THREE.Vector3(0, 0.6, 0)));
+          return;
         }
-        return;
+
+        if (bhEvent === 'TOWER_REVEAL') {
+          // Phase 6: Smooth continuous path: Parked ship -> Hangar B3 -> Ramp tunnel -> Tower interior -> Tower exterior platform
+          const tH = Math.min(1, elapsed / 5.0);
+          let camTarget: THREE.Vector3;
+          let lookTarget: THREE.Vector3;
+
+          if (tH < 0.25) {
+            // Gliding backward out of Bay 07 into Evacuation Hangar B3
+            const p = tH / 0.25;
+            const startPos = bay07.clone().add(new THREE.Vector3(-6.5, 3.8, 7.2));
+            const hangarPos = bay07.clone().add(new THREE.Vector3(0, 7.0, 32.0));
+            camTarget = startPos.lerp(hangarPos, p);
+            lookTarget = bay07.clone().add(new THREE.Vector3(0, 1.0, 0));
+          } else if (tH < 0.65) {
+            // Ascending up the subterranean access ramp (from y=-14 to y=0)
+            const p = (tH - 0.25) / 0.40;
+            const rampStart = bay07.clone().add(new THREE.Vector3(0, 7.0, 32.0));
+            const rampTop = entrance.clone().add(new THREE.Vector3(0, 5.0, -15.0));
+            camTarget = rampStart.lerp(rampTop, p);
+            lookTarget = entrance.clone().add(new THREE.Vector3(0, 4.0, 20.0));
+          } else {
+            // Exiting through tower interior gate and rising into orbit outside
+            const p = (tH - 0.65) / 0.35;
+            const gatePos = entrance.clone().add(new THREE.Vector3(0, 5.0, -15.0));
+            const exteriorOrbit = entrance.clone().add(new THREE.Vector3(-180.0, 280.0, 380.0));
+            camTarget = gatePos.lerp(exteriorOrbit, p);
+            lookTarget = entrance.clone().lerp(bhPos, p);
+          }
+
+          this.camera.position.lerp(camTarget, 0.12);
+          this.camera.lookAt(lookTarget);
+          return;
+        }
+
+        if (bhEvent === 'WORLD_COLLAPSE') {
+          // Phase 7: Outside Destruction Reveal: race track being torn apart, chunks falling into void
+          const camOrbit = entrance.clone().add(new THREE.Vector3(-260, 440, 520));
+          this.camera.position.lerp(camOrbit, 0.08);
+          this.camera.lookAt(bhPos);
+          if (this.cameraShake > 0) {
+            this.camera.position.x += (Math.random() - 0.5) * this.cameraShake * 2.2;
+            this.camera.position.y += (Math.random() - 0.5) * this.cameraShake * 2.2;
+          }
+          return;
+        }
+
+        if (bhEvent === 'PLANETARY_COLLISION') {
+          // Phase 8: Catastrophic Planetary Collision
+          // Camera directly frames Planet A and Planet B colliding near the black hole
+          const camCol = new THREE.Vector3(-850, 680, -1850);
+          this.camera.position.lerp(camCol, 0.08);
+          const impactCenter = new THREE.Vector3(-1440, 500, -3240);
+          this.camera.lookAt(impactCenter);
+          if (this.cameraShake > 0) {
+            this.camera.position.x += (Math.random() - 0.5) * this.cameraShake * 3.5;
+            this.camera.position.y += (Math.random() - 0.5) * this.cameraShake * 3.5;
+          }
+          return;
+        }
+
+        if (bhEvent === 'FINAL_SINGULARITY') {
+          // Phase 9: Final Singularity (epic celestial view, relativistic spin, accretion disk expansion)
+          const camCosmic = new THREE.Vector3(-450, 750, -1800);
+          this.camera.position.lerp(camCosmic, 0.08);
+          this.camera.lookAt(bhPos);
+          if (this.cameraShake > 0) {
+            this.camera.position.x += (Math.random() - 0.5) * this.cameraShake * 3.5;
+            this.camera.position.y += (Math.random() - 0.5) * this.cameraShake * 3.5;
+          }
+          return;
+        }
+
+        if (bhEvent === 'COSMIC_LIGHT_EVENT' || bhEvent === 'FLASHBANG') {
+          // Phase 10: Cosmic Light Event & Detonation
+          const camFlash = new THREE.Vector3(-380, 650, -1600);
+          this.camera.position.lerp(camFlash, 0.08);
+          this.camera.lookAt(bhPos);
+          if (this.cameraShake > 0) {
+            this.camera.position.x += (Math.random() - 0.5) * this.cameraShake * 4.5;
+            this.camera.position.y += (Math.random() - 0.5) * this.cameraShake * 4.5;
+          }
+          return;
+        }
+
+        if (bhEvent === 'SILENCE' || bhEvent === 'AFTERMATH_REVEAL' || bhEvent === 'REBUILDING_MAP') {
+          // Phase 11: Total Silence
+          // The world is gone, track is gone. Only the lone evacuation tower remains in empty space.
+          const camSilence = entrance.clone().add(new THREE.Vector3(-240, 280, 520));
+          this.camera.position.lerp(camSilence, 0.06);
+          this.camera.lookAt(entrance.clone().add(new THREE.Vector3(0, 30, 0)));
+          return;
+        }
+
+        if (bhEvent === 'TOWER_REVEAL_RETURN') {
+          // Phase 12: Return to the Evacuation Tower
+          // Camera glides smoothly from deep space back toward the lone glowing evacuation tower
+          const tR = Math.min(1, elapsed / 4.5);
+          const startCam = entrance.clone().add(new THREE.Vector3(-240, 280, 520));
+          const endCam = entrance.clone().add(new THREE.Vector3(-35, 25, 45));
+          const cam = startCam.lerp(endCam, tR);
+          this.camera.position.lerp(cam, 0.08);
+          this.camera.lookAt(entrance.clone().add(new THREE.Vector3(0, 10, 0)));
+          return;
+        }
+
+        if (bhEvent === 'SHIP_FINAL_SHOT' || bhEvent === 'CINEMATIC_END') {
+          // Phase 13: Return to the Spaceship
+          // Camera moves back inside: Exterior -> Interior -> Ramp -> Hangar B3 -> Bay 07 -> Player Ship
+          const tS = Math.min(1, elapsed / 4.5);
+          let camTarget: THREE.Vector3;
+          let lookTarget: THREE.Vector3;
+
+          if (tS < 0.35) {
+            // Passing through tower exterior entrance into interior gate
+            const p = tS / 0.35;
+            const startPos = entrance.clone().add(new THREE.Vector3(-35, 25, 45));
+            const gatePos = entrance.clone().add(new THREE.Vector3(0, 5.0, -15.0));
+            camTarget = startPos.lerp(gatePos, p);
+            lookTarget = entrance.clone().add(new THREE.Vector3(0, 4.0, -35.0));
+          } else if (tS < 0.70) {
+            // Descending the access ramp toward Hangar B3
+            const p = (tS - 0.35) / 0.35;
+            const gatePos = entrance.clone().add(new THREE.Vector3(0, 5.0, -15.0));
+            const hangarStart = bay07.clone().add(new THREE.Vector3(0, 7.0, 32.0));
+            camTarget = gatePos.lerp(hangarStart, p);
+            lookTarget = bay07.clone().add(new THREE.Vector3(0, 2.0, 0));
+          } else {
+            // Entering Bay 07 and framing the safely clamped player spaceship
+            const p = (tS - 0.70) / 0.30;
+            const hangarStart = bay07.clone().add(new THREE.Vector3(0, 7.0, 32.0));
+            const shipCam = bay07.clone().add(new THREE.Vector3(-5.5, 3.2, 5.8));
+            camTarget = hangarStart.lerp(shipCam, p);
+            lookTarget = this.playerShipGroup.position.clone().add(new THREE.Vector3(0, 0.6, 0));
+          }
+
+          this.camera.position.lerp(camTarget, 0.1);
+          this.camera.lookAt(lookTarget);
+          return;
+        }
+
+        if (bhEvent === 'SURVIVAL_RESULTS') {
+          // Phase 14: Survival Confirmed
+          // Camera holds on the clamped spaceship in Bay 07 with glowing clamps
+          const camShip = bay07.clone().add(new THREE.Vector3(-5.2, 3.0, 5.5));
+          this.camera.position.lerp(camShip, 0.08);
+          this.camera.lookAt(this.playerShipGroup.position.clone().add(new THREE.Vector3(0, 0.6, 0)));
+          return;
+        }
+
+        if (bhEvent === 'RESULTS' || bhEvent === 'RESULTS_COMPLETE') {
+          // Phase 15: Results Transition
+          const camResults = bay07.clone().add(new THREE.Vector3(-7.0, 4.5, 8.5));
+          this.camera.position.lerp(camResults, 0.05);
+          this.camera.lookAt(this.playerShipGroup.position.clone().add(new THREE.Vector3(0, 0.6, 0)));
+          return;
+        }
       }
 
       if (bhEvent === 'FINAL_SINGULARITY_WARNING') {
@@ -4583,6 +4836,7 @@ export class GameEngine {
       this.finalCollapseShipParked = false;
       this.finalCollapseShipSecured = false;
       this.finalCollapseHangarSealed = false;
+      this.finalCollapseAftermathStarted = false;
       this.finalCollapseClampStep = 0;
       this.shelterNavigationActive = false;
       this.shelterX = 0;
