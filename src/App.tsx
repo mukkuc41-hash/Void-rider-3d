@@ -69,6 +69,9 @@ import { ActiveCinematicState, ExtendedPathTelemetry } from './game/extendedPath
 import { FinishCinematicOverlay } from './components/FinishCinematicOverlay';
 import { FinishCinematicTelemetry } from './game/fullRouteCinematic/finishCinematicManager';
 import { BlackHoleCinematicTelemetry } from './game/blackHoleCinematicManager';
+import { FinalCollapseResultsModal } from './components/FinalCollapseResultsModal';
+import { FinalCollapseFailureOverlay } from './components/FinalCollapseFailureOverlay';
+import { FinalCollapseStats } from './game/FinalCollapseManager';
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -126,6 +129,8 @@ export default function App() {
   // Modals visibility
   const [isResultsOpen, setIsResultsOpen] = useState<boolean>(false);
   const [resultsData, setResultsData] = useState<RaceResult[]>([]);
+  const [finalCollapseStats, setFinalCollapseStats] = useState<FinalCollapseStats | null>(null);
+  const [isFinalCollapseResultsOpen, setIsFinalCollapseResultsOpen] = useState<boolean>(false);
   const [isGameOverOpen, setIsGameOverOpen] = useState<boolean>(false);
   const [gameOverStats, setGameOverStats] = useState<RunStats | null>(null);
   const [isPauseOpen, setIsPauseOpen] = useState<boolean>(false);
@@ -594,6 +599,25 @@ export default function App() {
 
   // 4. Local AI Race Completion Handler
   const handleRaceFinishedLocally = (finalTime: number) => {
+    // Mode 21 — The Final Collapse Authoritative Results
+    if (gameMode === 'BLACK_HOLE' && engineRef.current?.finalCollapseManager) {
+      const stats = engineRef.current.finalCollapseManager.generateStats(
+        engineRef.current.raceStartTime,
+        engineRef.current.totalDistanceTraveled,
+        engineRef.current.checkpointsPassed,
+        engineRef.current.boostCount || 0,
+        engineRef.current.shieldHits || 0,
+        0
+      );
+      setFinalCollapseStats(stats);
+      setIsFinalCollapseResultsOpen(true);
+      setAppState('MAIN_MENU');
+      if (engineRef.current) {
+        engineRef.current.stopRace();
+      }
+      return;
+    }
+
     const myResult: RaceResult = {
       playerId: 'player',
       playerName: progression.playerName,
@@ -750,6 +774,8 @@ export default function App() {
     setIsPauseOpen(false);
     setIsGameOverOpen(false);
     setIsResultsOpen(false);
+    setIsFinalCollapseResultsOpen(false);
+    setFinalCollapseStats(null);
     setAppState('RACING');
 
     if (engineRef.current) {
@@ -762,6 +788,8 @@ export default function App() {
     setIsPauseOpen(false);
     setIsGameOverOpen(false);
     setIsResultsOpen(false);
+    setIsFinalCollapseResultsOpen(false);
+    setFinalCollapseStats(null);
     setAppState('MAIN_MENU');
     setIntroTelemetry(null);
     setCountdown(null);
@@ -1384,7 +1412,8 @@ export default function App() {
                   {blackHoleCinematicTelemetry.subtitle}
                 </p>
               </div>
-            ) : blackHoleCinematicTelemetry.event === 'WORLD_COLLAPSE' ||
+            ) : blackHoleCinematicTelemetry.event === 'AFTERMATH_START' ||
+                blackHoleCinematicTelemetry.event === 'WORLD_COLLAPSE' ||
                 blackHoleCinematicTelemetry.event === 'TOWER_REVEAL' ||
                 blackHoleCinematicTelemetry.event === 'PLANETARY_COLLISION' ||
                 blackHoleCinematicTelemetry.event === 'SILENCE' ||
@@ -1569,6 +1598,20 @@ export default function App() {
 
       {/* Arcade Collision Feedback HUD */}
       {appState === 'RACING' && <CollisionHUD feedback={collisionFeedback} />}
+
+      {/* Mode 21 — The Final Collapse Failure Cinematic Overlay */}
+      {blackHoleCinematicTelemetry?.evacuation && (
+        <FinalCollapseFailureOverlay evacuation={blackHoleCinematicTelemetry.evacuation} />
+      )}
+
+      {/* Mode 21 — The Final Collapse Results Modal (16 exact values) */}
+      {isFinalCollapseResultsOpen && finalCollapseStats && (
+        <FinalCollapseResultsModal
+          stats={finalCollapseStats}
+          onRestart={handleRestartRace}
+          onReturnToLobby={handleReturnToLobby}
+        />
+      )}
 
       {/* Post-Race Results Modal */}
       {isResultsOpen && (

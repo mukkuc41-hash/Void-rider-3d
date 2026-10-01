@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { MassiveBlackHoleEnvironment, BlackHoleQuality } from './environment/massiveBlackHoleEnvironment';
+
+export { MassiveBlackHoleEnvironment, type BlackHoleQuality };
 
 export type SingularityPhase =
   | 'RACING'
@@ -790,164 +793,45 @@ export class SupermassiveBlackHoleVisuals {
   public photonRingMesh: THREE.Mesh;
   public gravitationalLensMesh: THREE.Mesh;
   public particles: THREE.Points;
-  private accretionMaterial: THREE.ShaderMaterial;
-  private rotationSpeed = 0.6;
+  public environment: MassiveBlackHoleEnvironment;
   public instability = 0;
   public isCollapsing = false;
-  private collapseProgress = 0;
-  private scene: THREE.Scene;
 
   constructor(scene: THREE.Scene, position = new THREE.Vector3(0, 180, -3500)) {
-    this.scene = scene;
-    this.root = new THREE.Group();
-    this.root.name = 'SupermassiveBlackHole';
-    this.root.position.copy(position);
-
-    // 1. Pitch black Event Horizon
-    const horizonGeo = new THREE.SphereGeometry(220, 48, 48);
-    const horizonMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    this.eventHorizonMesh = new THREE.Mesh(horizonGeo, horizonMat);
-    this.root.add(this.eventHorizonMesh);
-
-    // 2. High-energy Swirling Accretion Disk
-    const diskGeo = new THREE.RingGeometry(240, 950, 80, 12);
-    this.accretionMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        time: { value: 0 },
-        speed: { value: 1.0 },
-        instability: { value: 0.0 },
-        innerColor: { value: new THREE.Color(0xff7700) },
-        outerColor: { value: new THREE.Color(0x8a2be2) },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float time;
-        uniform float speed;
-        uniform float instability;
-        uniform vec3 innerColor;
-        uniform vec3 outerColor;
-        varying vec2 vUv;
-
-        void main() {
-          vec2 p = vUv - 0.5;
-          float dist = length(p) * 2.0;
-          float angle = atan(p.y, p.x);
-
-          float spiral = sin(angle * 6.0 - time * 2.6 * speed + dist * 10.0);
-          spiral += sin(angle * 3.0 + dist * 5.0 - time * 1.5 * speed) * 0.5;
-          spiral = spiral * 0.5 + 0.5;
-
-          float alpha = smoothstep(0.15, 0.35, dist) * smoothstep(1.0, 0.72, dist);
-          alpha *= (0.65 + 0.35 * spiral + instability * 0.5);
-
-          vec3 col = mix(innerColor, outerColor, dist);
-          col += vec3(1.0, 0.85, 0.6) * pow(spiral, 2.5) * (0.8 + instability * 1.5);
-
-          gl_FragColor = vec4(col, clamp(alpha * 0.95, 0.0, 1.0));
-        }
-      `,
-      transparent: true,
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
+    this.environment = new MassiveBlackHoleEnvironment(scene, {
+      position,
+      quality: 'HIGH',
+      submode10Optimized: true,
     });
-    this.accretionMesh = new THREE.Mesh(diskGeo, this.accretionMaterial);
-    this.accretionMesh.rotation.x = Math.PI / 2.35;
-    this.root.add(this.accretionMesh);
 
-    // 3. Glowing Photon Ring at horizon perimeter
-    const ringGeo = new THREE.RingGeometry(220, 245, 64);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xffa500,
-      transparent: true,
-      opacity: 0.9,
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending,
-    });
-    this.photonRingMesh = new THREE.Mesh(ringGeo, ringMat);
-    this.photonRingMesh.rotation.x = Math.PI / 2.35;
-    this.root.add(this.photonRingMesh);
-
-    // 4. Gravitational Lensing refraction halo
-    const lensGeo = new THREE.SphereGeometry(260, 28, 28);
-    const lensMat = new THREE.MeshBasicMaterial({
-      color: 0x9333ea,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.3,
-      blending: THREE.AdditiveBlending,
-    });
-    this.gravitationalLensMesh = new THREE.Mesh(lensGeo, lensMat);
-    this.root.add(this.gravitationalLensMesh);
-
-    // 5. Infalling accretion particles
-    const particleCount = 200;
-    const posArray = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount; i++) {
-      const radius = 250 + Math.random() * 750;
-      const theta = Math.random() * Math.PI * 2;
-      posArray[i * 3] = Math.cos(theta) * radius;
-      posArray[i * 3 + 1] = (Math.random() - 0.5) * 30;
-      posArray[i * 3 + 2] = Math.sin(theta) * radius;
-    }
-    const particleGeo = new THREE.BufferGeometry();
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-    const particleMat = new THREE.PointsMaterial({
-      color: 0xfde047,
-      size: 7,
-      transparent: true,
-      opacity: 0.85,
-      blending: THREE.AdditiveBlending,
-    });
-    this.particles = new THREE.Points(particleGeo, particleMat);
-    this.particles.rotation.x = Math.PI / 2.35;
-    this.root.add(this.particles);
-
-    scene.add(this.root);
+    this.root = this.environment.root;
+    this.eventHorizonMesh = this.environment.eventHorizonMesh;
+    this.accretionMesh = this.environment.equatorialDiskMesh;
+    this.photonRingMesh = this.environment.photonRingMesh;
+    this.gravitationalLensMesh = this.environment.gravitationalLensMesh;
+    this.particles = this.environment.orbitalPlasmaPoints;
   }
 
-  public setInstability(level: number) {
-    this.instability = THREE.MathUtils.clamp(level, 0, 1);
-    this.rotationSpeed = 0.6 + this.instability * 3.8;
-    this.accretionMaterial.uniforms.speed.value = 1.0 + this.instability * 4.0;
-    this.accretionMaterial.uniforms.instability.value = this.instability;
-    const pulseScale = 1.0 + this.instability * 0.15;
-    this.photonRingMesh.scale.set(pulseScale, pulseScale, pulseScale);
+  public setQuality(quality: BlackHoleQuality): void {
+    this.environment.setQuality(quality);
   }
 
-  public triggerCollapse() {
+  public setInstability(level: number): void {
+    this.instability = level;
+    this.environment.setInstability(level);
+  }
+
+  public triggerCollapse(): void {
     this.isCollapsing = true;
-    this.collapseProgress = 0;
+    this.environment.triggerCollapse();
   }
 
-  public update(dt: number) {
-    const delta = Math.max(0, dt);
-    this.accretionMaterial.uniforms.time.value += delta * this.rotationSpeed;
-    this.accretionMesh.rotation.z += delta * 0.25 * this.rotationSpeed;
-    this.particles.rotation.z += delta * 0.35 * this.rotationSpeed;
-
-    if (this.isCollapsing) {
-      this.collapseProgress += delta * 0.22;
-      // Inward collapse of accretion disk and horizon
-      const s = Math.max(0.01, 1.0 - this.collapseProgress * 0.85);
-      this.accretionMesh.scale.set(s, s, s);
-      this.eventHorizonMesh.scale.set(s, s, s);
-      this.photonRingMesh.scale.set(s * 1.5, s * 1.5, s * 1.5);
-    }
+  public update(dt: number, cameraPosition?: THREE.Vector3): void {
+    this.environment.update(dt, cameraPosition);
   }
 
-  public dispose() {
-    this.scene.remove(this.root);
-    this.root.traverse(o => {
-      const mesh = o as THREE.Mesh;
-      if (mesh.geometry) mesh.geometry.dispose();
-    });
+  public dispose(): void {
+    this.environment.dispose();
   }
 }
 

@@ -37,13 +37,17 @@ import {
 import { BeamSystem, DEFAULT_BEAM_CUSTOMIZATION, DEFAULT_BEAM_UPGRADES } from './beamSystem';
 import {
   BlackHoleManager,
-  FinalCollapseManager,
   SingularityTelemetry,
   SupermassiveBlackHoleVisuals,
   PlanetaryCollisionVisuals,
   TrackDestructionVisuals,
   HolographicWarningSystem,
 } from './blackHoleSystem';
+import {
+  FinalCollapseManager,
+  EvacuationTelemetry,
+  ShipImpactForces,
+} from './FinalCollapseManager';
 import { ModeManager, ModeHUDTelemetry } from './modeManager';
 import { ModeEntitySystem } from './modeEntitySystem';
 import { Obstacle, SamplePoint } from './trackData';
@@ -2075,7 +2079,10 @@ export class GameEngine {
 
     const handlingFactor =
       (shipConfig.handling / 100) * (this.isDrifting ? 1.6 * gravityDriftFactor : 1.0);
-    const steerSpeed = 24 * handlingFactor;
+    const steerResistance = (this.activeGameMode === 'BLACK_HOLE' && this.finalCollapseManager?.evacuation.evacuationActive)
+      ? this.finalCollapseManager.catastrophe.getShipImpactForces(this.finalCollapseManager.elapsed).steeringResistance
+      : 0;
+    const steerSpeed = 24 * handlingFactor * (1.0 - steerResistance);
     if (effectiveSteer !== 0 && this.currentSpeed > 5) {
       this.lateralOffset += effectiveSteer * steerSpeed * dt * (this.currentSpeed / maxNormalSpeed);
     }
@@ -2637,7 +2644,7 @@ export class GameEngine {
 
       // Update cosmic visual systems
       if (this.supermassiveBlackHole) {
-        this.supermassiveBlackHole.update(dt);
+        this.supermassiveBlackHole.update(dt, this.camera?.position);
       }
       if (this.planetaryCollision) {
         this.planetaryCollision.update(dt);
@@ -2663,8 +2670,61 @@ export class GameEngine {
           this.camera.updateProjectionMatrix();
         }
 
-        // Keep physical phase manager in sync
-        this.finalCollapseManager?.update(dt);
+        // Keep physical FinalCollapseManager in sync with authoritative player state
+        if (this.finalCollapseManager) {
+          const playerPos = this.playerShipGroup ? this.playerShipGroup.position : new THREE.Vector3();
+          const playerQuat = this.playerShipGroup ? this.playerShipGroup.quaternion : new THREE.Quaternion();
+          const entranceWorld = this.junctionManager.towerEntranceWorldPosition ?? new THREE.Vector3(0, 0, -900);
+          const bay07World = this.junctionManager.bay07WorldPosition ?? new THREE.Vector3(0, -14, -1085);
+          const bhCenter = this.supermassiveBlackHole?.root.position ?? new THREE.Vector3(0, 180, -3500);
+
+          const collapseUpdate = this.finalCollapseManager.update(dt, {
+            position: playerPos,
+            quaternion: playerQuat,
+            speedMps: this.currentSpeed,
+            splineT: this.splineT,
+            totalTrackLengthM: this.track ? this.track.totalLength : 2500,
+            towerEntrancePos: entranceWorld,
+            bay07Pos: bay07World,
+            shelterNavigationActive: this.shelterNavigationActive,
+            shelterX: this.shelterX,
+            shelterZ: this.shelterZ,
+            shelterHeading: this.shelterHeading,
+            blackHoleCenter: bhCenter,
+          });
+
+          // Forward authoritative telemetry to cinematic manager for unified HUD
+          this.blackHoleCinematicManager.setEvacuationTelemetry(collapseUpdate.telemetry);
+
+          // Apply physical impact forces from the active catastrophe event
+          if (collapseUpdate.impactForces && !this.shelterNavigationActive) {
+            const f = collapseUpdate.impactForces;
+            if (Math.abs(f.lateralForce) > 0.001) {
+              this.lateralOffset += f.lateralForce * dt * 4.0;
+            }
+            if (f.cameraShake > 0) {
+              this.cameraShake = Math.max(this.cameraShake, f.cameraShake);
+            }
+            if (f.fovDistortion > 0) {
+              this.collisionFovPunch = Math.max(this.collisionFovPunch, f.fovDistortion);
+            }
+            if (this.playerShipGroup && Math.abs(f.rollDisturbance) > 0.001) {
+              this.shipRoll += f.rollDisturbance * 0.15;
+            }
+          }
+
+          // Update AI evacuation controllers
+          if (this.finalCollapseManager.evacuation.evacuationActive) {
+            this.finalCollapseManager.aiEvacuation.update(
+              dt,
+              this.localAIRacers.map(ai => ({
+                id: ai.id,
+                position: ai.group.position,
+                speed: ai.speed,
+              }))
+            );
+          }
+        }
 
         // Update dynamic track debris
         if (this.trackDestruction) {
@@ -2688,6 +2748,7 @@ export class GameEngine {
         if (event !== this.finalCollapseLastEvent) {
           switch (event) {
             case 'FINAL_SINGULARITY_WARNING':
+              this.finalCollapseManager?.onZeroCountdown();
               this.finalCollapseManager?.beginTrackCollapse();
               this.supermassiveBlackHole?.setInstability(0.85);
               sound.playGravitationalRumble(4.0);
@@ -3218,6 +3279,16 @@ export class GameEngine {
   private updateShipTransform(dt: number) {
     if (!this.playerShipGroup) return;
 
+    // Mode 21 — Physical Gravitational Capture Trajectory during Failure Cinematic (Phase 4+)
+    if (
+      this.finalCollapseManager?.failureCinematic.isActive &&
+      this.finalCollapseManager.failureCinematic.currentPhase >= 4
+    ) {
+      this.playerShipGroup.position.copy(this.finalCollapseManager.failureCinematic.shipCurrentTrajectory);
+      this.playerShipGroup.rotation.copy(this.finalCollapseManager.failureCinematic.shipRotation);
+      return;
+    }
+
     // Mode 21 Submode 10: Physical driving inside the Evacuation Shelter & Hangar
     if (this.shelterNavigationActive && this.junctionManager.finalCollapseShelter) {
       const shelter = this.junctionManager.finalCollapseShelter;
@@ -3625,6 +3696,58 @@ export class GameEngine {
       const bhEvent = this.blackHoleCinematicManager.event;
       const bhPos = this.supermassiveBlackHole?.root.position ?? new THREE.Vector3(0, 180, -3500);
 
+      // Section 34 & 49: Failure Cinematic Camera Authority (7-Phase Route Consumption & General Failure)
+      if (this.finalCollapseManager?.failureCinematic.isActive) {
+        const fc = this.finalCollapseManager.failureCinematic;
+
+        // Move player ship along physical continuous gravitational trajectory
+        if (fc.currentPhase >= 4) {
+          this.playerShipGroup.position.copy(fc.shipCurrentTrajectory);
+          this.playerShipGroup.rotation.copy(fc.shipRotation);
+        }
+
+        // Camera positioning for 7 phases of route consumption failure
+        if (fc.isRouteConsumption) {
+          if (fc.currentPhase <= 3) {
+            // Camera smoothly moves behind/slightly above ship looking ahead along breaking track
+            const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.playerShipGroup.quaternion);
+            const camPos = this.playerShipGroup.position.clone().add(fwd.clone().multiplyScalar(-14)).add(new THREE.Vector3(0, 6, 0));
+            this.camera.position.lerp(camPos, 0.1);
+            this.camera.lookAt(this.playerShipGroup.position.clone().add(fwd.clone().multiplyScalar(20)));
+          } else if (fc.currentPhase <= 6) {
+            // Camera moves behind ship showing black hole dominating
+            const toBH = bhPos.clone().sub(this.playerShipGroup.position).normalize();
+            const camPos = this.playerShipGroup.position.clone().sub(toBH.clone().multiplyScalar(24)).add(new THREE.Vector3(0, 9, 0));
+            this.camera.position.lerp(camPos, 0.08);
+            this.camera.lookAt(this.playerShipGroup.position);
+          } else {
+            // Phase 7: Camera pulls farther away, ship absorbed into event horizon
+            const toBH = bhPos.clone().sub(this.playerShipGroup.position).normalize();
+            const camPos = this.playerShipGroup.position.clone().sub(toBH.clone().multiplyScalar(75)).add(new THREE.Vector3(0, 30, 0));
+            this.camera.position.lerp(camPos, 0.05);
+            this.camera.lookAt(this.playerShipGroup.position);
+          }
+        } else {
+          // General failure camera
+          const camPos = this.playerShipGroup.position.clone().add(new THREE.Vector3(-14, 16, 20));
+          this.camera.position.lerp(camPos, 0.08);
+          this.camera.lookAt(this.playerShipGroup.position);
+        }
+
+        if (this.cameraShake > 0) {
+          this.camera.position.x += (Math.random() - 0.5) * this.cameraShake * 2.5;
+          this.camera.position.y += (Math.random() - 0.5) * this.cameraShake * 2.5;
+        }
+
+        if (fc.completed && !this.finalCollapseRaceFinishSent) {
+          this.finalCollapseRaceFinishSent = true;
+          this.hasFinished = true;
+          const finalTime = Date.now() - this.raceStartTime;
+          this.callbacks.onRaceFinish(finalTime);
+        }
+        return;
+      }
+
       // Section 9: Player Ship Parking Camera & In-Shelter Follow Camera
       if (this.shelterNavigationActive) {
         if (!this.finalCollapseShipParked) {
@@ -3957,6 +4080,7 @@ export class GameEngine {
   public triggerFinalCollapseImmediately(): void {
     if (this.activeGameMode === 'BLACK_HOLE' && this.blackHoleCinematicManager) {
       this.blackHoleCinematicManager.skipToZeroCountdown();
+      this.finalCollapseManager?.onZeroCountdown();
     }
   }
 
@@ -4505,6 +4629,13 @@ export class GameEngine {
   public destroyPlayerShip(reason: string = 'HULL BREACHED') {
     if (this.invulnerableTimer > 0 || this.isDestroyed) return;
     this.isDestroyed = true;
+
+    // In Final Collapse mode during active evacuation, ship destruction triggers terminal evacuation failure
+    if (this.activeGameMode === 'BLACK_HOLE' && this.finalCollapseManager?.evacuation.evacuationActive) {
+      if (!this.finalCollapseManager.evacuation.evacuationSuccess && !this.finalCollapseManager.evacuation.evacuationFailed) {
+        this.finalCollapseManager.triggerFailure('CRITICAL_HULL_BREACH', false, this.playerShipGroup?.position);
+      }
+    }
     this.respawnTimer = 1.8;
     this.currentSpeed = 0;
     this.isBoosting = false;
@@ -4623,6 +4754,9 @@ export class GameEngine {
     if (this.container) {
       this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
     }
+    if (this.supermassiveBlackHole) {
+      this.supermassiveBlackHole.setQuality(quality === 'LOW' ? 'LOW' : quality === 'MEDIUM' ? 'MEDIUM' : 'HIGH');
+    }
   }
 
   public getGraphicsQuality(): GraphicsQuality {
@@ -4695,6 +4829,7 @@ export class GameEngine {
         }
         if (!this.supermassiveBlackHole) {
           this.supermassiveBlackHole = new SupermassiveBlackHoleVisuals(this.scene);
+          this.supermassiveBlackHole.setQuality(this.graphicsQuality === 'LOW' ? 'LOW' : this.graphicsQuality === 'MEDIUM' ? 'MEDIUM' : 'HIGH');
         }
         if (!this.planetaryCollision) {
           this.planetaryCollision = new PlanetaryCollisionVisuals(this.scene);
@@ -6062,6 +6197,43 @@ export class GameEngine {
       label: h.name,
       color: h.color,
     }));
+
+    if (this.finalCollapseManager?.evacuation.evacuationActive) {
+      const towerPos = this.junctionManager.towerEntranceWorldPosition;
+      hazardMarkers.push({
+        id: 'evac_tower',
+        type: 'CHECKPOINT' as any,
+        x: towerPos.x,
+        z: towerPos.z,
+        label: 'SAFE ZONE TOWER',
+        color: '#00f0ff',
+      });
+
+      const bhPos = this.supermassiveBlackHole?.root.position ?? new THREE.Vector3(0, 180, -3500);
+      hazardMarkers.push({
+        id: 'singularity_core',
+        type: 'HAZARD' as any,
+        x: bhPos.x,
+        z: bhPos.z,
+        label: 'SINGULARITY',
+        color: '#ff0033',
+      });
+
+      if (this.track && this.finalCollapseManager.destructionFrontDistance < 3000) {
+        const frontM = this.finalCollapseManager.destructionFront.progressM;
+        const totalM = this.track.totalLength || 2500;
+        const frontT = (((frontM % totalM) + totalM) % totalM) / totalM;
+        const frontPt = this.track.getSampleAt(frontT).point;
+        hazardMarkers.push({
+          id: 'destruction_front',
+          type: 'HAZARD' as any,
+          x: frontPt.x,
+          z: frontPt.z,
+          label: 'DESTRUCTION FRONT',
+          color: '#ff4400',
+        });
+      }
+    }
 
     const tel = this.minimapManager.getTelemetry(
       this.playerShipGroup.position,

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { EvacuationTelemetry } from './FinalCollapseManager';
 
 export type FinalCollapseState =
   | 'NORMAL_RACE'
@@ -152,6 +153,7 @@ export interface BlackHoleCinematicTelemetry {
   parking?: ParkingTelemetry;
   towerApproach?: TowerApproachTelemetry;
   stats?: FinalCollapseStats;
+  evacuation?: EvacuationTelemetry;
 }
 
 export interface BlackHoleCinematicOptions {
@@ -320,6 +322,33 @@ export class BlackHoleCinematicManager {
     if (event === 'SHELTER_SEALED') {
       this.objective = 'SAFE ZONE SEALED // SHELTER STATUS: SECURE';
     }
+    if (event === 'AFTERMATH_START') {
+      this.objective = 'SHELTER DOORS SEALED // LIFE SUPPORT 100%';
+    }
+    if (event === 'TOWER_REVEAL') {
+      this.objective = 'EVACUATION SHELTER SECURE // OBSERVATION FEED ACTIVE';
+    }
+    if (event === 'WORLD_COLLAPSE') {
+      this.objective = 'EXTERIOR COLLAPSE DETECTED // TRACK DISINTEGRATION';
+    }
+    if (event === 'PLANETARY_COLLISION') {
+      this.objective = 'CATASTROPHE EVENT: PLANETARY IMPACT';
+    }
+    if (event === 'FINAL_SINGULARITY') {
+      this.objective = 'SINGULARITY EVENT HORIZON CONSUMPTION';
+    }
+    if (event === 'COSMIC_LIGHT_EVENT') {
+      this.objective = 'HIGH-ENERGY CHERENKOV BURST DETECTED';
+    }
+    if (event === 'SILENCE') {
+      this.objective = 'SINGULARITY CRITICAL MASS REACHED // VOID STABILITY';
+    }
+    if (event === 'TOWER_REVEAL_RETURN' || event === 'SHIP_FINAL_SHOT') {
+      this.objective = 'SHELTER INTEGRITY: MAXIMUM // CREW SAFE';
+    }
+    if (event === 'SURVIVAL_RESULTS' || event === 'RESULTS' || event === 'RESULTS_COMPLETE') {
+      this.objective = 'MISSION COMPLETE // EVACUATION SUCCESSFUL';
+    }
     if (event === 'TOWER_SEALING') {
       this.objective = 'SAFE ZONE SECURED';
     }
@@ -436,6 +465,7 @@ export class BlackHoleCinematicManager {
       AFTERMATH_START: 'TOWER_REVEAL',
       TOWER_REVEAL: 'WORLD_COLLAPSE',
       WORLD_COLLAPSE: 'PLANETARY_COLLISION',
+      PLANETARY_COLLISION: 'FINAL_SINGULARITY',
       FINAL_SINGULARITY: 'COSMIC_LIGHT_EVENT',
       COSMIC_LIGHT_EVENT: 'SILENCE',
       SILENCE: 'TOWER_REVEAL_RETURN',
@@ -528,6 +558,12 @@ export class BlackHoleCinematicManager {
     this.danger = 'COLLAPSE';
   }
 
+  private evacuationTelemetry: EvacuationTelemetry | null = null;
+
+  public setEvacuationTelemetry(telem: EvacuationTelemetry): void {
+    this.evacuationTelemetry = telem;
+  }
+
   public isEventComplete(): boolean { return this.completed; }
 
   public getTelemetry(): BlackHoleCinematicTelemetry {
@@ -555,6 +591,7 @@ export class BlackHoleCinematicManager {
       parking: this.parkingTelemetry ?? undefined,
       towerApproach: this.towerApproachTelemetry ?? undefined,
       stats: this.finalCollapseStats ?? undefined,
+      evacuation: this.evacuationTelemetry ?? undefined,
     };
   }
 

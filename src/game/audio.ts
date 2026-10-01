@@ -2103,6 +2103,145 @@ class SoundSystem {
       osc.stop(now + 0.55);
     } catch (_) {}
   }
+
+  /** Section 40: Sub-bass gravitational implosion: vacuum-like inward pitch and pressure drop */
+  public playSubBassGravitationalImplosion() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc.type = 'sine';
+      // Inward pitch suck down into deep subsonic range
+      osc.frequency.setValueAtTime(80, now);
+      osc.frequency.exponentialRampToValueAtTime(14, now + 1.6);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(180, now);
+      filter.frequency.exponentialRampToValueAtTime(35, now + 1.6);
+
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.linearRampToValueAtTime(0.9 * this.volume, now + 1.2);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.7);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 1.75);
+    } catch (_) {}
+  }
+
+  /** Section 35 & 40: Massive deep-space cosmic BOOM with sub-bass detonation (NO high-frequency white blast) */
+  public playDeepCosmicBoom() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+
+      // Colossal low-end sub-bass impact (35Hz downward to 12Hz)
+      const oscSub = this.ctx.createOscillator();
+      const gainSub = this.ctx.createGain();
+      oscSub.type = 'sine';
+      oscSub.frequency.setValueAtTime(42, now);
+      oscSub.frequency.exponentialRampToValueAtTime(12, now + 2.5);
+
+      gainSub.gain.setValueAtTime(1.0 * this.volume, now);
+      gainSub.gain.exponentialRampToValueAtTime(0.001, now + 3.2);
+
+      oscSub.connect(gainSub);
+      gainSub.connect(this.ctx.destination);
+      oscSub.start(now);
+      oscSub.stop(now + 3.3);
+
+      // Deep rumble body
+      const oscBody = this.ctx.createOscillator();
+      const gainBody = this.ctx.createGain();
+      const filterBody = this.ctx.createBiquadFilter();
+
+      oscBody.type = 'triangle';
+      oscBody.frequency.setValueAtTime(65, now);
+      oscBody.frequency.exponentialRampToValueAtTime(18, now + 2.0);
+
+      filterBody.type = 'lowpass';
+      filterBody.frequency.setValueAtTime(140, now);
+      filterBody.frequency.exponentialRampToValueAtTime(30, now + 2.0);
+
+      gainBody.gain.setValueAtTime(0.8 * this.volume, now);
+      gainBody.gain.exponentialRampToValueAtTime(0.001, now + 2.8);
+
+      oscBody.connect(filterBody);
+      filterBody.connect(gainBody);
+      gainBody.connect(this.ctx.destination);
+      oscBody.start(now);
+      oscBody.stop(now + 2.9);
+    } catch (_) {}
+  }
+
+  /** Section 35 & 40: Dark gravitational shockwave: deep phase-shifted bass sweeping across space */
+  public playDarkGravitationalShockwave() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc1 = this.ctx.createOscillator();
+      const osc2 = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc1.type = 'sawtooth';
+      osc2.type = 'sine';
+      osc1.frequency.setValueAtTime(32, now);
+      osc1.frequency.linearRampToValueAtTime(18, now + 3.5);
+      osc2.frequency.setValueAtTime(33.5, now); // Detuned for pulsing phase-beat
+      osc2.frequency.linearRampToValueAtTime(17.5, now + 3.5);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(90, now);
+      filter.frequency.linearRampToValueAtTime(160, now + 1.2);
+      filter.frequency.exponentialRampToValueAtTime(25, now + 3.8);
+
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.linearRampToValueAtTime(0.7 * this.volume, now + 0.8);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 4.0);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 4.1);
+      osc2.stop(now + 4.1);
+    } catch (_) {}
+  }
+
+  /** Section 40: Stabilized interior hum and calm life support hiss */
+  public playShelterInteriorHum() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(55, now);
+
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.linearRampToValueAtTime(0.22 * this.volume, now + 1.5);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 6.0);
+    } catch (_) {}
+  }
 }
 
 export const sound = new SoundSystem();
