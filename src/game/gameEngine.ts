@@ -49,6 +49,7 @@ import {
   ShipImpactForces,
 } from './FinalCollapseManager';
 import { DynamicCollapseEnvironmentsManager } from './environment/dynamicCollapseEnvironments';
+import type { CosmicPairLiveTelemetry } from './catastrophe/cosmicEventPairVisualizer';
 import { ModeManager, ModeHUDTelemetry } from './modeManager';
 import { ModeEntitySystem } from './modeEntitySystem';
 import { Obstacle, SamplePoint } from './trackData';
@@ -178,6 +179,7 @@ export interface GameEngineCallbacks {
   onEngineReady?: () => void;
   onFinishCinematicTelemetry?: (telemetry: FinishCinematicTelemetry | null) => void;
   onBlackHoleCinematicTelemetry?: (telemetry: BlackHoleCinematicTelemetry | null) => void;
+  onCosmicPairTelemetry?: (telemetry: CosmicPairLiveTelemetry | null) => void;
 }
 
 // Preallocated math objects for zero-allocation GC-free render loop
@@ -2670,6 +2672,10 @@ export class GameEngine {
           isEvacActive
         );
 
+        if (envUpdate.pairTelemetry) {
+          this.callbacks.onCosmicPairTelemetry?.(envUpdate.pairTelemetry);
+        }
+
         if (envUpdate.cameraShakeIntensity > 0) {
           this.cameraShake = Math.max(this.cameraShake, envUpdate.cameraShakeIntensity);
         }
@@ -4049,6 +4055,29 @@ export class GameEngine {
       lookTarget = this.playerShipGroup.position
         .clone()
         .add(sample.tangent.clone().multiplyScalar(28));
+    } else if (this.cameraMode === 'WHOLE_BLACK_HOLE') {
+      const bhPos = this.supermassiveBlackHole?.root.position ?? new THREE.Vector3(0, 180, -3500);
+      // Elevated, wide panoramic vantage showing the ship along with the entire black hole system
+      const behindDist = 38 + (this.isBoosting ? 8 : 0);
+      const heightOffset = 22.0;
+      targetCamPos = this.playerShipGroup.position
+        .clone()
+        .add(sample.tangent.clone().multiplyScalar(-behindDist))
+        .add(sample.normal.clone().multiplyScalar(heightOffset));
+
+      // Vector toward the black hole center
+      const toBH = bhPos.clone().sub(this.playerShipGroup.position).normalize();
+
+      // Look point: frames both the track forward trajectory and the massive black hole on the horizon
+      const forwardLook = this.playerShipGroup.position
+        .clone()
+        .add(sample.tangent.clone().multiplyScalar(35));
+      const bhLook = this.playerShipGroup.position
+        .clone()
+        .add(toBH.clone().multiplyScalar(220))
+        .add(new THREE.Vector3(0, 35, 0));
+
+      lookTarget = forwardLook.lerp(bhLook, 0.48);
     } else {
       const behindDistance = 14 + (this.isBoosting ? 4 : 0);
       const heightOffset = 5.2;
@@ -4103,7 +4132,11 @@ export class GameEngine {
     this.cameraRoll = THREE.MathUtils.lerp(this.cameraRoll, targetCamRoll, 0.12);
     this.camera.rotateZ(this.cameraRoll);
 
-    let desiredFov = (this.isBoosting ? 82 : this.cameraMode === 'COCKPIT' ? 74 : 65) + this.collisionFovPunch;
+    let desiredFov = (this.isBoosting ? 82 : this.cameraMode === 'COCKPIT' ? 74 : this.cameraMode === 'WHOLE_BLACK_HOLE' ? 84 : 65) + this.collisionFovPunch;
+    if (this.cameraMode === 'WHOLE_BLACK_HOLE' && this.camera.far < 15000) {
+      this.camera.far = 15000;
+      this.camera.updateProjectionMatrix();
+    }
     if (this.activeGameMode === 'BLACK_HOLE' && this.blackHoleCinematicManager?.event === 'SPAGHETTIFICATION') {
       desiredFov = 94; // Tidal force gravitational distortion FOV
     }
@@ -4764,8 +4797,24 @@ export class GameEngine {
       this.cameraMode = 'CHASE_FAR';
     } else if (this.cameraMode === 'CHASE_FAR') {
       this.cameraMode = 'COCKPIT';
+    } else if (this.cameraMode === 'COCKPIT') {
+      if (this.activeGameMode === 'BLACK_HOLE') {
+        this.cameraMode = 'WHOLE_BLACK_HOLE';
+      } else {
+        this.cameraMode = 'CHASE_NEAR';
+      }
     } else {
       this.cameraMode = 'CHASE_NEAR';
+    }
+    this.callbacks.onCameraModeChange?.(this.cameraMode);
+    return this.cameraMode;
+  }
+
+  public toggleWholeBlackHoleCamera(): CameraMode {
+    if (this.cameraMode === 'WHOLE_BLACK_HOLE') {
+      this.cameraMode = 'CHASE_NEAR';
+    } else {
+      this.cameraMode = 'WHOLE_BLACK_HOLE';
     }
     this.callbacks.onCameraModeChange?.(this.cameraMode);
     return this.cameraMode;

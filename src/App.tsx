@@ -37,6 +37,7 @@ import {
   ActiveShieldTelemetry,
   MinimapTelemetry,
   AIDebugTelemetry,
+  CosmicPairLiveTelemetry,
 } from './types';
 import { DEFAULT_BEAM_CUSTOMIZATION, DEFAULT_BEAM_UPGRADES } from './game/beamSystem';
 import { ActiveJunctionTelemetry, BranchRouteDirection } from './game/junctionSystem';
@@ -181,6 +182,7 @@ export default function App() {
   // Extended Path & In-Race Cinematic Telemetry
   const [cinematicState, setCinematicState] = useState<ActiveCinematicState | null>(null);
   const [pathTelemetry, setPathTelemetry] = useState<ExtendedPathTelemetry | null>(null);
+  const [cosmicPairTelemetry, setCosmicPairTelemetry] = useState<CosmicPairLiveTelemetry | null>(null);
 
   // Keyboard & Mouse input tracking
   const keysPressed = useRef<{ [key: string]: boolean }>({});
@@ -289,6 +291,7 @@ export default function App() {
       onPathTelemetryUpdate: tel => setPathTelemetry(tel),
       onFinishCinematicTelemetry: telemetry => setFinishTelemetry(telemetry),
       onBlackHoleCinematicTelemetry: telemetry => setBlackHoleCinematicTelemetry(telemetry),
+      onCosmicPairTelemetry: telemetry => setCosmicPairTelemetry(telemetry),
       onCountdownTick: count => {
         setCountdown(count);
         sound.playCountdownTick();
@@ -451,6 +454,13 @@ export default function App() {
       if (e.code === 'KeyV' || (e.code === 'KeyC' && appState !== 'RACING')) {
         if (engineRef.current) {
           const nextMode = engineRef.current.toggleCameraMode();
+          setCameraMode(nextMode);
+        }
+      }
+
+      if (e.code === 'KeyB') {
+        if (engineRef.current && appState === 'RACING') {
+          const nextMode = engineRef.current.toggleWholeBlackHoleCamera();
           setCameraMode(nextMode);
         }
       }
@@ -744,7 +754,14 @@ export default function App() {
     setTotalPlayers(expectedTotal);
     keysPressed.current = {};
 
+    if (config.initialCameraMode) {
+      setCameraMode(config.initialCameraMode);
+    }
+
     if (engineRef.current) {
+      if (config.initialCameraMode) {
+        engineRef.current.setCameraMode(config.initialCameraMode);
+      }
       engineRef.current.resumeGame();
       engineRef.current.startAIRace(config);
     }
@@ -1121,6 +1138,7 @@ export default function App() {
           currentLapMs={currentLapMs}
           bestLapMs={bestLapMs}
           cameraMode={cameraMode}
+          gameMode={gameMode}
           trackId={engineRef.current?.trackId || 'circuit_alpha'}
           damageZones={damageZones}
           isSpectator={engineRef.current?.isSpectator}
@@ -1179,6 +1197,12 @@ export default function App() {
           onToggleCamera={() => {
             if (engineRef.current) {
               const m = engineRef.current.toggleCameraMode();
+              setCameraMode(m);
+            }
+          }}
+          onToggleWholeBlackHoleCamera={() => {
+            if (engineRef.current) {
+              const m = engineRef.current.toggleWholeBlackHoleCamera();
               setCameraMode(m);
             }
           }}
@@ -1764,6 +1788,9 @@ export default function App() {
               laps: config.laps,
               ...(config.blackHoleSubmode
                 ? { blackHoleSubmode: config.blackHoleSubmode }
+                : {}),
+              ...(config.initialCameraMode
+                ? { initialCameraMode: config.initialCameraMode }
                 : {}),
             });
           }}

@@ -21,9 +21,12 @@ import {
   AlertTriangle,
   RotateCcw,
   Flag,
+  Eye,
 } from 'lucide-react';
-import { GameMode, TrackId, AIDifficulty, GAME_MODE_CONFIGS, BlackHoleSubmodeId } from '../types';
+import { GameMode, TrackId, AIDifficulty, GAME_MODE_CONFIGS, BlackHoleSubmodeId, CameraMode } from '../types';
 import { sound } from '../game/audio';
+import { BLACK_HOLE_SUBMODES as SUBMODES_DATA, BlackHoleSubmodeConfig } from '../game/blackHoleSubmodes';
+import { WholeBlackHoleView } from './WholeBlackHoleView';
 
 export interface ModeLaunchConfig {
   mode: GameMode;
@@ -32,6 +35,7 @@ export interface ModeLaunchConfig {
   difficulty: AIDifficulty;
   botCount: number;
   blackHoleSubmode?: BlackHoleSubmodeId;
+  initialCameraMode?: CameraMode;
 }
 export type GameModeConfig = ModeLaunchConfig;
 
@@ -476,6 +480,7 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
   const [lapCount, setLapCount] = useState<number>(2);
   const [difficulty, setDifficulty] = useState<AIDifficulty>('STANDARD');
   const [showBlackHoleSelector, setShowBlackHoleSelector] = useState<boolean>(false);
+  const [showWholeBlackHoleCam, setShowWholeBlackHoleCam] = useState<boolean>(false);
   const [selectedBlackHoleSubmode, setSelectedBlackHoleSubmode] = useState<BlackHoleSubmodeId>(
     'FINAL_COLLAPSE'
   );
@@ -489,7 +494,7 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
 
   const activeDef = TWENTY_PROTOCOLS.find(p => p.id === selectedMode) || TWENTY_PROTOCOLS[0];
 
-  const handleLaunch = () => {
+  const handleLaunch = (overrideCamera?: CameraMode) => {
     sound.playMenuClick();
     if (onStartConfiguredRace) {
       onStartConfiguredRace({
@@ -499,7 +504,10 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
         difficulty,
         botCount: activeDef.defaultBots,
         ...(selectedMode === ('BLACK_HOLE' as GameMode)
-          ? { blackHoleSubmode: selectedBlackHoleSubmode }
+          ? {
+              blackHoleSubmode: selectedBlackHoleSubmode,
+              initialCameraMode: overrideCamera || (showWholeBlackHoleCam ? 'WHOLE_BLACK_HOLE' : undefined),
+            }
           : {}),
       });
     } else if (onSelectMode) {
@@ -677,6 +685,21 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
                     QUANTUM LAUNCH PRO: Gravity fields, event-horizon hazards,
                     collapsing routes and emergency escape routing are active for Mode 21.
                   </div>
+
+                  <button
+                    onClick={() => {
+                      sound.playMenuClick();
+                      setShowWholeBlackHoleCam(prev => !prev);
+                    }}
+                    className={`w-full mt-3 py-2 px-3 rounded-xl border flex items-center justify-center gap-2 font-mono text-xs font-bold transition-all ${
+                      showWholeBlackHoleCam
+                        ? 'bg-purple-600/40 border-purple-400 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                        : 'bg-purple-950/40 border-purple-500/40 text-purple-300 hover:border-purple-400 hover:text-white'
+                    }`}
+                  >
+                    <Eye className="w-4 h-4 text-purple-300" />
+                    <span>{showWholeBlackHoleCam ? 'HIDE WHOLE BLACK HOLE VIEW' : 'CAMERA VIEW OF WHOLE BLACK HOLE'}</span>
+                  </button>
                 </div>
 
                 <div className="lg:col-span-5 rounded-2xl border border-cyan-500/20 bg-[#050b14]/90 p-4">
@@ -737,14 +760,39 @@ export const GameModeSelectModal: React.FC<GameModeSelectModalProps> = ({
                   </div>
 
                   <button
-                    onClick={handleLaunch}
+                    onClick={() => handleLaunch()}
                     className="w-full mt-4 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] font-ui font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all"
                   >
                     <Play className="w-3.5 h-3.5 fill-current" />
                     <span>LAUNCH BLACK HOLE</span>
                   </button>
+
+                  <button
+                    onClick={() => handleLaunch('WHOLE_BLACK_HOLE')}
+                    className="w-full mt-2 py-2 px-3 rounded-xl bg-purple-950/70 border border-purple-400/60 hover:bg-purple-900/60 text-purple-200 text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all shadow-[0_0_12px_rgba(168,85,247,0.25)]"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-purple-300" />
+                    <span>LAUNCH IN WHOLE BLACK HOLE CAM</span>
+                  </button>
                 </div>
               </div>
+
+              {/* Camera View of Whole Black Hole in Submode */}
+              {showWholeBlackHoleCam && (
+                <div className="mt-3">
+                  {(() => {
+                    const cfg = SUBMODES_DATA.find(s => s.id === selectedBlackHoleSubmode) || SUBMODES_DATA[0];
+                    return (
+                      <WholeBlackHoleView
+                        submode={cfg}
+                        isInline={true}
+                        onClose={() => setShowWholeBlackHoleCam(false)}
+                        onLaunchRace={(useWholeCam) => handleLaunch(useWholeCam ? 'WHOLE_BLACK_HOLE' : undefined)}
+                      />
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         ) : (

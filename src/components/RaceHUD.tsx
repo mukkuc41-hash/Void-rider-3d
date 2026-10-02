@@ -34,6 +34,8 @@ import {
   MissileTelemetry,
   ActiveShieldTelemetry,
   MinimapTelemetry,
+  GameMode,
+  CosmicPairLiveTelemetry,
 } from '../types';
 import { ActiveJunctionTelemetry, BranchRouteDirection } from '../game/junctionSystem';
 import { JunctionHUD } from './JunctionHUD';
@@ -65,6 +67,7 @@ interface RaceHUDProps {
   currentLapMs: number;
   bestLapMs: number;
   cameraMode: CameraMode;
+  gameMode?: GameMode;
   trackId?: string;
   damageZones?: ShipDamageZones;
   isSpectator?: boolean;
@@ -72,6 +75,7 @@ interface RaceHUDProps {
   onNextSpectatorTarget?: () => void;
   onTogglePause: () => void;
   onToggleCamera: () => void;
+  onToggleWholeBlackHoleCamera?: () => void;
   onInputChange?: (input: Partial<PlayerInput>) => void;
   onRecover?: () => void;
   beamTelemetry?: BeamTelemetry | null;
@@ -94,6 +98,7 @@ interface RaceHUDProps {
   isAIDebugOpen?: boolean;
   onToggleAIDebug?: () => void;
   isIntroActive?: boolean;
+  cosmicPairTelemetry?: CosmicPairLiveTelemetry | null;
 }
 
 const SECTOR_NAMES: Record<string, string> = {
@@ -130,6 +135,7 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
   currentLapMs,
   bestLapMs,
   cameraMode,
+  gameMode,
   trackId = 'circuit_alpha',
   damageZones,
   isSpectator = false,
@@ -137,6 +143,7 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
   onNextSpectatorTarget,
   onTogglePause,
   onToggleCamera,
+  onToggleWholeBlackHoleCamera,
   onInputChange,
   onRecover,
   beamTelemetry,
@@ -159,6 +166,7 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
   isAIDebugOpen,
   onToggleAIDebug,
   isIntroActive,
+  cosmicPairTelemetry,
 }) => {
   // Joystick State
   const [stickPos, setStickPos] = useState({ x: 0, y: 0 });
@@ -419,6 +427,20 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
             >
               <Camera className="w-4 h-4" />
             </button>
+            {gameMode === 'BLACK_HOLE' && (
+              <button
+                onClick={onToggleWholeBlackHoleCamera || onToggleCamera}
+                className={`h-9 px-2.5 rounded-xl border flex items-center gap-1.5 transition-all shadow-md cursor-pointer text-xs font-mono font-bold ${
+                  cameraMode === 'WHOLE_BLACK_HOLE'
+                    ? 'bg-purple-600/40 border-purple-400 text-purple-200 shadow-[0_0_16px_rgba(168,85,247,0.5)] animate-pulse'
+                    : 'bg-[#060c18]/85 border-purple-500/40 text-purple-300 hover:text-white hover:border-purple-400'
+                }`}
+                title="Toggle Panoramic Whole Black Hole Camera [B]"
+              >
+                <Eye className="w-3.5 h-3.5 text-purple-300" />
+                <span className="hidden sm:inline">WHOLE BLACK HOLE</span>
+              </button>
+            )}
             <button
               onClick={onTogglePause}
               className="w-9 h-9 rounded-xl bg-[#060c18]/85 border border-cyan-500/40 text-cyan-400 hover:text-white active:scale-95 flex items-center justify-center transition-all shadow-md cursor-pointer"
@@ -534,6 +556,108 @@ export const RaceHUD: React.FC<RaceHUDProps> = ({
           <div className="px-4 py-1.5 rounded-full bg-fuchsia-950/90 border border-fuchsia-400 text-fuchsia-300 text-xs font-mono font-bold tracking-wider shadow-[0_0_15px_rgba(255,0,229,0.4)] flex items-center gap-2 animate-pulse">
             <AlertTriangle className="w-4 h-4 text-fuchsia-400" />
             <span>{activeEvent.title}</span>
+          </div>
+        )}
+
+        {/* 2-Element Cosmic Event Live Status & Spaghettification Telemetry Card */}
+        {cosmicPairTelemetry && (
+          <div className="w-full max-w-xl mx-auto my-1.5 p-2.5 rounded-2xl bg-black/90 border border-purple-500/50 backdrop-blur-md shadow-[0_0_25px_rgba(168,85,247,0.35)] font-mono text-xs pointer-events-auto">
+            <div className="flex items-center justify-between pb-1.5 border-b border-purple-500/30">
+              <div className="flex items-center gap-1.5 text-purple-200 font-bold text-[10px]">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                <span className="uppercase">EVENT {cosmicPairTelemetry.eventIndex}: 2-ELEMENT SIMULATION</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-300 font-semibold">
+                  SEP: {cosmicPairTelemetry.distanceBetweenElements}M
+                </span>
+                {cosmicPairTelemetry.isColliding && (
+                  <span className="px-1.5 py-0.5 rounded bg-red-950 text-red-200 border border-red-500/60 text-[9px] font-bold animate-pulse">
+                    COLLISION SHOCKWAVE
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* 2-Element Cards Grid */}
+            <div className="grid grid-cols-2 gap-2 mt-1.5">
+              {/* Element 1 Card */}
+              <div className="p-2 rounded-xl bg-purple-950/40 border border-amber-500/40 text-[10px] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-amber-300 truncate" title={cosmicPairTelemetry.element1.name}>
+                    {cosmicPairTelemetry.element1.name}
+                  </span>
+                  <span className="text-[8px] px-1 py-0.2 rounded bg-amber-950 text-amber-200 border border-amber-500/30 font-bold">
+                    {cosmicPairTelemetry.element1.type}
+                  </span>
+                </div>
+                <div className="text-[9px] text-slate-300 truncate" title={cosmicPairTelemetry.element1.realAppearance}>
+                  {cosmicPairTelemetry.element1.realAppearance}
+                </div>
+                <div className="flex items-center justify-between text-[9px] pt-1 border-t border-purple-900/50">
+                  <span className="text-slate-400">SPAGHETTIFICATION:</span>
+                  <span className="text-amber-300 font-bold">
+                    {(cosmicPairTelemetry.spaghettificationProgress * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-amber-500 to-red-500 h-1 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, cosmicPairTelemetry.spaghettificationProgress * 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Element 2 Card */}
+              <div className="p-2 rounded-xl bg-purple-950/40 border border-cyan-500/40 text-[10px] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-cyan-300 truncate" title={cosmicPairTelemetry.element2.name}>
+                    {cosmicPairTelemetry.element2.name}
+                  </span>
+                  <span className="text-[8px] px-1 py-0.2 rounded bg-cyan-950 text-cyan-200 border border-cyan-500/30 font-bold">
+                    {cosmicPairTelemetry.element2.type}
+                  </span>
+                </div>
+                <div className="text-[9px] text-slate-300 truncate" title={cosmicPairTelemetry.element2.realAppearance}>
+                  {cosmicPairTelemetry.element2.realAppearance}
+                </div>
+                <div className="flex items-center justify-between text-[9px] pt-1 border-t border-purple-900/50">
+                  <span className="text-slate-400">SPAGHETTIFICATION:</span>
+                  <span className="text-cyan-300 font-bold">
+                    {(cosmicPairTelemetry.spaghettificationProgress * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-cyan-500 to-purple-500 h-1 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, cosmicPairTelemetry.spaghettificationProgress * 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Completion Guidance Footer */}
+            <div className="mt-1.5 pt-1.5 border-t border-purple-500/20 flex flex-wrap items-center justify-between gap-1.5 text-[9px]">
+              <div className="text-emerald-300 flex items-center gap-1 truncate max-w-[360px]">
+                <span className="font-bold text-emerald-400">COMPLETION HELP:</span>
+                <span className="truncate">{cosmicPairTelemetry.completionHint}</span>
+              </div>
+              <button
+                onClick={onToggleWholeBlackHoleCamera || onToggleCamera}
+                className="px-2 py-0.5 rounded bg-purple-900/80 border border-purple-400 text-purple-200 hover:text-white font-bold text-[9px] whitespace-nowrap cursor-pointer shadow"
+                title="Toggle Whole Black Hole Panoramic Camera [B]"
+              >
+                VIEW WHOLE BLACK HOLE [B]
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Whole Black Hole Panoramic View Reticle & HUD Banner */}
+        {gameMode === 'BLACK_HOLE' && cameraMode === 'WHOLE_BLACK_HOLE' && (
+          <div className="px-4 py-1.5 rounded-full bg-purple-950/90 border border-purple-400 text-purple-200 text-xs font-mono font-bold tracking-wider shadow-[0_0_18px_rgba(168,85,247,0.5)] flex items-center gap-2 animate-pulse">
+            <Eye className="w-4 h-4 text-purple-300 animate-spin" />
+            <span>WHOLE BLACK HOLE CAMERA ACTIVE • PANORAMIC VIEW</span>
           </div>
         )}
 

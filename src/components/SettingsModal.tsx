@@ -130,8 +130,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <span className="text-xs font-mono uppercase tracking-widest text-cyan-400 block mb-3 flex items-center gap-2">
               <Camera className="w-4 h-4" /> FLIGHT PERSPECTIVE & CAMERA
             </span>
-            <div className="grid grid-cols-3 gap-2.5">
-              {(['CHASE_NEAR', 'CHASE_FAR', 'COCKPIT'] as CameraMode[]).map(mode => {
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {(['CHASE_NEAR', 'CHASE_FAR', 'COCKPIT', 'WHOLE_BLACK_HOLE'] as CameraMode[]).map(mode => {
                 const isSel = currentCameraMode === mode;
                 return (
                   <button
@@ -140,14 +140,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       sound.playMenuClick();
                       onSelectCameraMode(mode);
                     }}
-                    className={`py-2.5 px-3 rounded-xl border text-center transition-all ${
+                    className={`py-2 px-2 rounded-xl border text-center transition-all ${
                       isSel
-                        ? 'border-cyan-400 bg-cyan-950/60 text-cyan-300 shadow-[0_0_12px_#00f0ff]'
+                        ? 'border-purple-400 bg-purple-950/60 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.5)]'
                         : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
                     }`}
                   >
-                    <div className="text-xs font-ui font-black uppercase">
-                      {mode.replace('_', ' ')}
+                    <div className="text-[11px] font-ui font-black uppercase tracking-tight">
+                      {mode === 'WHOLE_BLACK_HOLE' ? 'WHOLE BLACK HOLE' : mode.replace('_', ' ')}
                     </div>
                   </button>
                 );

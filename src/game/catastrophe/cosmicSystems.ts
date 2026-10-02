@@ -1,10 +1,19 @@
 import * as THREE from 'three';
 import { sound } from '../audio';
+import type {
+  CosmicEventElement,
+  CosmicElementType,
+} from './cosmicEventElementsCatalog';
+import { COSMIC_40_EVENT_PAIRS } from './cosmicEventElementsCatalog';
+
+export type { CosmicEventElement, CosmicElementType };
+export { COSMIC_40_EVENT_PAIRS };
 
 /**
  * 40-Event Cosmic Catastrophe Definition
  * Every event has:
  * CAUSE -> PHYSICAL EFFECT -> ENVIRONMENTAL RESPONSE -> PLAYER RESPONSE -> PERSISTENT AFTERMATH
+ * Includes 2 real celestial elements with real appearance, revolution, collision, spaghettification, and completion strategy.
  */
 export interface CosmicEventDefinition {
   index: number;
@@ -32,9 +41,13 @@ export interface CosmicEventDefinition {
     asymmetricExpansion: number;
     collapseIntensity: number;
   };
+  element1: CosmicEventElement;
+  element2: CosmicEventElement;
+  eventOccurrenceNarrative: string;
+  completionStrategy: string;
 }
 
-export const COSMIC_40_EVENTS: CosmicEventDefinition[] = [
+const RAW_COSMIC_40_EVENTS: Omit<CosmicEventDefinition, 'element1' | 'element2' | 'eventOccurrenceNarrative' | 'completionStrategy'>[] = [
   {
     index: 1,
     id: 'gravity_distortion',
@@ -1116,6 +1129,17 @@ export const COSMIC_40_EVENTS: CosmicEventDefinition[] = [
     },
   },
 ];
+
+export const COSMIC_40_EVENTS: CosmicEventDefinition[] = RAW_COSMIC_40_EVENTS.map(raw => {
+  const pair = COSMIC_40_EVENT_PAIRS[raw.index];
+  return {
+    ...raw,
+    element1: pair.element1,
+    element2: pair.element2,
+    eventOccurrenceNarrative: pair.eventOccurrenceNarrative,
+    completionStrategy: pair.completionStrategy,
+  };
+});
 
 /* =========================================================================
    1. PersistentDestructionRegistry

@@ -140,7 +140,7 @@ export interface AIDebugTelemetry {
   racers: AIRacerDebugInfo[];
 }
 
-export type CameraMode = 'CHASE_NEAR' | 'CHASE_FAR' | 'COCKPIT';
+export type CameraMode = 'CHASE_NEAR' | 'CHASE_FAR' | 'COCKPIT' | 'WHOLE_BLACK_HOLE';
 export type GraphicsQuality = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface AIRaceConfig {
@@ -150,9 +150,12 @@ export interface AIRaceConfig {
   botCount: number;
   mode?: GameMode;
   blackHoleSubmode?: BlackHoleSubmodeId;
+  initialCameraMode?: CameraMode;
 }
 
 export type { EnergyBarrier } from './game/trackData';
+export type { CosmicPairLiveTelemetry } from './game/catastrophe/cosmicEventPairVisualizer';
+export type { CosmicEventElement, CosmicElementType } from './game/catastrophe/cosmicEventElementsCatalog';
 
 export type ShipDecalType =
   | 'none'

@@ -5,12 +5,18 @@ import {
   CosmicEventDefinition,
   PersistentDestructionRegistry,
 } from '../catastrophe/cosmicSystems';
+import {
+  CosmicEventPairVisualizer,
+  CosmicPairLiveTelemetry,
+} from '../catastrophe/cosmicEventPairVisualizer';
+
+export type { CosmicPairLiveTelemetry };
 
 /**
  * Visual Scale Tiers:
- * NEAR: 0–500 meters (Full physical detail, active collision, full simulation)
- * ACTIVE: 500m–3km (LOD geometry, instancing, selective collision)
- * FAR: 3km+ (Simplified orbital kinematics, massive visual landmarks)
+ * NEAR: 0–500 meters (Clear path, sparse telegraphed obstacles)
+ * ACTIVE: 500m–3km (Clean background landmarks)
+ * FAR: 3km+ (Distant celestial bodies framing the persistent black hole)
  */
 export type VisualScaleTier = 'NEAR' | 'ACTIVE' | 'FAR';
 
@@ -29,24 +35,27 @@ export interface PhysicalObstacle {
 }
 
 /**
- * Master Dynamic Physical Environment Manager for Final Collapse:
- * Houses the 40-Event Continuous Cosmic Catastrophe Chain surrounding the persistent black hole.
- * Enforces zero world resets, continuous world geometry, persistent destruction accumulation,
- * active near-field collision detection, and the exact Event 40 dark implosion climax.
+ * Streamlined Dynamic Physical Environment Manager for Final Collapse:
+ * Clean, decluttered cosmic aesthetic ensuring maximum track readability,
+ * zero track-blocking clutter, and highlighting the persistent, unchanged black hole.
+ * Features 2-Element simulation for all 40 events with Keplerian revolution, collision,
+ * and tidal spaghettification into particle streams.
  */
 export class DynamicCollapseEnvironmentsManager {
   public root: THREE.Group;
   public scene: THREE.Scene;
   public blackHoleCenter: THREE.Vector3;
   public registry: PersistentDestructionRegistry;
+  public eventPairVisualizer: CosmicEventPairVisualizer;
+  public latestPairTelemetry: CosmicPairLiveTelemetry | null = null;
 
   // Environment Sub-Groups (1 to 40)
   public envGroups: Map<number, THREE.Group> = new Map();
 
-  // Active Near-Field Collidable Obstacles
+  // Active Near-Field Collidable Obstacles (sparse and fair)
   private nearObstacles: PhysicalObstacle[] = [];
 
-  // Accumulated Infall Debris Pool (Preserved across all 40 events)
+  // Streamlined Infall Debris Pool (subtle background drift, decluttered from 1600 down to 40)
   public accumulatedDebrisGroup: THREE.Group;
   private debrisInstancedMesh!: THREE.InstancedMesh;
   private debrisData: {
@@ -57,59 +66,20 @@ export class DynamicCollapseEnvironmentsManager {
     scale: number;
     initialDistance: number;
   }[] = [];
-  private readonly maxAccumulatedDebris = 1600;
+  private readonly maxAccumulatedDebris = 40;
 
-  // Celestial Objects
-  private planetA!: THREE.Mesh;
-  private planetB!: THREE.Mesh;
-  private moon1!: THREE.Mesh;
-  private moon2!: THREE.Mesh;
-  private planetarySatellites: THREE.Group[] = [];
+  // Distant Celestial Landmarks (cleanly framing the black hole)
+  private planetA: THREE.Mesh | null = null;
+  private moon1: THREE.Mesh | null = null;
 
-  // Planetary Collision (Event 04)
-  private collisionPlanetA!: THREE.Mesh;
-  private collisionPlanetB!: THREE.Mesh;
-  private collisionShockwaveRing!: THREE.Mesh;
-  private collisionMoltenDebris!: THREE.Points;
-  private collisionTriggered = false;
-  private collisionProgress = 0;
+  // Single Majestic Background Arch (framing the sky without blocking track)
+  private majesticArch: THREE.Mesh | null = null;
 
-  // Megastructures & Bridges (Event 03, 26, 34)
-  private megastructureBridges: THREE.Mesh[] = [];
-  private megastructureTowers: THREE.Group[] = [];
-  private spineTowers: THREE.Group[] = [];
+  // Distant Space Station Landmark
+  private distantStation: THREE.Group | null = null;
 
-  // Plasma Energy (Event 05)
-  private plasmaClouds: THREE.Points[] = [];
-  private plasmaConduits: THREE.Mesh[] = [];
-  private plasmaArches: THREE.Group[] = [];
-
-  // Industrial Space Colony (Event 06)
-  private industrialStations: THREE.Group[] = [];
-  private industrialCargoContainers: THREE.Mesh[] = [];
-
-  // Gravity-Unstable Platforms (Event 07, 33)
-  private floatingPlatforms: THREE.Mesh[] = [];
-
-  // Extreme Tidal Corridor (Event 08)
-  private tidalCables: THREE.LineSegments[] = [];
-  private tidalAsteroidChains: THREE.Group[] = [];
-
-  // Mega Orbital Station (Event 09)
-  private megaStationRoot!: THREE.Group;
-  private megaStationRing1!: THREE.Mesh;
-  private megaStationRing2!: THREE.Mesh;
-  private megaStationRing3!: THREE.Mesh;
-  private megaStationSpire!: THREE.Mesh;
-  private megaStationDecayProgress = 0;
-
-  // Debris Storm & Cascades (Event 10, 19, 27, 36)
-  private stormDebrisParticles!: THREE.Points;
-  private denseDustVeilPoints!: THREE.Points;
-
-  // Gravitational Lensing & Waves (Event 11, 18)
-  private gravitationalLensingArcs: THREE.LineSegments[] = [];
-  private gravitationalWavePlanes: THREE.Mesh[] = [];
+  // Subtle Cosmic Dust (decluttered from 2,400 blinding particles down to 40 subtle star particles)
+  private ambientSpaceDust: THREE.Points | null = null;
 
   // Collapsible Routes (Event 12, 32, 38)
   private collapsibleRouteSegments: {
@@ -119,17 +89,6 @@ export class DynamicCollapseEnvironmentsManager {
     collapseTimer: number;
     fallVelocity: THREE.Vector3;
   }[] = [];
-
-  // Extended Celestial Features (Events 16–35)
-  private moonTectonicChunks: THREE.Mesh[] = [];
-  private planetaryRingMesh!: THREE.Mesh;
-  private fracturedArtificialRing!: THREE.Group;
-  private slingshotAsteroids: THREE.Mesh[] = [];
-  private atmosphericPlumeMesh!: THREE.Mesh;
-  private auroralRibbons: THREE.Mesh[] = [];
-  private relativisticStreams: THREE.LineSegments[] = [];
-  private toroidalHabitat!: THREE.Group;
-  private evacuationBeacons: THREE.Group[] = [];
 
   // Event 40: Absolute Cosmic End Climax
   public absoluteCollapseProgress = 0;
@@ -164,36 +123,30 @@ export class DynamicCollapseEnvironmentsManager {
     this.accumulatedDebrisGroup.name = 'AccumulatedDebrisGroup';
     this.root.add(this.accumulatedDebrisGroup);
 
-    // Build world geometry across the 40-event continuum
-    this.buildAccumulatedDebrisSystem();
-    this.buildAsteroidBeltsAndPylons(); // Event 01, 24
-    this.buildPlanetaryOrbitalSystem(); // Event 02, 16, 20
-    this.buildTitanicMegastructures(); // Event 03, 26, 34
-    this.buildPlanetaryCollisionZone(); // Event 04, 23
-    this.buildPlasmaEnergyRegion(); // Event 05
-    this.buildIndustrialColony(); // Event 06
-    this.buildGravityUnstablePlatforms(); // Event 07, 33
-    this.buildTidalCorridorAndChains(); // Event 08
-    this.buildMegaOrbitalStation(); // Event 09
-    this.buildDebrisStormAndDustVeil(); // Event 10, 19, 27, 35
-    this.buildGravitationalLensingAndWaves(); // Event 11, 18
-    this.buildMultiRouteNetwork(); // Event 12, 32, 38
-    this.buildExtendedCelestialAndHabitatStructures(); // Event 17, 21, 22, 28, 29, 30, 31
-    this.buildEvacuationSanctuaryCorridor(); // Event 14, 38
-    this.buildEvent40AbsoluteCosmicEndClimaxMeshes(); // Event 15, 39, 40
+    // Build curated, decluttered world elements
+    this.buildStreamlinedDebrisSystem();
+    this.buildCleanCelestialLandmarks();
+    this.buildSingleMajesticArch();
+    this.buildDistantOrbitalStation();
+    this.buildSubtleSpaceDust();
+    this.buildMultiRouteNetwork();
+    this.buildEvent40AbsoluteCosmicEndClimaxMeshes();
+
+    // 2-Element Event Visualizer for all 40 events
+    this.eventPairVisualizer = new CosmicEventPairVisualizer(this.scene, this.blackHoleCenter);
 
     this.scene.add(this.root);
   }
 
   /* =========================================================================
-     ACCUMULATED DEBRIS SYSTEM (Preserved across all 40 events)
+     1. STREAMLINED BACKGROUND DEBRIS (Sparse, subtle depth, zero track clutter)
      ========================================================================= */
-  private buildAccumulatedDebrisSystem(): void {
-    const geo = new THREE.DodecahedronGeometry(3.5, 1);
+  private buildStreamlinedDebrisSystem(): void {
+    const geo = new THREE.DodecahedronGeometry(3.0, 0);
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x667788,
-      roughness: 0.85,
-      metalness: 0.35,
+      color: 0x556677,
+      roughness: 0.8,
+      metalness: 0.2,
       flatShading: true,
     });
 
@@ -202,16 +155,17 @@ export class DynamicCollapseEnvironmentsManager {
 
     const dummy = new THREE.Object3D();
     for (let i = 0; i < this.maxAccumulatedDebris; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = 120 + Math.random() * 2400;
-      const height = -300 + Math.random() * 850;
-      const z = 400 - Math.random() * 4400;
+      const angle = (i / this.maxAccumulatedDebris) * Math.PI * 2;
+      // Keep debris safely away from track center (radius > 250m)
+      const radius = 300 + Math.random() * 1400;
+      const height = -100 + Math.random() * 500;
+      const z = -600 - Math.random() * 2800;
 
       const pos = new THREE.Vector3(Math.cos(angle) * radius, height, z);
       const vel = new THREE.Vector3(
-        (Math.random() - 0.5) * 5,
-        (Math.random() - 0.5) * 4,
-        (Math.random() - 0.5) * 8
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 1.5,
+        (Math.random() - 0.5) * 4
       );
       const rot = new THREE.Euler(
         Math.random() * Math.PI,
@@ -219,11 +173,11 @@ export class DynamicCollapseEnvironmentsManager {
         Math.random() * Math.PI
       );
       const rotSpeed = new THREE.Vector3(
-        (Math.random() - 0.5) * 1.5,
-        (Math.random() - 0.5) * 1.5,
-        (Math.random() - 0.5) * 1.5
+        (Math.random() - 0.5) * 0.8,
+        (Math.random() - 0.5) * 0.8,
+        (Math.random() - 0.5) * 0.8
       );
-      const s = 0.4 + Math.random() * 2.2;
+      const s = 0.5 + Math.random() * 1.5;
 
       this.debrisData.push({
         position: pos,
@@ -246,561 +200,137 @@ export class DynamicCollapseEnvironmentsManager {
   }
 
   /* =========================================================================
-     ASTEROIDS & ENERGY PYLONS (Event 01, 24)
+     2. CLEAN CELESTIAL LANDMARKS (Distant background framing, no duplicate meshes)
      ========================================================================= */
-  private buildAsteroidBeltsAndPylons(): void {
+  private buildCleanCelestialLandmarks(): void {
     const group = new THREE.Group();
-    group.name = 'Env_01_AsteroidOrbital';
+    group.name = 'Env_Celestial_Background';
 
-    const nearMat = new THREE.MeshStandardMaterial({
-      color: 0x778899,
-      roughness: 0.9,
-      metalness: 0.1,
-      flatShading: true,
-    });
-
-    const nearOffsets = [
-      new THREE.Vector3(-45, 12, -220),
-      new THREE.Vector3(50, -8, -480),
-      new THREE.Vector3(-60, 20, -780),
-      new THREE.Vector3(40, 15, -1120),
-      new THREE.Vector3(-35, -10, -1450),
-      new THREE.Vector3(55, 25, -1820),
-      new THREE.Vector3(-48, 8, -2100),
-    ];
-
-    nearOffsets.forEach((pos, idx) => {
-      const radius = 6.0 + (idx % 4) * 2.5;
-      const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(radius, 1), nearMat);
-      mesh.position.copy(pos);
-      mesh.castShadow = true;
-      group.add(mesh);
-
-      this.nearObstacles.push({
-        mesh,
-        boundingRadius: radius * 1.1,
-        position: mesh.position,
-        velocity: new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 2),
-        rotationSpeed: new THREE.Vector3(0.3, 0.5, 0.2),
-        damageValue: 20,
-        environmentIndex: 1,
-        name: `Asteroid_Near_${idx + 1}`,
-      });
-    });
-
-    // Pylons
-    const pylonGeo = new THREE.CylinderGeometry(1.2, 2.0, 36, 8);
-    const pylonMat = new THREE.MeshStandardMaterial({
-      color: 0x334455,
-      metalness: 0.8,
-      roughness: 0.3,
-      emissive: 0x0099ff,
-      emissiveIntensity: 0.4,
-    });
-
-    for (let z = -200; z > -2200; z -= 350) {
-      const leftPylon = new THREE.Mesh(pylonGeo, pylonMat);
-      leftPylon.position.set(-35, 10, z);
-      group.add(leftPylon);
-
-      const rightPylon = new THREE.Mesh(pylonGeo, pylonMat);
-      rightPylon.position.set(35, 10, z);
-      group.add(rightPylon);
-    }
-
-    this.envGroups.set(1, group);
-    this.root.add(group);
-  }
-
-  /* =========================================================================
-     PLANETARY ORBITAL SYSTEM (Event 02, 16, 20)
-     ========================================================================= */
-  private buildPlanetaryOrbitalSystem(): void {
-    const group = new THREE.Group();
-    group.name = 'Env_02_PlanetaryOrbital';
-
-    const planetGeo = new THREE.SphereGeometry(850, 48, 32);
+    // Distant Sapphire Gas Giant placed well off to the upper-left
+    const planetGeo = new THREE.SphereGeometry(450, 32, 24);
     const planetMat = new THREE.MeshStandardMaterial({
-      color: 0x2255aa,
+      color: 0x1d4ed8,
       roughness: 0.6,
-      metalness: 0.15,
-      emissive: 0x001133,
+      metalness: 0.1,
+      emissive: 0x0f172a,
     });
     this.planetA = new THREE.Mesh(planetGeo, planetMat);
-    this.planetA.position.set(-2200, 650, -2800);
+    this.planetA.position.set(-2400, 750, -3200);
     group.add(this.planetA);
 
-    // Planet A Atmosphere shell
-    const atmoGeo = new THREE.SphereGeometry(885, 32, 24);
-    const atmoMat = new THREE.MeshBasicMaterial({
-      color: 0x66bbff,
-      transparent: true,
-      opacity: 0.22,
-      side: THREE.BackSide,
-    });
-    const atmo = new THREE.Mesh(atmoGeo, atmoMat);
-    this.planetA.add(atmo);
-
-    // Moon 1
-    const moonGeo1 = new THREE.SphereGeometry(180, 28, 20);
-    const moonMat1 = new THREE.MeshStandardMaterial({ color: 0x9999aa, roughness: 0.9 });
-    this.moon1 = new THREE.Mesh(moonGeo1, moonMat1);
-    this.moon1.position.set(-1350, 950, -2400);
+    // Single sleek moon
+    const moonGeo = new THREE.SphereGeometry(90, 20, 16);
+    const moonMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.85 });
+    this.moon1 = new THREE.Mesh(moonGeo, moonMat);
+    this.moon1.position.set(-1550, 920, -2800);
     group.add(this.moon1);
-
-    // Moon 2
-    const moonGeo2 = new THREE.SphereGeometry(95, 24, 16);
-    const moonMat2 = new THREE.MeshStandardMaterial({ color: 0xbbaacc, roughness: 0.9 });
-    this.moon2 = new THREE.Mesh(moonGeo2, moonMat2);
-    this.moon2.position.set(-2900, 420, -3200);
-    group.add(this.moon2);
-
-    // Satellites
-    const satMat = new THREE.MeshStandardMaterial({
-      color: 0xddeeff,
-      metalness: 0.85,
-      roughness: 0.2,
-      emissive: 0x00aaff,
-      emissiveIntensity: 0.3,
-    });
-    for (let i = 0; i < 8; i++) {
-      const sat = new THREE.Group();
-      sat.add(new THREE.Mesh(new THREE.BoxGeometry(8, 8, 14), satMat));
-      sat.position.set(
-        -800 + Math.cos(i * 0.8) * 600,
-        180 + Math.sin(i * 0.9) * 220,
-        -1200 - i * 280
-      );
-      this.planetarySatellites.push(sat);
-      group.add(sat);
-    }
 
     this.envGroups.set(2, group);
     this.root.add(group);
   }
 
   /* =========================================================================
-     TITANIC MEGASTRUCTURES (Event 03, 26, 34)
+     3. SINGLE MAJESTIC ARCH (Elevated high above track, framing the black hole)
      ========================================================================= */
-  private buildTitanicMegastructures(): void {
+  private buildSingleMajesticArch(): void {
     const group = new THREE.Group();
-    group.name = 'Env_03_TitanicMegastructures';
+    group.name = 'Env_Majestic_Arch';
 
-    const steelMat = new THREE.MeshStandardMaterial({ color: 0x667788, metalness: 0.85, roughness: 0.3 });
-    const energyConduitMat = new THREE.MeshStandardMaterial({ color: 0xff8800, emissive: 0xff6600, emissiveIntensity: 0.8 });
-
-    // 4 Suspension bridges
-    for (let i = 0; i < 4; i++) {
-      const zPos = -400 - i * 500;
-      const bridge = new THREE.Mesh(new THREE.BoxGeometry(650, 12, 38), steelMat);
-      bridge.position.set(0, 110 + i * 25, zPos);
-      this.megastructureBridges.push(bridge);
-      group.add(bridge);
-
-      const conduit = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 650, 8), energyConduitMat);
-      conduit.rotation.z = Math.PI / 2;
-      conduit.position.set(0, 7, 0);
-      bridge.add(conduit);
-    }
-
-    // 2 Giant 600m Energy Towers
-    const towerGeo = new THREE.CylinderGeometry(14, 28, 580, 12);
-    [-280, 280].forEach(x => {
-      const tower = new THREE.Group();
-      tower.position.set(x, 240, -1100);
-      tower.add(new THREE.Mesh(towerGeo, steelMat));
-      this.megastructureTowers.push(tower);
-      group.add(tower);
+    const archMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      metalness: 0.85,
+      roughness: 0.25,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.35,
     });
 
-    // Event 34: 2 Civilization Spine Towers
-    const spineGeo = new THREE.BoxGeometry(32, 620, 32);
-    [-340, 340].forEach(x => {
-      const spine = new THREE.Group();
-      spine.position.set(x, 260, -1650);
-      spine.add(new THREE.Mesh(spineGeo, steelMat));
-      this.spineTowers.push(spine);
-      group.add(spine);
-    });
+    // Elevated arch spanning high overhead at y=160 (safe clearance above track)
+    const archGeo = new THREE.TorusGeometry(320, 8, 8, 36, Math.PI);
+    this.majesticArch = new THREE.Mesh(archGeo, archMat);
+    this.majesticArch.position.set(0, 80, -1400);
+    this.majesticArch.rotation.z = Math.PI; // Inverted arch over the horizon
+    group.add(this.majesticArch);
 
     this.envGroups.set(3, group);
     this.root.add(group);
   }
 
   /* =========================================================================
-     PLANETARY COLLISION ZONE (Event 04, 23)
+     4. DISTANT ORBITAL STATION (Far background landmark at z=-2200, clean silhouette)
      ========================================================================= */
-  private buildPlanetaryCollisionZone(): void {
+  private buildDistantOrbitalStation(): void {
     const group = new THREE.Group();
-    group.name = 'Env_04_PlanetaryCollision';
-
-    const planetAGeo = new THREE.SphereGeometry(550, 40, 28);
-    const planetAMat = new THREE.MeshStandardMaterial({
-      color: 0x118855,
-      roughness: 0.5,
-      metalness: 0.2,
-      emissive: 0x003311,
-    });
-    this.collisionPlanetA = new THREE.Mesh(planetAGeo, planetAMat);
-    this.collisionPlanetA.position.set(1600, 750, -3200);
-    group.add(this.collisionPlanetA);
-
-    const planetBGeo = new THREE.SphereGeometry(440, 36, 24);
-    const planetBMat = new THREE.MeshStandardMaterial({
-      color: 0xaa3311,
-      roughness: 0.75,
-      metalness: 0.4,
-      emissive: 0xff3300,
-      emissiveIntensity: 0.35,
-    });
-    this.collisionPlanetB = new THREE.Mesh(planetBGeo, planetBMat);
-    this.collisionPlanetB.position.set(2850, 680, -3400);
-    group.add(this.collisionPlanetB);
-
-    const shockwaveGeo = new THREE.RingGeometry(20, 90, 48);
-    const shockwaveMat = new THREE.MeshBasicMaterial({
-      color: 0xff6600,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.0,
-    });
-    this.collisionShockwaveRing = new THREE.Mesh(shockwaveGeo, shockwaveMat);
-    this.collisionShockwaveRing.position.set(2100, 715, -3300);
-    group.add(this.collisionShockwaveRing);
-
-    const pCount = 600;
-    const pGeo = new THREE.BufferGeometry();
-    const pPositions = new Float32Array(pCount * 3);
-    for (let i = 0; i < pCount; i++) {
-      pPositions[i * 3] = 2100 + (Math.random() - 0.5) * 80;
-      pPositions[i * 3 + 1] = 715 + (Math.random() - 0.5) * 80;
-      pPositions[i * 3 + 2] = -3300 + (Math.random() - 0.5) * 80;
-    }
-    pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
-    const pMat = new THREE.PointsMaterial({
-      color: 0xff8822,
-      size: 14,
-      transparent: true,
-      opacity: 0.0,
-      blending: THREE.AdditiveBlending,
-    });
-    this.collisionMoltenDebris = new THREE.Points(pGeo, pMat);
-    group.add(this.collisionMoltenDebris);
-
-    this.envGroups.set(4, group);
-    this.root.add(group);
-  }
-
-  /* =========================================================================
-     PLASMA ENERGY REGION (Event 05)
-     ========================================================================= */
-  private buildPlasmaEnergyRegion(): void {
-    const group = new THREE.Group();
-    group.name = 'Env_05_PlasmaEnergy';
-
-    const cloudCount = 800;
-    const cloudGeo = new THREE.BufferGeometry();
-    const cloudPos = new Float32Array(cloudCount * 3);
-    for (let i = 0; i < cloudCount; i++) {
-      cloudPos[i * 3] = (Math.random() - 0.5) * 1200;
-      cloudPos[i * 3 + 1] = -50 + Math.random() * 350;
-      cloudPos[i * 3 + 2] = -600 - Math.random() * 1600;
-    }
-    cloudGeo.setAttribute('position', new THREE.BufferAttribute(cloudPos, 3));
-    const cloudMat = new THREE.PointsMaterial({
-      color: 0x00ffee,
-      size: 26,
-      transparent: true,
-      opacity: 0.35,
-      blending: THREE.AdditiveBlending,
-    });
-    const clouds = new THREE.Points(cloudGeo, cloudMat);
-    this.plasmaClouds.push(clouds);
-    group.add(clouds);
-
-    const archMat = new THREE.MeshStandardMaterial({
-      color: 0x334466,
-      metalness: 0.9,
-      roughness: 0.2,
-      emissive: 0x00bbff,
-      emissiveIntensity: 0.5,
-    });
-    for (let z = -450; z > -2100; z -= 400) {
-      const arch = new THREE.Group();
-      arch.position.set(0, 0, z);
-      const archMesh = new THREE.Mesh(new THREE.TorusGeometry(65, 4.5, 8, 24, Math.PI), archMat);
-      archMesh.position.set(0, 15, 0);
-      arch.add(archMesh);
-      this.plasmaArches.push(arch);
-      group.add(arch);
-    }
-
-    const conduitGeo = new THREE.CylinderGeometry(2.5, 2.5, 420, 8);
-    const conduitMat = new THREE.MeshStandardMaterial({
-      color: 0x8800ff,
-      emissive: 0xaa00ff,
-      emissiveIntensity: 0.6,
-      roughness: 0.2,
-    });
-    for (let i = 0; i < 4; i++) {
-      const c = new THREE.Mesh(conduitGeo, conduitMat);
-      c.position.set(-160 + i * 110, 85, -800 - i * 350);
-      c.rotation.z = Math.PI / 3;
-      this.plasmaConduits.push(c);
-      group.add(c);
-    }
-
-    this.envGroups.set(5, group);
-    this.root.add(group);
-  }
-
-  /* =========================================================================
-     INDUSTRIAL COLONY (Event 06)
-     ========================================================================= */
-  private buildIndustrialColony(): void {
-    const group = new THREE.Group();
-    group.name = 'Env_06_IndustrialColony';
-
-    const steelMat = new THREE.MeshStandardMaterial({ color: 0x777788, metalness: 0.8, roughness: 0.4 });
-    const containerMat = new THREE.MeshStandardMaterial({ color: 0xcc7722, roughness: 0.5, metalness: 0.3 });
-
-    for (let i = 0; i < 4; i++) {
-      const station = new THREE.Group();
-      station.position.set((i % 2 === 0 ? -1 : 1) * (260 + i * 30), 70 + i * 20, -700 - i * 450);
-      station.add(new THREE.Mesh(new THREE.BoxGeometry(90, 45, 120), steelMat));
-      this.industrialStations.push(station);
-      group.add(station);
-    }
-
-    for (let i = 0; i < 12; i++) {
-      const container = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 22), containerMat);
-      container.position.set((Math.random() - 0.5) * 140, 15 + (Math.random() - 0.5) * 35, -500 - i * 140);
-      container.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-      this.industrialCargoContainers.push(container);
-      group.add(container);
-
-      this.nearObstacles.push({
-        mesh: container,
-        boundingRadius: 10.0,
-        position: container.position,
-        velocity: new THREE.Vector3((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 2, -2),
-        rotationSpeed: new THREE.Vector3(0.4, 0.6, 0.3),
-        damageValue: 22,
-        environmentIndex: 6,
-        name: `CargoContainer_${i + 1}`,
-      });
-    }
-
-    this.envGroups.set(6, group);
-    this.root.add(group);
-  }
-
-  /* =========================================================================
-     GRAVITY-UNSTABLE PLATFORMS (Event 07, 33)
-     ========================================================================= */
-  private buildGravityUnstablePlatforms(): void {
-    const group = new THREE.Group();
-    group.name = 'Env_07_GravityUnstableField';
-
-    const slabMat = new THREE.MeshStandardMaterial({
-      color: 0x556677,
-      metalness: 0.7,
-      roughness: 0.3,
-      emissive: 0xaa44ff,
-      emissiveIntensity: 0.25,
-    });
-
-    for (let i = 0; i < 16; i++) {
-      const slab = new THREE.Mesh(new THREE.BoxGeometry(32 + Math.random() * 20, 4, 45 + Math.random() * 25), slabMat);
-      slab.position.set((Math.random() - 0.5) * 320, -20 + Math.random() * 120, -300 - i * 120);
-      slab.userData = {
-        baseX: slab.position.x,
-        baseY: slab.position.y,
-        baseZ: slab.position.z,
-        phase: Math.random() * Math.PI * 2,
-        freq: 0.8 + Math.random() * 1.2,
-      };
-      this.floatingPlatforms.push(slab);
-      group.add(slab);
-    }
-
-    this.envGroups.set(7, group);
-    this.root.add(group);
-  }
-
-  /* =========================================================================
-     EXTREME TIDAL CORRIDOR & ASTEROID CHAINS (Event 08)
-     ========================================================================= */
-  private buildTidalCorridorAndChains(): void {
-    const group = new THREE.Group();
-    group.name = 'Env_08_ExtremeTidalCorridor';
-
-    const chainMat = new THREE.MeshStandardMaterial({ color: 0x886677, roughness: 0.85, flatShading: true });
-    for (let c = 0; c < 4; c++) {
-      const chainGroup = new THREE.Group();
-      chainGroup.position.set((c - 1.5) * 220, 110, -800 - c * 400);
-
-      for (let i = 0; i < 9; i++) {
-        const bead = new THREE.Mesh(new THREE.DodecahedronGeometry(8, 1), chainMat);
-        bead.position.set(0, 0, (i - 4) * 36);
-        bead.scale.set(0.6, 0.6, 2.2);
-        chainGroup.add(bead);
-      }
-      this.tidalAsteroidChains.push(chainGroup);
-      group.add(chainGroup);
-    }
-
-    this.envGroups.set(8, group);
-    this.root.add(group);
-  }
-
-  /* =========================================================================
-     MEGA ORBITAL STATION (Event 09)
-     ========================================================================= */
-  private buildMegaOrbitalStation(): void {
-    const group = new THREE.Group();
-    group.name = 'Env_09_MegaOrbitalStation';
-    this.megaStationRoot = group;
-    group.position.set(0, 320, -1700);
+    group.name = 'Env_Distant_Station';
+    group.position.set(480, 240, -2200);
 
     const stationMat = new THREE.MeshStandardMaterial({
-      color: 0x446688,
+      color: 0x1e293b,
       metalness: 0.85,
-      roughness: 0.25,
-      emissive: 0x0066aa,
-      emissiveIntensity: 0.4,
+      roughness: 0.3,
+      emissive: 0x0369a1,
+      emissiveIntensity: 0.3,
     });
 
-    this.megaStationSpire = new THREE.Mesh(new THREE.CylinderGeometry(28, 48, 700, 16), stationMat);
-    group.add(this.megaStationSpire);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(180, 8, 8, 32), stationMat);
+    ring.rotation.x = Math.PI / 2.5;
+    group.add(ring);
 
-    this.megaStationRing1 = new THREE.Mesh(new THREE.TorusGeometry(220, 16, 12, 36), stationMat);
-    this.megaStationRing1.rotation.x = Math.PI / 2;
-    group.add(this.megaStationRing1);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(14, 18, 120, 12), stationMat);
+    group.add(hub);
 
-    this.megaStationRing2 = new THREE.Mesh(new THREE.TorusGeometry(420, 20, 12, 48), stationMat);
-    this.megaStationRing2.rotation.x = Math.PI / 2;
-    group.add(this.megaStationRing2);
-
-    this.megaStationRing3 = new THREE.Mesh(new THREE.TorusGeometry(680, 24, 12, 64), stationMat);
-    this.megaStationRing3.rotation.x = Math.PI / 2;
-    group.add(this.megaStationRing3);
-
+    this.distantStation = group;
     this.envGroups.set(9, group);
     this.root.add(group);
   }
 
   /* =========================================================================
-     DEBRIS STORM & DUST VEIL (Event 10, 19, 27, 35)
+     5. SUBTLE AMBIENT SPACE DUST (Clean 40 particles, no blinding smoke or veil)
      ========================================================================= */
-  private buildDebrisStormAndDustVeil(): void {
-    const group = new THREE.Group();
-    group.name = 'Env_10_DebrisStorm';
-
-    const pCount = 1400;
-    const pGeo = new THREE.BufferGeometry();
-    const pPos = new Float32Array(pCount * 3);
-    for (let i = 0; i < pCount; i++) {
-      pPos[i * 3] = (Math.random() - 0.5) * 800;
-      pPos[i * 3 + 1] = -40 + Math.random() * 260;
-      pPos[i * 3 + 2] = -200 - Math.random() * 2400;
+  private buildSubtleSpaceDust(): void {
+    const count = 40;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 600;
+      pos[i * 3 + 1] = -20 + Math.random() * 180;
+      pos[i * 3 + 2] = -400 - Math.random() * 2000;
     }
-    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-    this.stormDebrisParticles = new THREE.Points(
-      pGeo,
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this.ambientSpaceDust = new THREE.Points(
+      geo,
       new THREE.PointsMaterial({
-        color: 0xff7733,
-        size: 16,
+        color: 0x38bdf8,
+        size: 8,
         transparent: true,
-        opacity: 0.65,
+        opacity: 0.35,
         blending: THREE.AdditiveBlending,
       })
     );
-    group.add(this.stormDebrisParticles);
-
-    // Event 35: Cosmic Dust Veil
-    const dustCount = 1000;
-    const dustGeo = new THREE.BufferGeometry();
-    const dustPos = new Float32Array(dustCount * 3);
-    for (let i = 0; i < dustCount; i++) {
-      dustPos[i * 3] = (Math.random() - 0.5) * 1600;
-      dustPos[i * 3 + 1] = -80 + Math.random() * 400;
-      dustPos[i * 3 + 2] = 200 - Math.random() * 3200;
-    }
-    dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
-    this.denseDustVeilPoints = new THREE.Points(
-      dustGeo,
-      new THREE.PointsMaterial({
-        color: 0x887766,
-        size: 28,
-        transparent: true,
-        opacity: 0.0, // Fades in at Event 35
-        blending: THREE.NormalBlending,
-      })
-    );
-    group.add(this.denseDustVeilPoints);
-
-    this.envGroups.set(10, group);
-    this.root.add(group);
+    this.root.add(this.ambientSpaceDust);
   }
 
   /* =========================================================================
-     GRAVITATIONAL LENSING & WAVES (Event 11, 18)
-     ========================================================================= */
-  private buildGravitationalLensingAndWaves(): void {
-    const group = new THREE.Group();
-    group.name = 'Env_11_GravitationalCorridor';
-
-    const arcMat = new THREE.LineBasicMaterial({ color: 0x9955ff, transparent: true, opacity: 0.5 });
-    for (let i = 0; i < 12; i++) {
-      const radius = 350 + i * 90;
-      const arcGeo = new THREE.TorusGeometry(radius, 1.2, 4, 48, Math.PI * 0.7);
-      const arcMesh = new THREE.LineSegments(arcGeo, arcMat);
-      arcMesh.position.copy(this.blackHoleCenter);
-      arcMesh.position.z += 800 + i * 150;
-      arcMesh.rotation.z = i * 0.4;
-      this.gravitationalLensingArcs.push(arcMesh);
-      group.add(arcMesh);
-    }
-
-    // Event 18: Gravitational Wave metric planes
-    for (let w = 0; w < 3; w++) {
-      const waveMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(1200, 1200, 16, 16),
-        new THREE.MeshBasicMaterial({ color: 0x331166, wireframe: true, transparent: true, opacity: 0.25 })
-      );
-      waveMesh.position.set(0, 50, -600 - w * 600);
-      waveMesh.rotation.x = Math.PI / 2;
-      this.gravitationalWavePlanes.push(waveMesh);
-      group.add(waveMesh);
-    }
-
-    this.envGroups.set(11, group);
-    this.root.add(group);
-  }
-
-  /* =========================================================================
-     MULTI-ROUTE PHYSICAL NETWORK (Event 12, 32, 38)
+     6. MULTI-ROUTE COLLAPSE NETWORK (Clean side branches)
      ========================================================================= */
   private buildMultiRouteNetwork(): void {
     const group = new THREE.Group();
     group.name = 'Env_12_MultiRouteCollapse';
 
     const routeMat = new THREE.MeshStandardMaterial({
-      color: 0x223344,
+      color: 0x0f172a,
       metalness: 0.8,
       roughness: 0.3,
-      emissive: 0x00ddff,
-      emissiveIntensity: 0.3,
+      emissive: 0x06b6d4,
+      emissiveIntensity: 0.25,
     });
 
-    for (let s = 0; s < 6; s++) {
+    for (let s = 0; s < 3; s++) {
       const segGroup = new THREE.Group();
-      const zPos = -400 - s * 320;
-      const xPos = (s % 2 === 0 ? 1 : -1) * 75;
+      const zPos = -700 - s * 450;
+      const xPos = (s % 2 === 0 ? 1 : -1) * 90;
 
-      segGroup.position.set(xPos, 22, zPos);
-      const segMesh = new THREE.Mesh(new THREE.BoxGeometry(24, 4, 180), routeMat);
+      segGroup.position.set(xPos, 20, zPos);
+      const segMesh = new THREE.Mesh(new THREE.BoxGeometry(18, 3, 140), routeMat);
       segGroup.add(segMesh);
 
       this.collapsibleRouteSegments.push({
@@ -809,9 +339,9 @@ export class DynamicCollapseEnvironmentsManager {
         state: 'SAFE',
         collapseTimer: 0,
         fallVelocity: new THREE.Vector3(
-          (Math.random() - 0.5) * 10,
-          -40 - Math.random() * 30,
-          (Math.random() - 0.5) * 20
+          (Math.random() - 0.5) * 8,
+          -35 - Math.random() * 25,
+          (Math.random() - 0.5) * 15
         ),
       });
 
@@ -823,148 +353,15 @@ export class DynamicCollapseEnvironmentsManager {
   }
 
   /* =========================================================================
-     EXTENDED CELESTIAL STRUCTURES (Event 17, 20, 21, 22, 28, 29, 30, 31)
-     ========================================================================= */
-  private buildExtendedCelestialAndHabitatStructures(): void {
-    const group = new THREE.Group();
-    group.name = 'Env_Extended_16to35';
-
-    // Event 20: Planetary Ring Plane
-    const ringGeo = new THREE.RingGeometry(1100, 1600, 48);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0x5599bb,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.4,
-    });
-    this.planetaryRingMesh = new THREE.Mesh(ringGeo, ringMat);
-    this.planetaryRingMesh.position.set(-2200, 650, -2800);
-    this.planetaryRingMesh.rotation.x = Math.PI / 2.3;
-    group.add(this.planetaryRingMesh);
-
-    // Event 21: Fractured Moon Tectonic Chunks
-    const chunkMat = new THREE.MeshStandardMaterial({ color: 0x887766, roughness: 0.9, flatShading: true });
-    for (let m = 0; m < 3; m++) {
-      const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(70, 1), chunkMat);
-      chunk.position.set(-1350 + (m - 1) * 90, 950 + (m === 1 ? 40 : -30), -2400);
-      this.moonTectonicChunks.push(chunk);
-      group.add(chunk);
-    }
-
-    // Event 22: Fractured Megastructure Artificial Ring
-    this.fracturedArtificialRing = new THREE.Group();
-    this.fracturedArtificialRing.position.set(0, 380, -2000);
-    const ringSegGeo = new THREE.TorusGeometry(850, 16, 8, 24, Math.PI * 0.4);
-    const ringSegMat = new THREE.MeshStandardMaterial({ color: 0x556677, metalness: 0.85 });
-    const ringArch1 = new THREE.Mesh(ringSegGeo, ringSegMat);
-    this.fracturedArtificialRing.add(ringArch1);
-    group.add(this.fracturedArtificialRing);
-
-    // Event 24: Slingshot Asteroids
-    for (let a = 0; a < 4; a++) {
-      const rock = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(12, 1),
-        new THREE.MeshStandardMaterial({ color: 0x665544, roughness: 0.9 })
-      );
-      rock.position.set(-200 + a * 130, 45, -700 - a * 300);
-      this.slingshotAsteroids.push(rock);
-      group.add(rock);
-
-      this.nearObstacles.push({
-        mesh: rock,
-        boundingRadius: 13.0,
-        position: rock.position,
-        velocity: new THREE.Vector3((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 4, -18),
-        rotationSpeed: new THREE.Vector3(0.8, 1.2, 0.5),
-        damageValue: 28,
-        environmentIndex: 24,
-        name: `SlingshotAsteroid_${a + 1}`,
-      });
-    }
-
-    // Event 28: Atmospheric Plume Mesh
-    const plumeGeo = new THREE.ConeGeometry(320, 1200, 24, 1, true);
-    const plumeMat = new THREE.MeshBasicMaterial({
-      color: 0x3388cc,
-      transparent: true,
-      opacity: 0.0, // Fades in at Event 28
-      side: THREE.DoubleSide,
-    });
-    this.atmosphericPlumeMesh = new THREE.Mesh(plumeGeo, plumeMat);
-    this.atmosphericPlumeMesh.position.set(-2200, 650, -2800);
-    this.atmosphericPlumeMesh.rotation.z = Math.PI / 2.5;
-    group.add(this.atmosphericPlumeMesh);
-
-    // Event 29: Auroral Ribbons
-    const ribbonGeo = new THREE.PlaneGeometry(800, 140, 16, 4);
-    const ribbonMat = new THREE.MeshBasicMaterial({
-      color: 0x00ff88,
-      transparent: true,
-      opacity: 0.0,
-      side: THREE.DoubleSide,
-    });
-    for (let r = 0; r < 2; r++) {
-      const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
-      ribbon.position.set(-600 + r * 1200, 200, -1400);
-      ribbon.rotation.x = Math.PI / 3;
-      this.auroralRibbons.push(ribbon);
-      group.add(ribbon);
-    }
-
-    // Event 31: Toroidal Orbital Habitat
-    this.toroidalHabitat = new THREE.Group();
-    this.toroidalHabitat.position.set(450, 220, -1300);
-    const torusHabitatGeo = new THREE.TorusGeometry(120, 14, 12, 32);
-    const habitatMat = new THREE.MeshStandardMaterial({
-      color: 0x8899aa,
-      metalness: 0.8,
-      emissive: 0x3388ff,
-      emissiveIntensity: 0.3,
-    });
-    this.toroidalHabitat.add(new THREE.Mesh(torusHabitatGeo, habitatMat));
-    group.add(this.toroidalHabitat);
-
-    this.envGroups.set(16, group);
-    this.root.add(group);
-  }
-
-  /* =========================================================================
-     EVACUATION SANCTUARY CORRIDOR (Event 14, 38)
-     ========================================================================= */
-  private buildEvacuationSanctuaryCorridor(): void {
-    const group = new THREE.Group();
-    group.name = 'Env_14_EvacuationCorridor';
-
-    const beaconMat = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
-    const pylonMat = new THREE.MeshStandardMaterial({ color: 0x223344, metalness: 0.8 });
-
-    for (let z = -650; z > -960; z -= 45) {
-      [-22, 22].forEach(x => {
-        const beacon = new THREE.Group();
-        beacon.position.set(x, 6, z);
-        beacon.add(new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.2, 10, 8), pylonMat));
-        const light = new THREE.Mesh(new THREE.SphereGeometry(2.2, 12, 8), beaconMat);
-        light.position.set(0, 5.5, 0);
-        beacon.add(light);
-        this.evacuationBeacons.push(beacon);
-        group.add(beacon);
-      });
-    }
-
-    this.envGroups.set(14, group);
-    this.root.add(group);
-  }
-
-  /* =========================================================================
-     EVENT 40: ABSOLUTE COSMIC END CLIMAX MESHES
+     7. EVENT 40: ABSOLUTE COSMIC END CLIMAX MESHES
      ========================================================================= */
   private buildEvent40AbsoluteCosmicEndClimaxMeshes(): void {
     const group = new THREE.Group();
     group.name = 'Env_40_AbsoluteCosmicEnd';
 
-    const waveGeo = new THREE.SphereGeometry(180, 48, 32);
+    const waveGeo = new THREE.SphereGeometry(160, 32, 24);
     const waveMat = new THREE.MeshBasicMaterial({
-      color: 0x050014,
+      color: 0x020617,
       wireframe: true,
       transparent: true,
       opacity: 0.0,
@@ -974,7 +371,7 @@ export class DynamicCollapseEnvironmentsManager {
     this.darkWaveMesh.position.copy(this.blackHoleCenter);
     group.add(this.darkWaveMesh);
 
-    const implosionGeo = new THREE.SphereGeometry(420, 32, 24);
+    const implosionGeo = new THREE.SphereGeometry(380, 24, 18);
     const implosionMat = new THREE.MeshBasicMaterial({
       color: 0x000000,
       transparent: true,
@@ -1003,59 +400,86 @@ export class DynamicCollapseEnvironmentsManager {
     collisionEvent: { hit: boolean; damage: number; impulse: THREE.Vector3; name: string } | null;
     blackScreenActive: boolean;
     cameraShakeIntensity: number;
+    pairTelemetry: CosmicPairLiveTelemetry | null;
   } {
     const delta = Math.max(0, Math.min(dt, 0.15));
     this.elapsedSeconds += delta;
     this.currentEventIndex = activeEventIndex;
 
+    // 0. Update 2-Element Cosmic Pair Simulation (Keplerian revolution, collision, spaghettification)
+    const pairTelemetry = this.eventPairVisualizer.update(delta, activeEventIndex);
+    this.latestPairTelemetry = pairTelemetry;
+
     let cameraShake = 0;
     let blackScreen = false;
 
-    // 1. Infalling Accumulated Debris
-    this.updateAccumulatedDebris(delta, activeEventIndex);
+    // 1. Update subtle drifting debris
+    this.updateStreamlinedDebris(delta, activeEventIndex);
 
-    // 2. Celestial and Planetary Dynamics
-    this.updatePlanetaryAndOrbitalDynamics(delta, activeEventIndex);
+    // 2. Slow subtle celestial orbital rotation
+    if (this.planetA) {
+      this.planetA.rotation.y += delta * 0.015;
+    }
+    if (this.moon1) {
+      this.moon1.position.x += Math.cos(this.elapsedSeconds * 0.1) * delta * 15;
+      this.moon1.position.z += Math.sin(this.elapsedSeconds * 0.1) * delta * 15;
+    }
 
-    // 3. Megastructure Oscillations and Chain Fractures
-    this.updateMegastructuresAndTowers(delta, activeEventIndex);
+    // 3. Majestic Arch subtle tidal flex
+    if (this.majesticArch && activeEventIndex >= 3) {
+      const bend = Math.min(0.12, (activeEventIndex - 2) * 0.008);
+      this.majesticArch.rotation.z = Math.PI + Math.sin(this.elapsedSeconds * 0.5) * bend;
+    }
 
-    // 4. Plasma Clouds and Conduits
-    this.updatePlasmaAndIndustrial(delta, activeEventIndex);
+    // 4. Distant station slow rotation
+    if (this.distantStation) {
+      this.distantStation.rotation.y += delta * 0.04;
+    }
 
-    // 5. Gravitational Waves and Lensing
-    this.updateWavesAndLensing(delta, activeEventIndex);
+    // 5. Multi-Route Collapses
+    if (activeEventIndex >= 12) {
+      this.collapsibleRouteSegments.forEach((seg, idx) => {
+        if (activeEventIndex >= 12 + idx * 0.6) {
+          if (seg.state === 'SAFE') {
+            seg.state = 'COLLAPSING';
+            sound.playStructureCreak();
+          }
+        }
+        if (seg.state === 'COLLAPSING') {
+          seg.group.position.addScaledVector(seg.fallVelocity, delta);
+          seg.group.rotation.x += delta * 0.4;
+          if (seg.group.position.y < -300) {
+            seg.state = 'CONSUMED';
+          }
+        }
+      });
+    }
 
-    // 6. Multi-Route Progressive Collapses
-    this.updateMultiRouteCollapses(delta, activeEventIndex);
-
-    // 7. Dust Veil and Atmosphere
-    this.updateAtmosphereAndDustVeil(delta, activeEventIndex);
-
-    // 8. Event 40 Climax
+    // 6. Event 40 Climax
     if (activeEventIndex >= 40) {
       const climaxResult = this.updateEvent40AbsoluteCosmicEndClimax(delta);
       cameraShake = Math.max(cameraShake, climaxResult.cameraShake);
       blackScreen = climaxResult.blackScreen;
     }
 
-    // 9. Near-field Physical Collisions against player ship
+    // 7. Near-field Physical Collisions (sparse and fair)
     const collisionEvent = this.checkNearFieldCollisions(playerPos, 4.2);
 
     return {
       collisionEvent,
       blackScreenActive: blackScreen,
       cameraShakeIntensity: cameraShake,
+      pairTelemetry,
     };
   }
 
   /* -------------------------------------------------------------------------
      Subsystem Updaters
      ------------------------------------------------------------------------- */
-  private updateAccumulatedDebris(dt: number, activeEvent: number): void {
+  private updateStreamlinedDebris(dt: number, activeEvent: number): void {
     if (!this.debrisInstancedMesh) return;
     const dummy = new THREE.Object3D();
-    const speedMult = 1.0 + Math.max(0, activeEvent - 1) * 0.18;
+    const speedMult = 1.0 + Math.max(0, activeEvent - 1) * 0.12;
 
     for (let i = 0; i < this.debrisData.length; i++) {
       const d = this.debrisData[i];
@@ -1063,18 +487,17 @@ export class DynamicCollapseEnvironmentsManager {
       const dist = toBH.length();
       toBH.normalize();
 
-      const gravPull = Math.min(65, (2800 / Math.max(200, dist)) * 14 * (activeEvent >= 10 ? 2.2 : 1.0));
-      d.velocity.addScaledVector(toBH, gravPull * dt * 0.4);
+      const gravPull = Math.min(45, (2400 / Math.max(250, dist)) * 10 * (activeEvent >= 10 ? 1.8 : 1.0));
+      d.velocity.addScaledVector(toBH, gravPull * dt * 0.3);
       d.position.addScaledVector(d.velocity, dt * speedMult);
       d.rotation.x += d.rotSpeed.x * dt;
       d.rotation.y += d.rotSpeed.y * dt;
-      d.rotation.z += d.rotSpeed.z * dt;
 
       if (dist < 320) {
         d.position.set(
-          this.blackHoleCenter.x + (Math.random() - 0.5) * 1600,
-          this.blackHoleCenter.y + 200 + Math.random() * 500,
-          this.blackHoleCenter.z + 1800 + Math.random() * 1200
+          this.blackHoleCenter.x + (Math.random() - 0.5) * 1200,
+          this.blackHoleCenter.y + 150 + Math.random() * 400,
+          this.blackHoleCenter.z + 1600 + Math.random() * 1000
         );
         d.velocity.set(0, 0, 0);
       }
@@ -1088,168 +511,8 @@ export class DynamicCollapseEnvironmentsManager {
     this.debrisInstancedMesh.instanceMatrix.needsUpdate = true;
   }
 
-  private updatePlanetaryAndOrbitalDynamics(dt: number, activeEvent: number): void {
-    if (this.planetA) {
-      this.planetA.rotation.y += dt * 0.02;
-      if (activeEvent >= 2) {
-        this.planetA.position.y += Math.sin(this.elapsedSeconds * 0.8) * dt * (activeEvent * 2.2);
-      }
-    }
-    if (this.moon1) {
-      this.moon1.position.x += Math.cos(this.elapsedSeconds * 0.15) * dt * 25;
-      this.moon1.position.z += Math.sin(this.elapsedSeconds * 0.15) * dt * 25;
-    }
-    if (this.moon2) {
-      this.moon2.position.x -= Math.sin(this.elapsedSeconds * 0.2) * dt * 35;
-    }
-    if (activeEvent >= 20 && this.planetaryRingMesh) {
-      // Ring particle disruption
-      this.planetaryRingMesh.rotation.z += dt * 0.04;
-    }
-    if (activeEvent >= 21) {
-      // Moon tectonic separation
-      this.moonTectonicChunks.forEach((c, idx) => {
-        c.position.x += dt * (idx - 1) * 18;
-        c.rotation.y += dt * 0.1;
-      });
-    }
-
-    // Event 04 Planetary Collision
-    if (activeEvent >= 4 && this.collisionPlanetA && this.collisionPlanetB) {
-      this.collisionProgress += dt * 0.15;
-      if (this.collisionPlanetA.position.distanceTo(this.collisionPlanetB.position) > 750) {
-        this.collisionPlanetA.position.x += dt * 55;
-        this.collisionPlanetB.position.x -= dt * 65;
-      } else if (!this.collisionTriggered) {
-        this.collisionTriggered = true;
-        sound.playPlanetaryCollision();
-        sound.playHeavyImpact();
-      }
-
-      if (this.collisionTriggered) {
-        const curScale = this.collisionShockwaveRing.scale.x;
-        const newScale = curScale + dt * 28;
-        this.collisionShockwaveRing.scale.set(newScale, newScale, newScale);
-        if (this.collisionShockwaveRing.material instanceof THREE.MeshBasicMaterial) {
-          this.collisionShockwaveRing.material.opacity = Math.max(0, 0.85 - (newScale / 80) * 0.85);
-        }
-        if (this.collisionMoltenDebris.material instanceof THREE.PointsMaterial) {
-          this.collisionMoltenDebris.material.opacity = Math.min(0.8, this.collisionMoltenDebris.material.opacity + dt * 0.4);
-        }
-      }
-    }
-  }
-
-  private updateMegastructuresAndTowers(dt: number, activeEvent: number): void {
-    if (activeEvent < 3) return;
-
-    // Bridge oscillation and bending
-    const bend = Math.min(0.25, (activeEvent - 2) * 0.02);
-    this.megastructureBridges.forEach((b, idx) => {
-      b.rotation.z = Math.sin(this.elapsedSeconds * 0.6 + idx) * bend;
-    });
-
-    // Towers leaning
-    this.megastructureTowers.forEach((t, idx) => {
-      t.rotation.z = (idx === 0 ? -1 : 1) * bend * 0.7;
-    });
-
-    // Event 26: Structural Resonance
-    if (activeEvent >= 26) {
-      this.spineTowers.forEach((st, idx) => {
-        st.rotation.x = Math.sin(this.elapsedSeconds * 4.0 + idx) * 0.08;
-      });
-    }
-
-    // Event 31: Torus habitat deformation
-    if (activeEvent >= 31 && this.toroidalHabitat) {
-      this.toroidalHabitat.rotation.z += dt * 0.15;
-      this.toroidalHabitat.scale.set(1.0 + Math.sin(this.elapsedSeconds * 2.0) * 0.25, 1.0, 1.0);
-    }
-  }
-
-  private updatePlasmaAndIndustrial(dt: number, activeEvent: number): void {
-    const pulse = 0.5 + Math.sin(this.elapsedSeconds * 4.0) * 0.5;
-    this.plasmaConduits.forEach(c => {
-      if (c.material instanceof THREE.MeshStandardMaterial) {
-        c.material.emissiveIntensity = 0.5 + pulse * 0.8;
-      }
-    });
-
-    this.industrialCargoContainers.forEach((box, idx) => {
-      box.rotation.x += dt * 0.3;
-      box.rotation.y += dt * 0.5;
-      if (activeEvent >= 6) {
-        box.position.z -= dt * (25 + idx * 2);
-      }
-    });
-  }
-
-  private updateWavesAndLensing(dt: number, activeEvent: number): void {
-    if (activeEvent >= 11) {
-      this.gravitationalLensingArcs.forEach((arc, idx) => {
-        arc.rotation.z += dt * (0.05 + idx * 0.02);
-      });
-    }
-    if (activeEvent >= 18) {
-      this.gravitationalWavePlanes.forEach((plane, idx) => {
-        plane.position.y = 50 + Math.sin(this.elapsedSeconds * 3.5 + idx) * 35;
-      });
-    }
-  }
-
-  private updateMultiRouteCollapses(dt: number, activeEvent: number): void {
-    if (activeEvent < 12) return;
-
-    this.collapsibleRouteSegments.forEach((seg, idx) => {
-      if (activeEvent >= 12 + idx * 0.4) {
-        if (seg.state === 'SAFE') {
-          seg.state = 'COLLAPSING';
-          sound.playStructureCreak();
-        }
-      }
-
-      if (seg.state === 'COLLAPSING') {
-        seg.group.position.addScaledVector(seg.fallVelocity, dt);
-        seg.group.rotation.x += dt * 0.5;
-        if (seg.group.position.y < -350) {
-          seg.state = 'CONSUMED';
-        }
-      }
-    });
-  }
-
-  private updateAtmosphereAndDustVeil(dt: number, activeEvent: number): void {
-    if (activeEvent >= 28 && this.atmosphericPlumeMesh) {
-      if (this.atmosphericPlumeMesh.material instanceof THREE.MeshBasicMaterial) {
-        this.atmosphericPlumeMesh.material.opacity = Math.min(0.45, (activeEvent - 27) * 0.12);
-      }
-    }
-    if (activeEvent >= 29) {
-      this.auroralRibbons.forEach((rib, idx) => {
-        if (rib.material instanceof THREE.MeshBasicMaterial) {
-          rib.material.opacity = Math.min(0.55, (activeEvent - 28) * 0.15);
-        }
-        rib.rotation.y += dt * 0.08 * (idx % 2 === 0 ? 1 : -1);
-      });
-    }
-    if (activeEvent >= 35 && this.denseDustVeilPoints) {
-      if (this.denseDustVeilPoints.material instanceof THREE.PointsMaterial) {
-        this.denseDustVeilPoints.material.opacity = Math.min(0.65, (activeEvent - 34) * 0.15);
-      }
-    }
-  }
-
   /* =========================================================================
      EVENT 40: ABSOLUTE COSMIC END CLIMAX SEQUENCE
-     Sequence as mandated:
-     planetary fragments accelerate -> stations fragment -> orbital rings break ->
-     megastructures collapse -> route sections detach -> debris converges ->
-     stars become heavily distorted -> remaining civilization fragments inward ->
-     motion briefly slows -> near silence -> extreme gravitational distortion ->
-     dark gravitational pulse -> massive cosmic implosion -> dark shockwave ->
-     enormous cosmic BOOM -> environmental convergence -> silence -> black screen.
-     NO WHITE FLASH. NO NORMAL FIREBALL. NO CONVENTIONAL SUPERNOVA. NO ARCADE EXPLOSION.
      ========================================================================= */
   private updateEvent40AbsoluteCosmicEndClimax(dt: number): {
     blackScreen: boolean;
@@ -1257,78 +520,60 @@ export class DynamicCollapseEnvironmentsManager {
   } {
     this.climaxTimer += dt;
     const t = this.climaxTimer;
-    let cameraShake = 1.0;
+    let cameraShake = 0.8;
     let blackScreen = false;
 
-    // Environmental inward convergence
-    for (const [idx, group] of this.envGroups) {
-      if (idx !== 40) {
-        const toBH = new THREE.Vector3().subVectors(this.blackHoleCenter, group.position).normalize();
-        group.position.addScaledVector(toBH, dt * (220 + idx * 15));
-        group.scale.multiplyScalar(Math.max(0.01, 1.0 - dt * 0.05));
-      }
-    }
-
-    if (t < 4.0) {
+    if (t < 3.0) {
       this.absoluteCollapsePhase = 'CONVERGENCE';
-      cameraShake = 2.2;
-    } else if (t < 6.5) {
-      // 1. Motion briefly slows
+      cameraShake = 1.0;
+    } else if (t < 6.0) {
       this.absoluteCollapsePhase = 'MOTION_SLOW';
       cameraShake = 0.5;
-    } else if (t < 8.0) {
-      // 2. Near silence
+    } else if (t < 8.5) {
       this.absoluteCollapsePhase = 'NEAR_SILENCE';
       cameraShake = 0.2;
-    } else if (t < 10.5) {
-      // 3. Extreme gravitational distortion
+    } else if (t < 11.0) {
       this.absoluteCollapsePhase = 'GRAVITATIONAL_DISTORTION';
-      cameraShake = 3.5;
+      cameraShake = 1.4;
     } else if (t < 13.0) {
-      // 4. Dark gravitational pulse
       if (this.absoluteCollapsePhase !== 'DARK_GRAVITATIONAL_PULSE') {
         sound.playDarkGravitationalShockwave();
       }
       this.absoluteCollapsePhase = 'DARK_GRAVITATIONAL_PULSE';
-      cameraShake = 4.2;
+      cameraShake = 2.4;
       if (this.darkWaveMesh) {
-        const s = this.darkWaveMesh.scale.x + dt * 50;
+        const s = 1.0 + (t - 11.0) * 8.0;
         this.darkWaveMesh.scale.set(s, s, s);
         if (this.darkWaveMesh.material instanceof THREE.MeshBasicMaterial) {
-          this.darkWaveMesh.material.opacity = Math.min(0.95, (t - 10.5) * 0.4);
+          this.darkWaveMesh.material.opacity = Math.min(0.65, (t - 11.0) * 0.35);
         }
       }
     } else if (t < 15.5) {
-      // 5. Massive cosmic implosion
       if (this.absoluteCollapsePhase !== 'DARK_IMPLOSION') {
         sound.playSubBassGravitationalImplosion();
       }
       this.absoluteCollapsePhase = 'DARK_IMPLOSION';
-      cameraShake = 3.8;
+      cameraShake = 3.0;
       if (this.darkImplosionMesh) {
-        const s = Math.max(0.1, 12.0 - (t - 13.0) * 4.5);
+        const s = Math.max(0.1, 10.0 - (t - 13.0) * 3.8);
         this.darkImplosionMesh.scale.set(s, s, s);
         if (this.darkImplosionMesh.material instanceof THREE.MeshBasicMaterial) {
-          this.darkImplosionMesh.material.opacity = Math.min(1.0, (t - 13.0) * 0.5);
+          this.darkImplosionMesh.material.opacity = Math.min(0.9, (t - 13.0) * 0.45);
         }
       }
     } else if (t < 18.0) {
-      // 6. Enormous cosmic BOOM & Dark Shockwave
       if (this.absoluteCollapsePhase !== 'COSMIC_BOOM') {
         sound.playDeepCosmicBoom();
       }
       this.absoluteCollapsePhase = 'COSMIC_BOOM';
-      cameraShake = 5.5;
+      cameraShake = 4.0;
     } else if (t < 20.5) {
-      // 7. Environmental convergence
       this.absoluteCollapsePhase = 'ALL_COLLAPSED';
-      cameraShake = 1.8;
+      cameraShake = 1.2;
     } else if (t < 22.5) {
-      // 8. Sudden silence
       this.absoluteCollapsePhase = 'SUDDEN_SILENCE';
       cameraShake = 0.0;
     } else {
-      // 9. Black screen
       this.absoluteCollapsePhase = 'BLACK_SCREEN';
       blackScreen = true;
       cameraShake = 0.0;
@@ -1339,7 +584,7 @@ export class DynamicCollapseEnvironmentsManager {
 
   /* =========================================================================
      NEAR-FIELD PHYSICAL COLLISION TEST:
-     Tests player ship bounding sphere against real world obstacles.
+     Tests player ship bounding sphere against sparse world obstacles.
      ========================================================================= */
   public checkNearFieldCollisions(
     playerPos: THREE.Vector3,
@@ -1350,7 +595,7 @@ export class DynamicCollapseEnvironmentsManager {
       const d = playerPos.distanceTo(obs.position);
       if (d < playerRadius + obs.boundingRadius) {
         const normal = new THREE.Vector3().subVectors(playerPos, obs.position).normalize();
-        const impulse = normal.multiplyScalar(35.0);
+        const impulse = normal.multiplyScalar(30.0);
 
         sound.playCollision();
         sound.playScrapeSparks();
@@ -1384,5 +629,6 @@ export class DynamicCollapseEnvironmentsManager {
     this.envGroups.clear();
     this.nearObstacles = [];
     this.collapsibleRouteSegments = [];
+    this.eventPairVisualizer.dispose();
   }
 }
