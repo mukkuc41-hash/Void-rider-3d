@@ -48,6 +48,7 @@ import {
   EvacuationTelemetry,
   ShipImpactForces,
 } from './FinalCollapseManager';
+import { DynamicCollapseEnvironmentsManager } from './environment/dynamicCollapseEnvironments';
 import { ModeManager, ModeHUDTelemetry } from './modeManager';
 import { ModeEntitySystem } from './modeEntitySystem';
 import { Obstacle, SamplePoint } from './trackData';
@@ -342,6 +343,7 @@ export class GameEngine {
   public planetaryCollision: PlanetaryCollisionVisuals | null = null;
   public trackDestruction: TrackDestructionVisuals | null = null;
   public holographicWarnings: HolographicWarningSystem | null = null;
+  public collapseEnvironments: DynamicCollapseEnvironmentsManager | null = null;
   private finalCollapseDoorAudioPlayed = false;
   private finalCollapseDoorSealedAudioPlayed = false;
   private finalCollapseCollisionAudioPlayed = false;
@@ -2650,6 +2652,43 @@ export class GameEngine {
         this.planetaryCollision.update(dt);
       }
 
+      // Update the 15 Dynamic Physical Environments
+      if (this.collapseEnvironments) {
+        const currentEvtIdx = this.finalCollapseManager?.catastrophe.currentEventIndex || 1;
+        const currentEvtPhase = this.finalCollapseManager?.catastrophe.activeEvent?.phase || 'GAMEPLAY';
+        const isEvacActive = this.finalCollapseManager?.evacuation.evacuationActive || false;
+        const playerPos = this.playerShipGroup ? this.playerShipGroup.position : new THREE.Vector3();
+        const camPos = this.camera ? this.camera.position : new THREE.Vector3();
+
+        const envUpdate = this.collapseEnvironments.update(
+          dt,
+          playerPos,
+          this.currentSpeed,
+          camPos,
+          currentEvtIdx,
+          currentEvtPhase,
+          isEvacActive
+        );
+
+        if (envUpdate.cameraShakeIntensity > 0) {
+          this.cameraShake = Math.max(this.cameraShake, envUpdate.cameraShakeIntensity);
+        }
+
+        if (envUpdate.collisionEvent && !this.shelterNavigationActive) {
+          this.hullHealth = Math.max(0, this.hullHealth - envUpdate.collisionEvent.damage);
+          this.lateralOffset += envUpdate.collisionEvent.impulse.x * dt * 0.2;
+          this.cameraShake = Math.max(this.cameraShake, 1.8);
+          this.callbacks.onHazardHit?.(`COLLISION: ${envUpdate.collisionEvent.name}`);
+          if (this.hullHealth <= 0 && !this.isDestroyed) {
+            this.destroyPlayerShip('COLLISION WITH DEBRIS');
+          }
+        }
+
+        if (envUpdate.blackScreenActive && this.finalCollapseManager) {
+          this.finalCollapseManager.failureCinematic.blackScreenActive = true;
+        }
+      }
+
       if (isFinalCollapse) {
         const event = blackHoleCinematic.event;
 
@@ -4840,8 +4879,16 @@ export class GameEngine {
         if (!this.holographicWarnings) {
           this.holographicWarnings = new HolographicWarningSystem(this.scene);
         }
+        if (!this.collapseEnvironments) {
+          const bhPos = this.supermassiveBlackHole?.root.position ?? new THREE.Vector3(0, 180, -3500);
+          this.collapseEnvironments = new DynamicCollapseEnvironmentsManager(this.scene, bhPos);
+        }
       } else {
         this.blackHoleCinematicManager.stop();
+        if (this.collapseEnvironments) {
+          this.collapseEnvironments.dispose();
+          this.collapseEnvironments = null;
+        }
         if (this.supermassiveBlackHole) {
           this.supermassiveBlackHole.dispose();
           this.supermassiveBlackHole = null;
@@ -6279,6 +6326,10 @@ export class GameEngine {
     if (this.blackHoleCinematicManager) {
       this.blackHoleCinematicManager.dispose();
       this.blackHoleCinematicManager = null;
+    }
+    if (this.collapseEnvironments) {
+      this.collapseEnvironments.dispose();
+      this.collapseEnvironments = null;
     }
     if (this.asteroidInstancedMesh) {
       this.scene.remove(this.asteroidInstancedMesh);

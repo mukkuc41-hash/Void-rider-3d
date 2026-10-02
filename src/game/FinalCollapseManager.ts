@@ -277,127 +277,327 @@ export class CatastropheEventManager {
   public orbitalInstability = 0.2;
   public navigationInterference = 0;
 
-  // Exactly 15 Events
-  private readonly eventCatalog: Omit<CatastropheEventDef, 'phase' | 'phaseTimer'>[] = [
+  // Exactly 40 Events in Continuous Cosmic Catastrophe Chain
+  public readonly eventCatalog: Omit<CatastropheEventDef, 'phase' | 'phaseTimer'>[] = [
     {
       index: 1,
-      triggerTime: 120, // 02:00
-      name: 'GRAVITATIONAL DISTURBANCE',
-      title: 'EVENT 01 — GRAVITATIONAL DISTURBANCE',
-      subtitle: 'Singularity tidal forces rising. Route stability decreasing.',
-      severity: 1,
+      triggerTime: 30,
+      name: 'GRAVITY DISTORTION',
+      title: 'EVENT 01 — GRAVITY DISTORTION',
+      subtitle: 'Asteroids, spacecraft, and orbital structures experiencing measurable gravitational deviation.',
+      severity: 1.0,
     },
     {
       index: 2,
-      triggerTime: 240, // 04:00
+      triggerTime: 75,
       name: 'ORBITAL FAILURE',
       title: 'EVENT 02 — ORBITAL FAILURE',
-      subtitle: 'Planetary gravitational balance lost. Orbital vectors decaying inward.',
-      severity: 2,
+      subtitle: 'Stable orbital systems losing equilibrium. Satellites and moons deviating.',
+      severity: 1.5,
     },
     {
       index: 3,
-      triggerTime: 360, // 06:00
-      name: 'SPAGHETTIFICATION WAVE',
-      title: 'EVENT 03 — EXTREME TIDAL FORCES',
-      subtitle: 'Spaghettification wave detected. Gravitational shear along corridor.',
-      severity: 3,
+      triggerTime: 120,
+      name: 'TIDAL WAVE',
+      title: 'EVENT 03 — TIDAL WAVE',
+      subtitle: 'Large-scale tidal forces propagating. Megastructures stretching and deforming.',
+      severity: 2.0,
     },
     {
       index: 4,
-      triggerTime: 480, // 08:00
+      triggerTime: 165,
       name: 'PLANETARY COLLISION',
       title: 'EVENT 04 — PLANETARY COLLISION',
-      subtitle: 'Planetary collision imminent. Hyper-velocity shockwave approaching.',
-      severity: 4,
+      subtitle: 'Catastrophic celestial body impact. Permanent crustal debris field forming.',
+      severity: 3.0,
     },
     {
       index: 5,
-      triggerTime: 600, // 10:00
-      name: 'DESTRUCTION FRONT',
-      title: 'EVENT 05 — DESTRUCTION FRONT ACTIVATED',
-      subtitle: 'The universe behind you is being erased. Reach the evacuation tower.',
-      severity: 5,
+      triggerTime: 210,
+      name: 'ACCRETION SURGE',
+      title: 'EVENT 05 — ACCRETION SURGE',
+      subtitle: 'Accretion disk activity surging. Relativistic plasma streams accelerating.',
+      severity: 3.5,
     },
     {
       index: 6,
-      triggerTime: 720, // 12:00
-      name: 'SINGULARITY CRITICAL',
-      title: 'EVENT 06 — SINGULARITY CRITICAL',
-      subtitle: 'Accretion disk at relativistic collapse. Safe zone closing.',
-      severity: 6,
+      triggerTime: 255,
+      name: 'DESTRUCTION FRONT',
+      title: 'EVENT 06 — DESTRUCTION FRONT',
+      subtitle: 'Physically simulated destruction front advancing behind route. Erasing rear sector.',
+      severity: 4.0,
     },
     {
       index: 7,
-      triggerTime: 840, // 14:00
-      name: 'ACCRETION DISK ERUPTION',
-      title: 'EVENT 07 — ACCRETION DISK ERUPTION',
-      subtitle: 'Superheated plasma streams erupting from event horizon.',
-      severity: 7,
+      triggerTime: 300,
+      name: 'GRAVITY REVERSAL',
+      title: 'EVENT 07 — GRAVITY REVERSAL',
+      subtitle: 'Localized gravity vectors undulating. Continuous harmonic acceleration.',
+      severity: 4.5,
     },
     {
       index: 8,
-      triggerTime: 960, // 16:00
-      name: 'GRAVITATIONAL SHOCKWAVE',
-      title: 'EVENT 08 — GRAVITATIONAL SHOCKWAVE',
-      subtitle: 'Relativistic space-time compression wave propagating through sector.',
-      severity: 7.5,
+      triggerTime: 345,
+      name: 'SPAGHETTIFICATION WAVE',
+      title: 'EVENT 08 — SPAGHETTIFICATION WAVE',
+      subtitle: 'Extreme tidal shear stretching corridor structures along gravitational vectors.',
+      severity: 5.0,
     },
     {
       index: 9,
-      triggerTime: 1080, // 18:00
-      name: 'ORBITAL RING COLLAPSE',
-      title: 'EVENT 09 — ORBITAL STRUCTURE COLLAPSING',
-      subtitle: 'Mega-structure ring fractures detaching into sub-orbital infall.',
-      severity: 8,
+      triggerTime: 390,
+      name: 'STATION COLLAPSE',
+      title: 'EVENT 09 — STATION COLLAPSE',
+      subtitle: 'Monolithic orbital super-station fracturing. Docking rings detaching into infall.',
+      severity: 5.5,
     },
     {
       index: 10,
-      triggerTime: 1200, // 20:00
-      name: 'EVENT HORIZON EXPANSION',
-      title: 'EVENT 10 — EVENT HORIZON EXPANSION',
-      subtitle: 'Singularity boundary expanding. Safe corridor narrowing rapidly.',
-      severity: 8.5,
+      triggerTime: 435,
+      name: 'DEBRIS STORM',
+      title: 'EVENT 10 — DEBRIS STORM',
+      subtitle: 'Accumulated hyper-velocity debris storm sweeping across safe flight corridor.',
+      severity: 6.0,
     },
     {
       index: 11,
-      triggerTime: 1320, // 22:00
-      name: 'MASS INFALL',
-      title: 'EVENT 11 — MASS INFALL DETECTED',
-      subtitle: 'Planetary fragments and orbital stations spiraling into the void.',
-      severity: 9,
+      triggerTime: 480,
+      name: 'EVENT-HORIZON INFLUENCE ESCALATION',
+      title: 'EVENT 11 — EVENT-HORIZON INFLUENCE ESCALATION',
+      subtitle: 'Severe gravitational lensing warping distant stars, light paths, and silhouettes.',
+      severity: 6.5,
     },
     {
       index: 12,
-      triggerTime: 1440, // 24:00
-      name: 'SPACE-TIME DISTORTION',
-      title: 'EVENT 12 — SPACE-TIME DISTORTION',
-      subtitle: 'Metric distortion warping local space-time perspective.',
-      severity: 9.2,
+      triggerTime: 525,
+      name: 'GRAVITATIONAL LOCKDOWN',
+      title: 'EVENT 12 — GRAVITATIONAL LOCKDOWN',
+      subtitle: 'Transportation corridors collapsing simultaneously. Alternate routes failing.',
+      severity: 7.0,
     },
     {
       index: 13,
-      triggerTime: 1560, // 26:00
-      name: 'SINGULARITY SURGE',
-      title: 'EVENT 13 — SINGULARITY SURGE',
-      subtitle: 'Massive gravitational surge accelerating route collapse.',
-      severity: 9.5,
+      triggerTime: 570,
+      name: 'SINGULARITY CRITICAL',
+      title: 'EVENT 13 — SINGULARITY CRITICAL',
+      subtitle: 'Accretion boundary reaching critical relativistic state. Safe margins failing.',
+      severity: 7.5,
     },
     {
       index: 14,
-      triggerTime: 1680, // 28:00
-      name: 'FINAL DESTRUCTION FRONT',
-      title: 'EVENT 14 — FINAL DESTRUCTION FRONT',
-      subtitle: 'Lethal destruction wave advancing. Reach the evacuation tower.',
-      severity: 9.8,
+      triggerTime: 615,
+      name: 'COSMIC COLLAPSE',
+      title: 'EVENT 14 — COSMIC COLLAPSE',
+      subtitle: 'Civilization megastructures in full collapse. Head for the evacuation facility.',
+      severity: 8.0,
     },
     {
       index: 15,
-      triggerTime: 1800, // 30:00
-      name: 'ABSOLUTE COLLAPSE',
-      title: 'EVENT 15 — ABSOLUTE COLLAPSE',
-      subtitle: 'Maximum black hole activity. Final evacuation window active.',
-      severity: 10,
+      triggerTime: 660,
+      name: 'FINAL SINGULARITY SURGE',
+      title: 'EVENT 15 — FINAL SINGULARITY SURGE',
+      subtitle: 'Singularity boundary surge. Extreme gravitational wave propagation.',
+      severity: 8.5,
+    },
+    {
+      index: 16,
+      triggerTime: 705,
+      name: 'ORBITAL RESONANCE BREAK',
+      title: 'EVENT 16 — ORBITAL RESONANCE BREAK',
+      subtitle: 'Resonant orbital locks breaking. Moons and station traffic colliding.',
+      severity: 8.6,
+    },
+    {
+      index: 17,
+      triggerTime: 750,
+      name: 'ROCHE LIMIT BREACH',
+      title: 'EVENT 17 — ROCHE LIMIT BREACH',
+      subtitle: 'Moon enters Roche limit. Tidal gravity tearing celestial mantle apart.',
+      severity: 8.7,
+    },
+    {
+      index: 18,
+      triggerTime: 795,
+      name: 'GRAVITATIONAL WAVE PASSAGE',
+      title: 'EVENT 18 — GRAVITATIONAL WAVE PASSAGE',
+      subtitle: 'Relativistic gravitational wave crest passing. Spacetime metric oscillating.',
+      severity: 8.8,
+    },
+    {
+      index: 19,
+      triggerTime: 840,
+      name: 'ORBITAL DEBRIS CASCADE',
+      title: 'EVENT 19 — ORBITAL DEBRIS CASCADE',
+      subtitle: 'Kessler cascade active. Fragment impacts multiplying exponentially.',
+      severity: 8.9,
+    },
+    {
+      index: 20,
+      triggerTime: 885,
+      name: 'PLANETARY RING DISRUPTION',
+      title: 'EVENT 20 — PLANETARY RING DISRUPTION',
+      subtitle: 'Planetary ring plane destabilizing. Ice and rock particles raining inward.',
+      severity: 9.0,
+    },
+    {
+      index: 21,
+      triggerTime: 930,
+      name: 'MOON FRACTURE',
+      title: 'EVENT 21 — MOON FRACTURE',
+      subtitle: 'Nearby moon splitting along tectonic rift. Core magma venting.',
+      severity: 9.05,
+    },
+    {
+      index: 22,
+      triggerTime: 975,
+      name: 'ORBITAL RING FAILURE',
+      title: 'EVENT 22 — ORBITAL RING FAILURE',
+      subtitle: 'Gigantic megastructure ring fracturing into disconnected 400m sections.',
+      severity: 9.1,
+    },
+    {
+      index: 23,
+      triggerTime: 1020,
+      name: 'PLANETARY DEBRIS INFALL',
+      title: 'EVENT 23 — PLANETARY DEBRIS INFALL',
+      subtitle: 'Billions of tons of planetary matter spiraling into lower accretion trajectories.',
+      severity: 9.15,
+    },
+    {
+      index: 24,
+      triggerTime: 1065,
+      name: 'GRAVITATIONAL SLINGSHOT CASCADE',
+      title: 'EVENT 24 — GRAVITATIONAL SLINGSHOT CASCADE',
+      subtitle: 'Asteroids receiving relativistic gravitational assists. Hyper-velocity hazards.',
+      severity: 9.2,
+    },
+    {
+      index: 25,
+      triggerTime: 1110,
+      name: 'CELESTIAL TRAJECTORY CROSSING',
+      title: 'EVENT 25 — CELESTIAL TRAJECTORY CROSSING',
+      subtitle: 'Multiple orbital planes converging. Massive intersection of celestial paths.',
+      severity: 9.25,
+    },
+    {
+      index: 26,
+      triggerTime: 1155,
+      name: 'STRUCTURAL RESONANCE FAILURE',
+      title: 'EVENT 26 — STRUCTURAL RESONANCE FAILURE',
+      subtitle: 'Sustained physical oscillation tearing megastructure joints apart.',
+      severity: 9.3,
+    },
+    {
+      index: 27,
+      triggerTime: 1200,
+      name: 'DEBRIS FIELD DENSITY CRITICAL',
+      title: 'EVENT 27 — DEBRIS FIELD DENSITY CRITICAL',
+      subtitle: 'Accumulated fragmentation reaching critical density. Forward flight obscured.',
+      severity: 9.35,
+    },
+    {
+      index: 28,
+      triggerTime: 1245,
+      name: 'PLANETARY ATMOSPHERIC DISTURBANCE',
+      title: 'EVENT 28 — PLANETARY ATMOSPHERIC DISTURBANCE',
+      subtitle: 'Gas giant atmosphere elongated by tidal pull. Giant atmospheric plumes.',
+      severity: 9.4,
+    },
+    {
+      index: 29,
+      triggerTime: 1290,
+      name: 'MAGNETOSPHERIC DISRUPTION',
+      title: 'EVENT 29 — MAGNETOSPHERIC DISRUPTION',
+      subtitle: 'Electromagnetic flux lines compressing. Auroral discharge ribbons.',
+      severity: 9.45,
+    },
+    {
+      index: 30,
+      triggerTime: 1335,
+      name: 'RELATIVISTIC DEBRIS STREAM',
+      title: 'EVENT 30 — RELATIVISTIC DEBRIS STREAM',
+      subtitle: 'Debris streams accelerating to relativistic velocity. Lorentz contracted.',
+      severity: 9.5,
+    },
+    {
+      index: 31,
+      triggerTime: 1380,
+      name: 'ORBITAL HABITAT DEFORMATION',
+      title: 'EVENT 31 — ORBITAL HABITAT DEFORMATION',
+      subtitle: 'Large rotating toroidal habitats warping. Docking spines snapping.',
+      severity: 9.55,
+    },
+    {
+      index: 32,
+      triggerTime: 1425,
+      name: 'MULTI-ROUTE COLLAPSE',
+      title: 'EVENT 32 — MULTI-ROUTE COLLAPSE',
+      subtitle: 'Simultaneous failure of parallel route branches. Dynamic path evaluation.',
+      severity: 9.6,
+    },
+    {
+      index: 33,
+      triggerTime: 1470,
+      name: 'GRAVITATIONAL TRAJECTORY CHAOS',
+      title: 'EVENT 33 — GRAVITATIONAL TRAJECTORY CHAOS',
+      subtitle: 'Chaotic three-body gravitational perturbation across all local matter.',
+      severity: 9.65,
+    },
+    {
+      index: 34,
+      triggerTime: 1515,
+      name: 'MEGASTRUCTURE FRACTURE',
+      title: 'EVENT 34 — MEGASTRUCTURE FRACTURE',
+      subtitle: 'Civilization-scale spine towers snapping. Trillions of tons tumbling.',
+      severity: 9.7,
+    },
+    {
+      index: 35,
+      triggerTime: 1560,
+      name: 'COSMIC DUST VEIL',
+      title: 'EVENT 35 — COSMIC DUST VEIL',
+      subtitle: 'Vast pulverization cloud obscuring distant cosmos. Navigation lights required.',
+      severity: 9.75,
+    },
+    {
+      index: 36,
+      triggerTime: 1605,
+      name: 'COLLISION CASCADE',
+      title: 'EVENT 36 — COLLISION CASCADE',
+      subtitle: 'Multiple converging debris fields crashing into each other simultaneously.',
+      severity: 9.8,
+    },
+    {
+      index: 37,
+      triggerTime: 1650,
+      name: 'LAST STABLE ORBITS',
+      title: 'EVENT 37 — LAST STABLE ORBITS',
+      subtitle: 'Final surviving orbital infrastructure collapsing. Ruins of civilization.',
+      severity: 9.85,
+    },
+    {
+      index: 38,
+      triggerTime: 1695,
+      name: 'EVACUATION CORRIDOR COLLAPSE',
+      title: 'EVENT 38 — EVACUATION CORRIDOR COLLAPSE',
+      subtitle: 'Final racing route crumbling behind you. Reach the evacuation facility.',
+      severity: 9.9,
+    },
+    {
+      index: 39,
+      triggerTime: 1740,
+      name: 'FINAL COSMIC COMPRESSION',
+      title: 'EVENT 39 — FINAL COSMIC COMPRESSION',
+      subtitle: 'Remaining universe matter converging. Spacetime metric extreme warp.',
+      severity: 9.95,
+    },
+    {
+      index: 40,
+      triggerTime: 1785,
+      name: 'ABSOLUTE COSMIC END',
+      title: 'EVENT 40 — ABSOLUTE COSMIC END',
+      subtitle: 'The universe collapses into the singularity. Dark implosion climax.',
+      severity: 10.0,
     },
   ];
 
@@ -410,8 +610,7 @@ export class CatastropheEventManager {
     this.previousElapsed = this.currentElapsed;
     this.currentElapsed = evacuation.evacuationElapsedTime;
 
-    // Check threshold crossing for exact 15 events:
-    // previousElapsed < eventTime AND currentElapsed >= eventTime
+    // Check threshold crossing for exact 40 events
     for (const def of this.eventCatalog) {
       if (this.previousElapsed < def.triggerTime && this.currentElapsed >= def.triggerTime) {
         this.triggerEvent(def);
@@ -419,7 +618,7 @@ export class CatastropheEventManager {
       }
     }
 
-    // 50. Progress active event lifecycle: WARNING -> BUILDUP -> CINEMATIC -> GAMEPLAY
+    // Progress active event lifecycle: WARNING -> BUILDUP -> CINEMATIC -> GAMEPLAY
     if (this.activeEvent) {
       this.activeEvent.phaseTimer += dt;
       const t = this.activeEvent.phaseTimer;
@@ -431,15 +630,14 @@ export class CatastropheEventManager {
         this.activeEvent.phase = 'CINEMATIC';
       } else if (this.activeEvent.phase === 'CINEMATIC' && t >= 8.0) {
         this.activeEvent.phase = 'GAMEPLAY';
-        // Control returned to player completely
         this.cameraShake = Math.max(0, this.cameraShake * 0.4);
       }
     }
   }
 
-  private triggerEvent(def: Omit<CatastropheEventDef, 'phase' | 'phaseTimer'>): void {
+  public triggerEvent(def: Omit<CatastropheEventDef, 'phase' | 'phaseTimer'>): void {
     this.currentEventIndex = def.index;
-    this.nextEventTime = def.index < 15 ? (def.index + 1) * 120 : 1800;
+    this.nextEventTime = def.index < 40 ? this.eventCatalog[def.index].triggerTime : 1800;
     this.activeEvent = {
       ...def,
       phase: 'WARNING',
@@ -447,38 +645,39 @@ export class CatastropheEventManager {
     };
     this.eventHistory.push(`EVENT_${def.index.toString().padStart(2, '0')}`);
 
-    if (def.index === 15) {
+    if (def.index === 40) {
       this.absoluteCollapse = true;
     }
 
     // Progressive escalation of physical parameters
-    this.gravityStrength = Math.min(1.0, 0.2 + def.index * 0.055);
-    this.tidalForce = Math.min(1.0, 0.15 + def.index * 0.058);
-    this.debrisVelocity = Math.min(120, 30 + def.index * 6);
-    this.routeCollapseSpeed = Math.min(100, 40 + def.index * 4);
-    this.destructionFrontSpeed = Math.min(95, 55 + def.index * 2.8);
-    this.environmentalInstability = Math.min(1.0, 0.2 + def.index * 0.055);
-    this.gravitationalLensing = Math.min(1.0, 0.15 + def.index * 0.058);
-    this.audioIntensity = Math.min(1.0, 0.2 + def.index * 0.055);
-    this.infallRate = Math.min(1.0, 0.2 + def.index * 0.055);
-    this.orbitalInstability = Math.min(1.0, 0.2 + def.index * 0.055);
-    this.navigationInterference = Math.min(1.0, def.index >= 6 ? (def.index - 5) * 0.12 : 0);
+    this.gravityStrength = Math.min(1.0, 0.15 + def.index * 0.022);
+    this.tidalForce = Math.min(1.0, 0.12 + def.index * 0.023);
+    this.debrisVelocity = Math.min(140, 25 + def.index * 2.8);
+    this.routeCollapseSpeed = Math.min(120, 35 + def.index * 2.2);
+    this.destructionFrontSpeed = Math.min(105, 50 + def.index * 1.4);
+    this.environmentalInstability = Math.min(1.0, 0.15 + def.index * 0.022);
+    this.gravitationalLensing = Math.min(1.0, 0.12 + def.index * 0.023);
+    this.audioIntensity = Math.min(1.0, 0.2 + def.index * 0.02);
+    this.infallRate = Math.min(1.0, 0.15 + def.index * 0.022);
+    this.orbitalInstability = Math.min(1.0, 0.15 + def.index * 0.022);
+    this.navigationInterference = Math.min(1.0, def.index >= 12 ? (def.index - 11) * 0.035 : 0);
 
-    // Audio cues
+    // Authentic audio cues
     if (def.index === 1) {
       sound.playEmergencyAlarm();
       sound.playGravitationalRumble(3.0);
     } else if (def.index === 4) {
       sound.playPlanetaryCollision();
       sound.playHeavyImpact();
-    } else if (def.index === 8) {
-      sound.playHeavyImpact();
-      sound.playGravitationalRumble(4.0);
-    } else if (def.index === 15) {
+    } else if (def.index === 18) {
+      sound.playDarkGravitationalShockwave();
+    } else if (def.index === 26) {
+      sound.playStructureCreak();
+    } else if (def.index === 40) {
       sound.playFinalCosmicCollapse();
       sound.playGravitationalRumble(6.0);
     } else {
-      sound.playGravitationalRumble(3.5);
+      sound.playGravitationalRumble(3.2);
     }
   }
 
@@ -518,7 +717,12 @@ export class CatastropheEventManager {
     const yawDisturbance = Math.sin(timeSec * 2.5) * (sev * 0.015);
 
     // Camera shake & FOV
-    const isWaveEvent = this.activeEvent.index === 3 || this.activeEvent.index === 8 || this.activeEvent.index === 13;
+    const isWaveEvent =
+      this.activeEvent.index === 3 ||
+      this.activeEvent.index === 8 ||
+      this.activeEvent.index === 15 ||
+      this.activeEvent.index === 18 ||
+      this.activeEvent.index === 40;
     const fovDistortion = isWaveEvent ? Math.sin(timeSec * 4.0) * (sev * 1.8) : 0;
     const cameraShake = Math.max(this.cameraShake, (sev / 10) * 0.8 + Math.abs(wave) * 0.4);
 
@@ -542,7 +746,7 @@ export class CatastropheEventManager {
 
   public reset(): void {
     this.currentEventIndex = 0;
-    this.nextEventTime = 120;
+    this.nextEventTime = 30;
     this.activeEvent = null;
     this.eventHistory = [];
     this.previousElapsed = 0;

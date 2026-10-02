@@ -2242,6 +2242,39 @@ class SoundSystem {
       osc.stop(now + 6.0);
     } catch (_) {}
   }
+
+  /** Deep metal structure groaning and creaking sound for collapsing megastructures */
+  public playStructureCreak() {
+    this.initContext();
+    if (!this.ctx || !this.sfxEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(45, now);
+      osc.frequency.linearRampToValueAtTime(85, now + 0.4);
+      osc.frequency.exponentialRampToValueAtTime(28, now + 1.2);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(220, now);
+      filter.frequency.linearRampToValueAtTime(480, now + 0.4);
+      filter.frequency.exponentialRampToValueAtTime(60, now + 1.3);
+
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.linearRampToValueAtTime(0.35 * this.volume, now + 0.3);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 1.45);
+    } catch (_) {}
+  }
 }
 
 export const sound = new SoundSystem();

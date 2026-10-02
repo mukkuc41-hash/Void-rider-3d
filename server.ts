@@ -709,6 +709,7 @@ async function start() {
         server: {
           middlewareMode: true,
           hmr: isHmrDisabled ? false : { server },
+          allowedHosts: true,
         },
         appType: 'spa',
         clearScreen: false,
